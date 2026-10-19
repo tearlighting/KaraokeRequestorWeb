@@ -51,8 +51,12 @@
       LEGACY_BRIDGE_TOKEN_FILE: /run/yukari/bridge-token
       LEGACY_DATABASE_ROOT: /run/legacy-db
       LEGACY_SETTINGS_PATH: /run/legacy-settings/config.ini
+      PLAYER_AGENT_TOKEN_FILE: /run/player-agent-token/token
+      PLAYER_AGENT_STATE_PATH: /run/player-agent-state/state.json
     volumes:
       - legacy_bridge:/run/yukari:ro
+      - ../.local/player-agent-token:/run/player-agent-token/token:ro
+      - player_agent_state:/run/player-agent-state
       # Dedicated DB/WAL/SHM directory only; Node owns admin deletion/movement.
       - type: bind
         source: ../legacy/php/runtime/queue
@@ -79,3 +83,4 @@
       retries: 3
 volumes:
   legacy_bridge:
+  player_agent_state:

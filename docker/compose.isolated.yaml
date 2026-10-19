@@ -36,8 +36,10 @@ services:
       LEGACY_BRIDGE_TOKEN_FILE: /run/yukari/bridge-token
       LEGACY_DATABASE_ROOT: /run/legacy-db
       LEGACY_SETTINGS_PATH: /run/legacy-settings/config.ini
+      PLAYER_AGENT_STATE_PATH: /run/player-agent-state/state.json
     volumes:
       - test_bridge:/run/yukari:ro
+      - test_player_agent_state:/run/player-agent-state
       - ../.local/phase7-test-legacy/runtime/queue:/run/legacy-db
       - ../.local/phase7-test-tools:/test:ro
       - ../.local/phase7-test-legacy/config.ini:/run/legacy-settings/config.ini:ro
@@ -46,3 +48,4 @@ services:
       bridge-init: { condition: service_completed_successfully }
 volumes:
   test_bridge:
+  test_player_agent_state:
