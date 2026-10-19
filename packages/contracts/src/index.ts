@@ -26,6 +26,13 @@ export interface SystemStatus {
   playback: { playingtitle?: string; playingsinger?: string; status?: string } | null;
   password_configured: boolean;
 }
+export interface PlayerAgentStatus {
+  connected: boolean;
+  testReady: boolean;
+  playback: 'idle'|'starting'|'playing'|'paused'|'stopped'|'unavailable';
+  file?: string;
+  task: { id: string; kind: 'test'; state: 'pending'|'claimed'|'playing'|'completed'|'failed'; createdAt: number; error?: string } | null;
+}
 export interface ReservationInput {
   filename: string; fullpath: string; singer: string; comment: string; kind: '動画' | '小休止' | 'カラオケ配信' | 'URL指定' | '動画_別プ'; secret?: number | string;
   freesinger?: string; selectid?: number | string; loop?: number | string; otherplayer?: number | string; urlreq?: number | string;

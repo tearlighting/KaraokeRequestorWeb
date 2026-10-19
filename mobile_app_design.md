@@ -6,4 +6,4 @@
 
 本リポジトリ(サーバー側)の関連ドキュメント:
 
-- API 契約(アプリとの正式な取り決め): [api/README.md](api/README.md)
+- API 契約(アプリとの正式な取り決め): [api/README.md](legacy/php/api/README.md)

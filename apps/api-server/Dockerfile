@@ -13,6 +13,7 @@ WORKDIR /app
 COPY apps/api-server/package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /workspace/apps/api-server/dist ./dist
+RUN mkdir -p /run/player-agent-state && chown node:node /run/player-agent-state
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main.js"]

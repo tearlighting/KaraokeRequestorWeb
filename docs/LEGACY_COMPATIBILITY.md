@@ -1,4 +1,4 @@
-﻿# Legacy PHP 兼容性与业务 Owner（Phase 6）
+# Legacy PHP 兼容性与业务 Owner（Phase 6）
 
 日期：2026-10-20。当前统一 API 的普通/管理队列及三个管理设置读取均为 Node-native；Legacy swipe 队列页也通过独立只读票据复用 Node。PHP 保留授权策略和全部尚未迁移写入。Phase 4/5 段落为历史审计，当前状态以 Phase 6 Owner 表为准。
 
@@ -79,7 +79,7 @@
 | `/init.php` | GET 管理 HTML；POST 完整原设置表单 | PHP 保留旧页/设置保存；Node 负责统一 API 三项读取。已认证 GET 也可能序列化配置及 ini.ini，因此未为验收执行该 GET | `/settings` GET/PUT，admin；仅 playmode/startvolume/requestlistactivereload + revision | 原完整设置保留，React 仅三个字段；GET 已 Node-native、PUT 仍 PHP |
 | `/api/admin.php?operation=...` | session/queue/status/settings 为 GET；delete/move/settings-save/player 为 POST form-urlencoded；统一 PHP envelope | PHP 薄适配器复用原函数；写入仍归 PHP | `/admin/session`、`/admin/status`、管理队列、设置、播放器子集；admin | 旧 Phase 2 接口保留，未向普通用户代理 |
 | `/get_playingstatus_json.php`、`/playingsong.php`、`/api/nowplaying.php`、`/api/playstatus.php` | GET 状态 JSON/HTML；不同旧格式 | PHP 原播放状态，依赖 Windows/播放器与元数据 | `/playback` GET，user；`/admin/status` GET，admin | 保留，不由前端推断当前曲目 |
-| `/mpcctrl*.php`、`/foobarctl*.php`、`/api/player.php`、`/player_event.php` | 原 action/player/音量/命令等；旧 HTML/JSON | PHP MPC-BE/foobar 控制，可能实际影响播放或队列 | `/playback/control` POST，admin；只允许 mpc/foobar 与 play/pause/playpause/stop 子集 | 旧高级控制未迁移；不可达为真实错误 |
+| `/mpcctrl*.php`、`/foobarctl*.php`、`/api/player.php`、`/player_event.php` | 原 action/player/音量/命令等；旧 HTML/JSON | PHP MPC-BE/foobar 控制，可能实际影响播放或队列 | `/playback/control` POST，admin；只允许 mpc/foobar 与 play/pause/playpause/stop 子集 | 原兼容入口仍有效；Phase 9 新建独立 mpv Agent 测试链路，不替换这些旧接口 |
 | `/api/capabilities.php` | GET；features 等能力 JSON | PHP 组件/服务能力探测 | `/capabilities` GET，user | 保留 |
 | `/api/server_info.php` | GET；`{ok,data:{app,version,easyauth_required}}`，认证前可读 | PHP 应用版本与 EasyAuth 策略；并非纯 Node 状态 | 无等价 Node-native 替换 | 保留；不拿 Node 进程版本伪装应用版本 |
 | `/mypage*.php`、`/api/mypage.php` | 多种 action、userid、收藏/历史/同步字段；HTML/JSON | PHP 用户、历史、收藏、OAuth/Drive；可能写库/外部服务 | 无对应统一 Node 路由 | 未迁移 |
@@ -295,3 +295,34 @@ Phase 7 的常用旧版批量排序/Undo 已切至 admin-only `/api/v1/admin/que
 隔离真实 API suite 26/26 通过；PHP oracle 在每次运行创建独立 SQLite 并执行原 exec.php 业务体；Node/PHP 行为差异和主事务故障回滚已验证。API、user-web、admin-web typecheck/build 均通过。Legacy 用户预约浏览器链通过；user-web/Legacy Edge 5/5 通过，真实歌曲搜索按 fixture 未配置跳过；admin-web Edge 3/3 通过（两个 Vite 服务并行）。
 
 真实数据库只执行经批准的 additive `request_submission` 表迁移；迁移前后 queue 记录摘要需一致。没有对真实预约进行写测试。跨 SQLite 通知恰好一次、曲库命中和播放器执行尚未验证；Legacy reorder exact-path Apache 映射已通过 Edge。queue-wal-anchor 暂留：本阶段没有完成其停机与旁文件生命周期测试，不能因 Node 预约化直接删除。
+
+## Phase 9：Windows Player Agent（人工实播验收待完成）
+
+### 播放业务审计与 Owner
+
+| 功能 | 当前 Owner | Phase 9 状态 |
+| --- | --- | --- |
+| 原预约状态、nowplaying 标记、播放进度/音量偏移、next/start/stop | Legacy PHP + MPC-BE/foobar | 保留原入口和语义，未转接新 Agent |
+| 播放任务、任务 ID/状态、Agent 心跳、管理员任务/控制命令 | Fastify + 单独 Player Agent JSON 状态卷 | Node 新增；只支持管理员发起本地测试视频，不读写 requesttable |
+| 实际解码/暂停/继续/EOF 反馈 | Windows mpv 通过本机 JSON IPC | 已实现 Adapter；本机尚无 mpv、测试视频，因此未实播验收 |
+| 用户公开 Agent 状态 | Fastify | 只暴露 connected/playback/active，不暴露文件名、绝对路径或 task ID |
+| PotPlayer 控制 | 无新 Owner | 本机版本 26.06.22.0 的 CmdLine64.txt 确认命令行可指定 content、/current、/new 和 playlist；未发现支持的播放状态/结束事件或可靠无焦点 pause API，故不伪称支持 |
+
+新增接口：POST /api/v1/admin/player-agent/test（管理员会话、Origin/CSRF；只创建配置好的测试视频任务）、GET /api/v1/admin/player-agent、POST /api/v1/admin/player-agent/control（pause/resume/stop）；Agent 以独立 Bearer token 调用 POST /api/v1/agent/next 与 /report。普通用户 GET /api/v1/playback/agent 仍需普通会话，只返回脱敏状态。Agent 路由不信任任何角色/IP Header；其 Bearer 不是浏览器会话。管理 API 不接受浏览器传入路径、命令或 exe。
+
+任务状态 pending → claimed → playing → completed|failed，task ID 唯一；同一活动任务只分给一个 Agent ID，终态不可回退。状态快照通过原子 JSON 替换保存在独立 player_agent_state Docker volume，不改现有 SQLite Schema，不与 queue-wal-anchor 共享生命周期。pause/resume 是 Agent 控制指令，不把 task 状态改成“完成”。停止为 stopped/failed 结果；mpv EOF end-file 且 reason=eof 才标记 completed。任务/API 状态滞后或 IPC 断线时不能从进程创建推断实播；Agent 通过同 task ID 重连，并在 API 丢失活动任务时停止播放器。JSON 状态卷面向当前单个 Fastify 实例；部署多个 API 实例前需改为一致性任务协调。
+
+Agent 的 PLAYER_MEDIA_ROOT 必须是绝对目录；PLAYER_TEST_VIDEO 只能是该目录下的相对文件名。双方 realpath 限制路径，拒绝目录穿越和根目录外 symlink。仅固定 MPV_PATH 可作为执行文件，spawn 使用 argv 且 shell:false。mpv 命名管道仅在宿主机本地使用，不映射到 Docker 网络。忽略的 .local/player-agent-token 是随机凭据，Compose API 只读挂载；Agent token 认证与原 Bridge/admin/session 凭据分开。Agent 每次 heartbeat/next 都报告 `testReady`；服务端及管理 UI 在缺少真实配置视频时拒绝创建测试任务。
+
+### PotPlayer / mpv 核实与实播边界
+
+宿主机已安装 PotPlayer 64-bit，版本 26.06.22.0，安装目录中的 CmdLine64.txt（1/19 更新）明确有文件 content 参数、/new、/current、/add、/insert、/seek。因此外部启动并打开文件已由发行包文档确认。没有发现该版本支持 HTTP API 或查询状态/可靠 EOF 消息；旧 MPC-BE HTTP 端口与 PotPlayer 不等价。暂停/停止可由播放器 UI 人工操作，但未接入脆弱键盘/窗口消息。
+
+mpv 官方手册确认 Windows 的 input-ipc-server 使用 named pipe，JSON IPC 有命令响应、属性与事件；IPC 本身不安全，因此只保留在宿主本机，Fastify 凭据用于网络 Agent 边界。Agent 先连固定宿主 pipe，再按固定配置启动 mpv；实况来自 idle-active / pause / path 属性，结束只认 end-file reason eof。见 [mpv 官方 JSON IPC 手册](https://mpv.io/manual/stable/#json-ipc)。
+
+本机已确认 winget 包 `shinchiro.mpv 0.41.0` 的可执行文件 `C:\Program Files\MPV Player\mpv.exe` 可直接运行 `--version`，输出版本 `v0.41.0-244-gaf9c81fa1`；Agent 经显式 `MPV_PATH` 使用该文件，不依赖 PATH。FFmpeg 9.0 生成了仓库外 `D:\project\yukari\test-media\agent-test.mp4`，时长 15 秒，含 H.264 视频与 AAC 音轨。唯一宿主 Agent 已连到 Docker Fastify，心跳 connected/testReady=true/playback=idle。尚未由管理员创建任务；管理员需在 System 页启动测试，并人工确认画面/声音、暂停/继续/停止，随后允许完整播放确认真实 EOF。PotPlayer 命令行打开未做实播验收，且状态/结束事件能力仍未确认。
+
+当前只运行测试任务，不自动领取真实预约、不改变 nowplaying、不触发原 songstart/songnext、volume offset、progress SSE 或 update_playerprogress.php。自动切歌要先对真实媒体路径映射、当前 Legacy 再生中/停止中/再生済更新时机、MPC track/key/audiodelay/volume、异常结束/人工停止语义与通知做隔离等价测试；没有把“播放一定时长”当结束。原 /playback 与 /playback/control Legacy 实况/控制仍兼容。
+
+
+Phase 9 admin Vite routes: the dev proxy permits only exact /api/v1/admin/player-agent GET and /test/control POST paths. This is a routing filter only; every request still requires the normal Fastify admin session and write CSRF/Origin validation. The no-session smoke check returns 401 from Fastify.

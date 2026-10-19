@@ -1,5 +1,5 @@
 import { apiRequest, ApiError } from '../../../../packages/contracts/src/index';
-export type { QueueItem, QueueData, Settings, SystemStatus } from '../../../../packages/contracts/src/index';
+export type { QueueItem, QueueData, Settings, SystemStatus, PlayerAgentStatus } from '../../../../packages/contracts/src/index';
 export type { AdminSession as Session } from '../../../../packages/contracts/src/index';
 export { ApiError as AdminError };
 export interface Credentials { username: string; password: string; easyPass: string }
@@ -14,6 +14,9 @@ export function adminClient() {
     switch (operation) {
       case 'queue': path = '/admin/queue'; break;
       case 'status': path = '/admin/status'; break;
+      case 'player-agent-status': path = '/admin/player-agent'; break;
+      case 'player-agent-test': path = '/admin/player-agent/test'; method = 'POST'; payload = body || {}; break;
+      case 'player-agent-control': path = '/admin/player-agent/control'; method = 'POST'; payload = body; break;
       case 'settings': path = '/settings'; break;
       case 'settings-save': path = '/settings'; method = 'PUT'; payload = { ...body, playmode: Number(body?.playmode), startvolume: Number(body?.startvolume), requestlistactivereload: Number(body?.requestlistactivereload) }; break;
       case 'delete': path = `/admin/requests/${encodeURIComponent(body?.id || '')}`; method = 'DELETE'; payload = {}; break;

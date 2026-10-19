@@ -6,8 +6,8 @@ import { TestAgent, testCredentials, apiBase, phpBase } from '../../../packages/
 
 test('绕过 Vite 也必须有 Node 管理会话，空密码、角色伪造和 CSRF 被拒绝', async ({ request }) => {
   const guest = new TestAgent();
-  for (const path of ['/admin/queue', '/admin/status', '/settings']) expect((await guest.call(path)).status).toBe(401);
-  for (const [path, method] of [['/admin/requests/2147483647', 'DELETE'], ['/admin/requests/2147483647/move', 'POST'], ['/settings', 'PUT'], ['/playback/control', 'POST']]) expect((await guest.call(path, method, {})).status).toBe(401);
+  for (const path of ['/admin/queue', '/admin/status', '/admin/player-agent', '/settings']) expect((await guest.call(path)).status).toBe(401);
+  for (const [path, method] of [['/admin/requests/2147483647', 'DELETE'], ['/admin/requests/2147483647/move', 'POST'], ['/settings', 'PUT'], ['/playback/control', 'POST'], ['/admin/player-agent/test', 'POST'], ['/admin/player-agent/control', 'POST']]) expect((await guest.call(path, method, {})).status).toBe(401);
   expect((await guest.call('/admin/session', 'POST', { username: 'admin', password: '' })).status).toBe(400);
   expect((await guest.call('/admin/session', 'POST', { username: 'admin', password: 'invalid-validation-password' })).status).toBe(401);
   await guest.user();
@@ -70,8 +70,12 @@ test('真实 UI 登录、调序、删除、设置及播放器失败；无双写�
     await expect(page.locator(`[data-request-id="${lower}"]`)).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('admin-mobile.png'), fullPage: true });
+    const agentRead = page.waitForResponse((response) => response.url().endsWith('/api/v1/admin/player-agent') && response.request().method() === 'GET');
     await page.getByRole('button', { name: '系统与播放器', exact: true }).click();
+    expect((await agentRead).status()).toBe(200);
     await expect(page.getByText('运行环境', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Windows Player Agent' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Start local test video' })).toBeDisabled();
     if (!status.mpc_reachable) { await page.getByRole('button', { name: '播放', exact: true }).click(); await expect(page.getByRole('alert')).toContainText('播放器不可达'); }
     const nativeRead = page.waitForResponse((response) => response.url().endsWith('/api/v1/settings') && response.request().method() === 'GET');
     await page.getByRole('button', { name: '管理设置', exact: true }).click();

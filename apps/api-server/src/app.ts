@@ -2,6 +2,8 @@ import { RequestRepository, RequestService, SubmissionReceipts, verifyLegacySubm
 import { QueueMutationRepository, QueueMutationService } from './queue-mutations.js';
 import Fastify from 'fastify';
 import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { z, ZodError } from 'zod';
 import { LegacyPhpAdapter } from './legacy.js';
 import { SessionStore } from './sessions.js';
@@ -10,6 +12,7 @@ import { SettingsRepository, SettingsService, settingsSchema } from './settings.
 import { verifyQueueTicket } from './legacy-queue.js';
 import { QueueRepository, QueueService, queueSchema, queueContextSchema } from './queue.js';
 import type { AdminSession } from '../../../packages/contracts/src/index.js';
+import { PlayerTaskStore, agentAuthorized } from './player-agent.js';
 
 const id = z.coerce.number().int().positive().max(2147483647);
 const statusSchema = z.object({ php_version: z.string(), os: z.string(), detected_player: z.string(), playmode: z.number(),
@@ -20,7 +23,7 @@ function legacyParse<T>(schema: z.ZodType<T>, value: unknown): T {
   if (!parsed.success) throw new BoundaryError(502, 'LEGACY_CONTRACT_ERROR', '原 PHP 响应不符合预期字段：' + parsed.error.issues.map((item) => item.path.join('.')).join(', '));
   return parsed.data;
 }
-export interface AppOptions { legacyUrl: string; bridgeToken: string; userOrigins: string[]; adminOrigins: string[]; secureCookies?: boolean; settingsPath?: string; queueRoot?: string; legacyOrigins?: string[] }
+export interface AppOptions { legacyUrl: string; bridgeToken: string; userOrigins: string[]; adminOrigins: string[]; secureCookies?: boolean; settingsPath?: string; queueRoot?: string; legacyOrigins?: string[]; playerAgentToken?: string; playerStatePath?: string }
 export function createApp(options: AppOptions) {
   // No request/body logging: login secrets, session cookies and service tokens never enter logs.
   const app = Fastify({ logger: false, bodyLimit: 65536, trustProxy: false });
@@ -31,16 +34,18 @@ export function createApp(options: AppOptions) {
   const mutations = new QueueMutationService(new QueueMutationRepository(options.queueRoot || '/run/legacy-db'));
   const queue = new QueueService(new QueueRepository(options.queueRoot || '/run/legacy-db'));
   const settings = new SettingsService(new SettingsRepository(options.settingsPath || '/run/legacy-settings/config.ini'));
+  const playerTasks = new PlayerTaskStore(options.playerStatePath || join(tmpdir(), 'yukari-player-agent', randomUUID(), 'state.json'));
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
     if (request.method === 'GET' && (request.url === '/health' || request.url === '/api/v1/meta/health')) return;
     const legacyQueue = request.url.split('?')[0] === '/api/v1/legacy/queue';
     const legacyReorder = request.url.split('?')[0] === '/api/v1/admin/queue/reorder';
-    if (request.headers.authorization) throw new BoundaryError(400, 'BASIC_NOT_ACCEPTED', '新 API 不接受 Basic 凭据，请使用登录会话');
+    const agentRoute = request.url.split('?')[0].startsWith('/api/v1/agent/');
+    if (request.headers.authorization && !(agentRoute && request.headers.authorization.startsWith('Bearer '))) throw new BoundaryError(400, 'BASIC_NOT_ACCEPTED', '新 API 不接受 Basic 凭据，请使用登录会话');
     const admin = request.url.startsWith('/api/v1/admin') || request.url.startsWith('/api/v1/settings') || request.url.startsWith('/api/v1/playback/control');
     const allowed = legacyQueue || legacyReorder ? [...options.adminOrigins,...(options.legacyOrigins || ['http://127.0.0.1:8080', 'http://localhost:8080'])] : admin ? options.adminOrigins : [...options.userOrigins, ...options.adminOrigins];
     if (request.headers.origin && !allowed.includes(request.headers.origin)) throw new BoundaryError(403, 'ORIGIN_DENIED', '不允许该来源请求');
-    if (request.headers['x-yukari-client'] !== '1') throw new BoundaryError(403, 'CSRF_HEADER_REQUIRED', '缺少客户端请求标记');
+    if (!agentRoute && request.headers['x-yukari-client'] !== '1') throw new BoundaryError(403, 'CSRF_HEADER_REQUIRED', '缺少客户端请求标记');
     if (['POST', 'PATCH', 'DELETE', 'PUT'].includes(request.method) && !request.headers['content-type']?.startsWith('application/json')) throw new BoundaryError(415, 'JSON_REQUIRED', '新 API 只接受 JSON 写入');
   });
   app.setErrorHandler((error, request, reply) => {
@@ -103,6 +108,38 @@ export function createApp(options: AppOptions) {
     return success(data);
   });
   app.get('/api/v1/playback', async (request) => success(legacyParse(z.object({ playing: z.boolean() }).passthrough(), await legacy.call('playback', sessions.get(request, 'user')))));
+  // Public view deliberately omits task IDs, filenames, paths and control material.
+  app.get('/api/v1/playback/agent', async (request) => {
+    sessions.get(request, 'user');
+    const value = playerTasks.status();
+    return success({ connected: value.connected, playback: value.playback, active: Boolean(value.task && ['claimed','playing'].includes(value.task.state)) });
+  });
+  app.get('/api/v1/admin/player-agent', async (request) => { sessions.get(request, 'admin'); return success(playerTasks.status()); });
+  app.post('/api/v1/admin/player-agent/test', async (request) => {
+    sessions.get(request, 'admin'); z.object({}).strict().parse(request.body);
+    if (!options.playerAgentToken) throw new BoundaryError(503, 'PLAYER_AGENT_NOT_CONFIGURED', 'Player Agent 未配置');
+    return success(playerTasks.createTest());
+  });
+  app.post('/api/v1/admin/player-agent/control', async (request) => {
+    sessions.get(request, 'admin');
+    const body = z.object({ action: z.enum(['pause','resume','stop']) }).strict().parse(request.body);
+    if (!options.playerAgentToken) throw new BoundaryError(503, 'PLAYER_AGENT_NOT_CONFIGURED', 'Player Agent 未配置');
+    return success(playerTasks.control(body.action));
+  });
+  const agentIdentity = z.object({ agentId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/), testReady: z.boolean().optional() }).strict();
+  const requireAgent = (request: { headers: { authorization?: string } }) => {
+    if (!options.playerAgentToken || !agentAuthorized(request.headers.authorization, options.playerAgentToken)) throw new BoundaryError(401, 'PLAYER_AGENT_UNAUTHORIZED', 'Player Agent 凭据无效');
+  };
+  app.post('/api/v1/agent/next', async (request) => {
+    requireAgent(request); const body = agentIdentity.parse(request.body); return success(playerTasks.next(body.agentId, body.testReady === true));
+  });
+  app.post('/api/v1/agent/report', async (request) => {
+    requireAgent(request);
+    const body = z.object({ agentId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/), taskId: z.string().uuid().optional(),
+      state: z.enum(['claimed','playing','completed','failed']).optional(), playback: z.enum(['idle','starting','playing','paused','stopped','unavailable']),
+      testReady: z.boolean().optional(), file: z.string().max(255).optional(), error: z.string().max(300).optional() }).strict().parse(request.body);
+    return success(playerTasks.report(body.agentId, body));
+  });
   app.get('/api/v1/search', async (request) => {
     const identity = sessions.get(request, 'user');
     const query = z.object({ backend: z.enum(['everything', 'lister']), keyword: z.string().trim().min(1).max(256) }).strict().parse(request.query);

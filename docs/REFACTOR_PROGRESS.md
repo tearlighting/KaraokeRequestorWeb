@@ -1,4 +1,4 @@
-﻿# 渐进式重构进度
+# 渐进式重构进度
 
 当前阶段：Phase 6 已将普通/管理预约队列读取迁到 Node-native SQLite，并让 Legacy swipe 队列页通过受限签名票据复用新读取。GET settings 仍为 Node-native；预约、调序、删除和设置保存继续 PHP 单写。目录、权限与验证以 Phase 6 及兼容性矩阵为准，Phase 1～5 为历史记录。
 
@@ -475,6 +475,22 @@ queue-wal-anchor 保留。专用目录现为 RW，可能已允许只读 SQLite �
 
 访问地址不变：user 5173、admin 5174、Node 3000、Legacy 8080。`docker compose -f docker/compose.yaml up --build -d` 启动已启用 Node 预约 Owner 的服务。
 
-### 尚未完成
+
+### Phase 8 尚未完成
 
 真实曲库搜索命中和播放器播放未验证。Legacy 批量排序最初的 regex 代理返回 403，改用单一路径固定 ProxyPass 后 Edge 回归通过；其他 `/api/v1` 路径继续默认拒绝。清空/导入/恢复/状态重置未迁移。SQLite 通知与队列是不同存储，跨库恰好一次通知未保证；预约不会因通知错误回滚/重放。Node 单一写入并不等于可移除 WAL anchor；后续先测试旁文件生命周期及 PHP 与 Node 重启。
+
+## Phase 9：Windows Player Agent / mpv 测试播放链路
+
+新增独立 `apps/player-agent`（Node.js + TypeScript），宿主机运行、不在 Docker。Fastify 添加管理员创建本地测试任务/暂停/继续/停止 API、Agent 独立 Bearer 认证轮询/状态回报，以及仅含连接与播放状态的普通用户只读视图。管理页 System 展示 Agent 实况。任务状态持久化在新 `player_agent_state` named volume，原子 JSON 更新；未改 SQLite Schema、预约 Owner、`nowplaying` 或 queue-wal-anchor。
+
+PlayerAdapter 采用 mpv Windows named-pipe JSON IPC，Agent 仅启动固定 `MPV_PATH`、固定参数且 `shell:false`；测试视频路径必须在宿主机配置的媒体根目录下，校验 realpath 并拒绝 traversal/外部 symlink。进程启动不等于播放成功；只有 mpv 报告目标 path、非 idle 且非 paused 后显示 playing；只有真实 `end-file` reason=eof 才 completed。Agent 断线会停止播放器，任务 ID/Agent ID 防重复领取。Agent 使用说明在 [apps/player-agent/README.md](../apps/player-agent/README.md)。
+
+本机核查结果：PotPlayer-64 bit 26.06.22.0 已安装，CmdLine64.txt 仅确认命令行打开/playlist 参数，不提供已确认的可靠状态/结束 API，因此未实现脆弱按键模拟。winget mpv 位于 `C:\Program Files\MPV Player\mpv.exe`，`--version` 为 `v0.41.0-244-gaf9c81fa1`；由 `MPV_PATH` 指定，不依赖 PATH 或重装。FFmpeg 9.0 在仓库外生成 `D:\project\yukari\test-media\agent-test.mp4`；ffprobe 验证 15.000 秒 H.264 640×360 画面与 AAC 48kHz 音轨。宿主 Agent 已以独立 token 连到健康 Fastify，唯一实例当前 connected/testReady=true/playback=idle。真实任务尚未由管理员创建，mpv 实际播放、GUI 控制及 EOF 仍待验证。
+
+Validation: isolated API suite 28/28 passed; user-web Edge 8 passed / 1 skipped (no real song-search hit); admin-web Edge 3/3 passed; PHP lint 307 files. Player Agent path tests passed; API Agent identity/state 2/2 passed. API, user-web, admin-web, Player Agent typecheck/build passed; after readiness guard, focused Agent tests 2/2 and affected builds passed again. FFmpeg/ffprobe verified the 15-second H.264/AAC file; the single host Agent heartbeat is connected/testReady=true against the normal Docker Fastify, and PHP/API/UI return HTTP 200. No admin task has yet been created, so real mpv playback, GUI controls, pause/resume/stop and EOF remain unverified pending authenticated admin action and visual/audio confirmation.
+
+Node 当前新增业务仅为受控测试任务协调；Legacy PHP 继续拥有生产预约播放生命周期与既有 MPC/foobar 实况控制。自动切歌的阻碍包括：实际媒体目录映射、mpv 对卡拉 OK 文件/音轨/字幕的现场验证、旧播放标记及曲目音量/键调/延时/进度通知等副作用等价，以及异常停止与用户手动切歌策略。详见 [Phase 9 兼容矩阵](LEGACY_COMPATIBILITY.md)。
+
+
+Phase 9 admin proxy follow-up: admin-web Vite had omitted the exact Player Agent endpoints, making the UI report disconnected while Fastify heartbeat was healthy. Added exact GET status and POST test/control routes to the dev allowlist; Fastify admin session, Origin and CSRF checks remain authoritative. A no-cookie request now passes the proxy and receives Fastify 401 rather than Vite 403. Admin build/typecheck pass and an E2E response assertion was added; that E2E has not yet been rerun after the proxy fix.

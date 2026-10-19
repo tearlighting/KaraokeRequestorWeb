@@ -8,6 +8,9 @@ const boundary: Plugin = { name: 'admin-api-boundary', configureServer(server) {
     if (!path.startsWith('/api') && !path.startsWith('/php')) return next();
     const allowed = (path === '/api/v1/admin/session' && ['GET', 'POST', 'DELETE'].includes(req.method || '')) ||
       (['/api/v1/admin/queue', '/api/v1/admin/status'].includes(path) && req.method === 'GET') ||
+      (path === '/api/v1/admin/player-agent' && req.method === 'GET') ||
+      (path === '/api/v1/admin/player-agent/test' && req.method === 'POST') ||
+      (path === '/api/v1/admin/player-agent/control' && req.method === 'POST') ||
       (path === '/api/v1/settings' && ['GET', 'PUT'].includes(req.method || '')) ||
       (path === '/api/v1/playback/control' && req.method === 'POST') ||
       (/^\/api\/v1\/admin\/requests\/\d+$/.test(path) && req.method === 'DELETE') ||
