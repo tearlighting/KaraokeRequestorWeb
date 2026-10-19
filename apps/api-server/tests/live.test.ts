@@ -1,3 +1,4 @@
+import { testConfigPath } from '../../../packages/test-support/src/client.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
@@ -32,7 +33,7 @@ test('真实统一 API：认证、授权、CSRF、Basic 禁用、Bridge 伪造�
 
 test('真实只读链路、设置版本、不写配置、保留搜索/播放器错误原因', async () => {
   const user = new TestAgent(); await user.user();
-  const queue = await user.call('/queue'); assert.equal(queue.status, 200); assert.ok(Array.isArray(queue.body.data.items));
+  const queue = await user.call('/queue'); assert.equal(queue.status, 200); assert.equal(queue.headers.get('x-yukari-owner'), 'node-queue-read'); assert.ok(Array.isArray(queue.body.data.items));
   const caps = await user.call('/capabilities'); assert.equal(caps.status, 200);
   const search = await user.call('/search?backend=everything&keyword=NoSuch_' + randomUUID());
   if (!caps.body.data.features.everything_search) {
@@ -41,7 +42,7 @@ test('真实只读链路、设置版本、不写配置、保留搜索/播放器�
   const lister = await user.call('/search?backend=lister&keyword=NoSuch_' + randomUUID());
   if (lister.status !== 200) assert.ok(lister.body.error.legacyReason);
   const admin = new TestAgent(); await admin.admin();
-  const config = new URL('../../../config.ini', import.meta.url);
+  const config = testConfigPath;
   const hash = () => createHash('sha256').update(readFileSync(config)).digest('hex');
   const before = hash();
   const settings = await admin.call('/settings'); assert.equal(settings.status, 200);
@@ -84,9 +85,9 @@ test('真实预约无双写、会话身份隔离、管理调序删除、清理�
     assert.deepEqual(moved, [lower, upper]);
     assert.equal((await admin.call(`/admin/requests/${lower}`, 'DELETE', {})).status, 200);
   } finally {
-    for (const item of (await admin.call('/admin/queue')).body.data.items.filter((item: {singer: string}) => item.singer === token)) {
-      assert.equal((await admin.call(`/admin/requests/${item.id}`, 'DELETE', {})).status, 200);
-    }
+    // Cleanup known created IDs even if the new read implementation fails.
+    // Native DELETE must not depend on a successful queue GET.
+    for (const id of ids) assert.ok([200, 404].includes((await admin.call(`/admin/requests/${id}`, 'DELETE', {})).status));
     await fetch(`${phpBase}/api/mypage.php`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ action: 'history_remove', userid, fullpath: '' }) });
     assert.deepEqual((await admin.call('/admin/queue')).body.data, original);
   }

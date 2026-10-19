@@ -7,3 +7,13 @@
 *.sqlite3
 config.ini
 NUL
+
+**/*.db
+**/*.db-*
+**/*.sqlite*
+**/*.ini
+**/*.log
+**/.env*
+**/bridge-token
+**/*.ppk
+.local

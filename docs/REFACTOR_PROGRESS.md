@@ -1,6 +1,6 @@
-# 渐进式重构进度
+﻿# 渐进式重构进度
 
-当前阶段：Phase 3 已建立 Fastify + TypeScript 统一 API Server。两个 Web 只经 `/api/v1` 调用 Node，再通过内部 Legacy PHP Adapter 复用原业务。user-web `http://127.0.0.1:5173/`、admin-web `http://127.0.0.1:5174/`、Node `http://127.0.0.1:3000/health`、原 PHP `http://127.0.0.1:8080/`。下方 Phase 1/2 是历史记录，其空密码与直连 PHP 描述不再代表新 API 的当前行为。
+当前阶段：Phase 6 已将普通/管理预约队列读取迁到 Node-native SQLite，并让 Legacy swipe 队列页通过受限签名票据复用新读取。GET settings 仍为 Node-native；预约、调序、删除和设置保存继续 PHP 单写。目录、权限与验证以 Phase 6 及兼容性矩阵为准，Phase 1～5 为历史记录。
 
 ## Phase 1 记录
 
@@ -260,3 +260,221 @@ PHP 与 API 只发布到 127.0.0.1，避免把历史弱权限写入口暴露给�
 5. 后续先迁移更多只读契约和管理详情，再评估可安全迁移的业务模块；预约/调序/设置写入仍由 PHP 独占。未实现新搜索引擎、Laravel、PotPlayer 或第二套数据库。
 
 框架依据：[Fastify 官方验证文档](https://fastify.dev/docs/latest/Reference/Validation-and-Serialization/)、[Zod 官方文档](https://zod.dev/)。运行、领域路由和认证细节另见 [API Server README](../apps/api-server/README.md)。
+
+
+## Phase 4：Legacy 目录整理与有限兼容适配
+
+日期：2026-10-20（Asia/Tokyo）。本阶段在 develop 直接执行源码移动、Docker 重建、真实 HTTP 及 Edge 回归。完整入口契约、权限、副作用及路径审计见 [LEGACY_COMPATIBILITY.md](LEGACY_COMPATIBILITY.md)。没有 commit/push，没有操作 master/refactor/web。
+
+### 目录与数据保留
+
+原 PHP 页面、API、旧 JS/CSS、字体图片、PHP modules、CMS、v2、播放器附属文件及打包脚本共 652 个已跟踪文件通过 `git mv` 迁到 `legacy/php/`。apps、packages、docs、docker、项目级 Git 配置及项目说明留在根目录。迁移前唯一未提交改动为 ini.ini，迁移后原内容仍为未暂存的运行修改。
+
+停止 PHP/Node 后将本机配置、SQLite、缓存和日志随应用原样移动；661 个文件迁移前后逐一校验 SHA256 一致，未清卷、重建库或变更密码。测试结束后再次确认 config.ini、原 ini.ini、listerdb_config.ini 字节未变。忽略规则已覆盖新位置；git mv 暂存区仅含 R100 重命名，没有暂存真实 config.ini、数据库、日志或 Bridge 凭据。根目录异常 NUL 未动，两个原空曲库文件保留而未尝试修复。
+
+Compose 将 `legacy/php/` 读写挂载到原 Apache DocumentRoot `/var/www/html`，仓库额外只读挂载到非公开 `/workspace` 供 PHP CLI 测试。原 `/search.php`、`/exec.php`、`/api/...` 无前缀变化，Bridge 固定 URL 不变，Node 没有数据库挂载。__DIR__/chdir/相对 include 与库文件的目录关系保留；TS/PHP 测试更新配置和认证源码路径，Inno Setup 的项目说明/许可证引用更新为上层路径。
+
+旧 Git/ZIP 更新器假定单体工作区，可能覆盖新目录或 reset；在 monorepo 下明确拒绝更新、Git 初始化及 GC，显示部署说明。没有执行任何更新/恢复。旧 Windows BAT、XAMPP/nginx、绝对媒体路径依赖仍保留，未宣称 Linux Docker 可执行这些功能。
+
+### 实际 Owner 与适配范围
+
+| 模块 | 实际 Owner | 旧页状态 |
+| --- | --- | --- |
+| 健康 `/api/v1/meta/health` | Node-native，无 PHP 调用/用户数据/写入 | 已通过旧页 JS 同源请求，显示连接或不可达 |
+| 会话生成、存储、角色/CSRF 校验、撤销 | Node-native；原密码/EasyAuth 验证仍由 PHP | 旧 Basic/EasyAuth 保持独立，未自动映射 Node 登录 |
+| 搜索、预约、队列、删除、调序 | PHP 独占，Node 仅统一边界 | 旧 UI 仍直连原 PHP；没有 PHP → Node → PHP |
+| 设置、播放器、元数据、用户历史/收藏、备份、导入导出等 | PHP | 保留，未改业务规则；未接 PotPlayer |
+
+**Node-native 领域业务覆盖仍为 0**。React 已使用统一 API 不代表 PHP 业务已经迁移。当前没有适合无损切换的 Node-native 领域业务，因此仅接入真实原生健康状态，没有伪造业务迁移进度。
+
+Apache 仅代理精确健康路径到固定 api-server，连接/总超时为 2/5 秒；剥离旧 Basic/Cookie，其他 `/api/v1` 在旧端口返回 403。旧 JS 请求 credentials:omit，不创建或复用 Node 身份。Fastify admin Origin 白名单不扩宽、管理会话和 Bridge 证明校验不变。INI、数据库及 WAL/SHM/journal、日志、PPK/PEM/KEY 下载禁止。
+
+### 验证结果
+
+- API Server、user-web、admin-web 的 typecheck/build 通过，Compose 实际重建启动成功，两个后端健康。
+- PHP 300 文件全量语法通过；修复原 file_uploader.php 的 `<? php` 拼写错误。13 项 Node 证明/认证不变量与 5 项旧管理认证检查通过，均为内存测试。
+- API 真实集成 4 项通过：原 URL、健康新旧响应一致、代理非白名单拒绝、私有文件拒绝、Node 管理认证/CSRF/角色伪造拒绝、原 Basic 管理队列读取、无双写及队列清理后完全一致；无变化设置保存不重写配置。
+- user-web 真实 Edge 5 通过、1 跳过：新增旧页 JS/CSS/字体等本地资源无失败、无浏览器脚本错误；实际健康请求成功；断线提示测试只中止网络、不伪造成功。原 React 预约链仍到达 Node/PHP，最后清理测试记录。
+- admin-web 真实 Edge 3 通过：UI 登录、测试队列调序/删除、设置无变化保存、播放器不可达及退出权限回归。
+- 原 init.php 已登录 GET 本身可能调用旧配置序列化器，故不为了“只读验收”访问它而改写用户配置；使用原 admin.php 的 Basic 认证只读队列验证旧管理链。
+
+访问地址保持：用户端 5173、管理端 5174、Node 3000、旧 PHP 8080，均为 127.0.0.1。启动命令与测试命令见兼容性文档及各应用 README。
+
+### 保留问题与下一阶段
+
+真实歌曲命中、实际播放、Windows 安装器、OAuth/Drive/DDNS、备份恢复、实际设置值变更未实测。原库缺表、预约可能先提交再在附加元数据查询失败、旧 SSE 配置不一致等历史问题不借本阶段改写。旧 PHP 历史宽松权限仍仅本机暴露；健康适配不等于已加固所有旧写入口。
+
+历史已跟踪的 INI 与 pfwd 附带 PPK 保持原内容；HTTP 已禁止私钥下载，但历史密钥用途/轮换需要另行确认，不删除历史或擅自重置。后续先选择真正独立的只读领域模块及新旧行为对照，再讨论数据 Owner 迁移；预约、删除、调序和设置继续单写 PHP。生产 HTTPS、共享会话、幂等/部分提交和旧写入口收敛仍为后续工作。
+
+
+## Phase 5：首项 Node-native 设置读取与 AGENTS.md
+
+日期：2026-10-20（Asia/Tokyo）。保留全部 Phase 4 暂存/未暂存内容，在 develop 增量实现；没有 commit/push、重置、修改实际密码或真实 schema。新增根目录 [AGENTS.md](../AGENTS.md) 约束 TypeScript 优先、单一写 Owner、契约/权限、测试、秘密文件和 upstream 对照，链接详细文档而不复制报告。
+
+### 审计选择与实现
+
+队列有 owner 保密和多 SQL 顺序，状态有 Windows/player 依赖。原管理 settings GET 会经过公共启动器 initdb/updatedb，不能直接当作无副作用读取。选择只迁移统一 API 的三个设置读取，保持 `/api/v1/settings` 契约、默认值、范围、revision 和 React 调用地址不变。
+
+新增 `apps/api-server/src/settings.ts`：SettingsRepository 只读现有配置单文件，SettingsService 独立执行 INI 白名单投影、PHP 常见标量转换与 Zod 输出校验。GET 不调用 admin-settings、不 include 原 PHP 业务；没有 SQLite 依赖、WAL 或数据库 mount。原 PHP session 在加载 commonfunc 前返回当前 config_revision，Node 前后验证管理证明和版本，维持密码/策略变更后的撤销语义。
+
+| 范围 | 当前 Owner |
+| --- | --- |
+| GET /api/v1/settings（三项读取） | **Node-native**；17 组隔离输入与原 PHP 投影对照 |
+| PUT /api/v1/settings | **PHP 唯一写入方**；原 writer、revision 冲突与 serializer 不变 |
+| 会话/授权 | Node 会话，PHP 验证原凭据/证明；没有重写认证模型 |
+| 队列/搜索/预约/删除/调序/播放器/其他设置 | PHP 原业务，Node 仅边界 |
+
+按当前 7 类领域 GET 路由计数，1/7（约 14.3%）Node-native；排除 health/会话，不代表整个应用业务迁移比例。五类业务写路由仍 0/5 Node-native。详细分母、接口、副作用和限制见 [兼容性矩阵](LEGACY_COMPATIBILITY.md#phase-5node-native-管理设置读取)。
+
+管理端现有 GET 自动进入新实现，真实 Edge 验证 node-settings-read 响应标记；保存仍经 PHP。user-web 不应访问管理设置，Vite/服务端拒绝保持。旧 PHP 设置页面不切换：Basic/EasyAuth 与 Node 身份独立，不新增旧页登录映射或 8080 admin Origin；旧端口只代理公开健康状态，无 PHP→Node→PHP 回环。
+
+### 测试结果
+
+- 三个应用 typecheck/build 通过，Compose 实际重建启动并 healthy。
+- Legacy PHP 全量 300 文件语法通过；13 项 Node 证明/认证不变量 + 5 项旧管理认证检查通过；新增 CLI oracle 语法通过。
+- API 测试 8 项全部通过（原有 4 + 设置专项 4）。17 组隔离配置覆盖默认/空值/布尔/引用数值/CRLF/注释/重复项/章节/字段顺序/范围错误；新增不支持语法拒绝。PHP oracle 执行原源码投影、不手写参考逻辑、不加载数据库；真实配置快照只经 stdin 处理，输出不含秘密。
+- 隔离授权门不提供 PHP 设置业务仍能读取真实测试文件，且只调用 admin-auth/admin-session；验证撤销、前后版本变化、文件缺失、版本不匹配、白名单不泄露秘密和不写文件。授权替身仅用于隔离测试，真实 API/Edge 仍使用原 PHP 登录。
+- user-web Edge 5 通过、1 跳过（曲库命中未配置）；admin-web Edge 3 通过，覆盖真实登录、Node-native GET、PHP 无变化保存、测试预约调序/删除、播放器失败及退出。
+- 写测试清理后原队列相同，config.ini 和原用户 ini.ini 内容保持；没有重建或回滚真实数据库。
+
+### 安全与兼容边界
+
+Node 新增对完整现有 config.ini 的只读单文件权限，用于精确 revision；原始 Buffer 仅请求内处理，不解析/记录其他秘密，不复制到新配置或镜像。该路径不得静态暴露。常规 serializer 单行标量等价；目标数组、常量、环境插值、特殊转义/多行等明确 503，不回退 PHP 或伪装成功。
+
+原 PHP writer 没有锁/原子性。版本前后检查可拒绝观察到的并发变化和单文件 bind 失效，但不能消除两次都读到同一暂停写入中间态的窗口；原子配置发布留待后续。手工重命名替换 config.ini 后需重建 api-server 挂载（会话随重启失效）。全新无 config.ini 工作区先启动 web、经原设置保存配置，再完整 Compose 启动；已有当前配置仍一条命令启动。未自动创建配置或更改密码。
+
+访问保持：http://127.0.0.1:5173/（用户）、5174（管理）、3000/health（Node）、8080（Legacy）。下一阶段先处理配置原子发布/只读快照边界，再评估新的只读模块；搜索算法、真实曲库修复、PotPlayer、数据库 schema 和写业务迁移均未实施。
+
+
+## Phase 6：Node-native 队列读取与 Legacy 实际接入
+
+日期：2026-10-20（Asia/Tokyo）。已完成实际部署和真实回归，没有 commit/push。原工作区和暂存区保留；没有新建第二套生产队列、改变实际密码或迁移 Schema。
+
+### Node-native 与业务 Owner
+
+新增 QueueRepository/QueueService，直接查询原 SQLite；Node 24 内置 SQLite readOnly、query_only、250ms 锁超时，统计与全量排序记录在同一个 BEGIN/COMMIT 快照中读取，每次关闭连接、不缓存队列。PHP Bridge 的 queue-context 只验证当前原会话证明并提供路径/保密文案/真实身份上下文，不加载 commonfunc、不执行队列 SQL。
+
+保持 reqorder DESC、position、limit=0 的历史 offset 行为、未再生/1 统计和 PHP empty('0') 回退。所有者判定完整保留 IP+UA，以及反转全量 DESC 队列后最早匹配身份的 singer 同名规则；不错误地从 UUID Cookie 或最近一首推断。保密数据差异在服务端生成。新 React API 保持原八字段契约，Legacy 专用契约补充在 packages/contracts。
+
+| 模块 | 当前 Owner |
+| --- | --- |
+| GET /api/v1/queue、/api/v1/admin/queue | **Node-native**；PHP 仅授权/配置上下文 |
+| GET /api/v1/legacy/queue | **Node-native**；仅短时签名队列票据，返回旧 UI 需要的完整字段 |
+| GET /api/v1/settings | Node-native，保持 Phase 5 范围 |
+| 预约、删除、调序、设置保存、播放控制 | **PHP 唯一写入方**；无双写 |
+| 原 initdb/updatedb、元数据补写、WAL/SHM 生命周期 | PHP 生命周期/写链；Node GET 不暗中初始化或修复 |
+
+既有 7 类领域 GET 中 3/7（约 42.9%）Node-native；分母仍为 capabilities、queue、playback、search、admin/queue、admin/status、settings，Legacy 兼容路由不重复计数。业务写路由仍 0/5 Native，不代表整个应用迁移比例。
+
+### 经批准的数据库目录与 WAL
+
+整 legacy/php 挂载曾被自动审批拒绝，因为含无关配置和私钥；没有执行或绕过。用户随后明确批准停服迁移原数据库及旁文件，并只调整真实 config.ini 的 dbname 路径。实际移动 1 个数据库文件至 legacy/php/runtime/queue/request.db（停服后没有遗留旁文件），移动前后 SHA256 一致；除 dbname 外每个配置字节不变。没有复制生产数据库。仅本机 .local 保存哈希清单，不含原配置内容。
+
+Node 仅只读挂载专用 runtime/queue，保留 Phase 5 已有配置单文件与私有 Bridge volume，没有整 Legacy 目录或私钥挂载。路径 realpath 验证禁止逃逸，Apache 禁止 HTTP 访问整个 runtime 目录及 DB/WAL/SHM 文件。新的空 Docker 环境才使用专用目录默认值；有旧 request.db 时保留原路径，启动脚本不会擅自搬库。非 Docker Legacy 默认仍是 request.db。备份路径按原编码约定解码，避免子目录路径经设置页编码后无法识别。
+
+现场确认原库已是 WAL。短 PHP 连接结束后会删除旁文件，Node 只读目录无法重新创建，初次联通因此正确失败 503。新增 docker/queue-wal-anchor.php：由 PHP 容器以 www-data 维持 mode=rw（不创建 DB）的已有库连接，只访问 sqlite_schema，不改 Schema/业务数据/journal mode，不持有长期事务或阻碍 checkpoint。SQLite 在 PHP 写挂载上维护 WAL/SHM；Node 不使用 immutable、不忽略 WAL、不复制活跃 DB，也不向只读目录写文件。连接不可用时读取明确失败，不假空成功。
+
+### Legacy 逐步切换与权限
+
+requestlist_swipe.php（首页队列目标页）在 YUKARI_NODE_QUEUE=1 下以 JS 调用统一只读 API，所有五处列表加载/刷新均切换。旧预约/删除/排序/评论等写操作仍走原 PHP。其他旧 JSON/XML 页面保留为兼容/行为参考，未全量替换。
+
+PHP queue_ticket.php 在同源 JSON/请求标记、Origin/Host 范围内验证原 EasyAuth，管理员必须校验真实非空 Basic 密码，没有名称、角色头或 localhost 免检。签发 30 秒 HMAC、用途/角色/IP/UA/当前配置策略绑定票据，只放在请求内存和自定义头。Node 验签、到期和 UA，再经受信 PHP Bridge 校验当前策略，随后独立读取 SQLite。票据不生成 Node admin Cookie，也不能调用管理写 API。
+
+Apache 只代理精确 health/legacy-queue，清除 Authorization/Cookie，JS 对 Node 使用 credentials:omit。只对专用 Legacy 读取路由配置旧页 Origin，普通管理 Origin 不扩宽。无 PHP → Node 服务端队列调用，无 Node → PHP 队列 SQL → Node 回环。失败明确显示旧页队列错误，不静默绕回 PHP；未开标志的独立 Legacy 部署沿用原读取。
+
+### 验证结果
+
+- 三个应用 typecheck/build 全通过；Compose 实际重建启动，PHP/Node healthy，专用数据库 mount 为只读。
+- Legacy PHP 303 文件语法通过，13+5 项原认证检查通过，WAL helper PHP 语法通过。
+- API 14 项通过：真实 PHP builder/helpers 的隔离内存库对照、空队列/排序/分页/同名 owner/管理员/秘密遮罩/异常标量，WAL 提交与未提交可见性，worker 并发快照和独占锁超时，缺失/坏库/缺表/越界/BLOB 失败关闭。隔离授权门不提供 PHP 队列业务仍能完成 Native 查询。
+- 真实票据测试覆盖 PHP 签发 → Node 读取，错误 Basic、角色头伪造、跨站、缺标记、UA 错误、过期/用途/签名篡改、配置策略撤销。实际敏感文件及 runtime HTTP 路径为 403。
+- user-web Edge **6 通过、1 跳过**（真实曲库命中未配置）；新增旧浏览器原 PHP 预约 → Native SQLite 即时显示，本人 songfile 不遮罩、不同 UA 陌生浏览器遮罩元数据，旧页没有调用原 swipe_json。
+- admin-web Edge **3 通过**：管理登录、PHP 调序/删除 → Node 回读、设置无变化保存、播放器不可达与退出。
+- 首次 WAL 故障留下两条专用测试记录，已经原 PHP 管理 API 精确清理；测试清理改为已知 ID 删除，不依赖成功的队列 GET。最终原队列回到唯一原记录 id=3、reqorder=1；历史仅清理本轮测试身份，不整库回滚。计数/匿名用户与自增序号遵循既有测试策略可能保留。
+
+### 运行与保留限制
+
+访问：用户端 http://127.0.0.1:5173/，管理端 5174，Node 3000/health，Legacy 8080/requestlist_swipe.php。已有工作区仍 docker compose -f docker/compose.yaml up --build -d 一键启动。新安装先 web 保存配置，再完整启动；已有旧路径数据必须经确认迁移，不能清库或创建替代队列。
+
+SQLite 同步短事务未做大型队列压测。队列 Native 不负责 Schema/元数据准备，缺表应由既有 PHP 生命周期明确处理，不能在 Node 自动迁移真实库。PHP 旧构建器多次查询的并发非一致窗口改为 Node 单快照，这是明确改进；重复 reqorder 仍不发明新顺序。Legacy IP+UA/同名规则的既有限制保留。WAL anchor 是旁文件可用性依赖；若被终止且旁文件清除，队列 503，进程 health 不等同业务 readiness。未扩展 config.ini 原子性研究，未改搜索、播放器、真实数据库模型或写入规则。
+
+
+## Phase 7：Node-native 管理删除与调序
+
+日期：2026-10-20（Asia/Tokyo）。在 develop 增量实施；原 652 项暂存重命名和既有未提交内容保留，没有 commit/push、重置、清卷或真实 Schema/密码变更。详细规则、旧入口关闭范围及可复现测试命令见 [Phase 7 兼容矩阵](LEGACY_COMPATIBILITY.md#phase-7管理员队列写入-owner-切换)。
+
+### 实现与单一 Owner
+
+新增 `apps/api-server/src/queue-mutations.ts` 的 QueueMutationRepository/Service。DELETE `/api/v1/admin/requests/:id` 与 POST `.../:id/move` 不再调用 PHP admin-delete/admin-move：Node 直接对原专用 SQLite 执行存在性检查、删除或 up/down/warikomi、reqorder 归一化。整个操作使用 BEGIN IMMEDIATE/COMMIT、1 秒 busy_timeout、失败回滚、每次关闭连接，无 ORM、第二套生产队列或自动重试。接口、React 操作和原保密读取保持兼容，响应标记 node-queue-mutation。
+
+保留原邻居查询、9999 临时交换值及其碰撞行为、normalize 的 reqorder ASC/id ASC、插队扫描的实际播放标记规则，不把 `1` 擅自当作 `未再生`。明确差异：原多个独立提交窗口改为单事务；异常数据若使插队状态循环，Node 409 回滚而非无限运行。缺失目标 404、不通知；非法输入 400。队列删除不删除历史、不控制播放器。
+
+| 模块 | 当前 Owner |
+| --- | --- |
+| 管理删除、单项上下移/插队、其事务内归一化 | **Node-native** |
+| 用户/管理/Legacy 队列读取、三个设置读取 | Node-native，保持 Phase 5/6 范围 |
+| 更新通知计数、SSE | **PHP 独立通知 helper 复用**；不加载 commonfunc 或执行队列 SQL |
+| 创建/替换、自动轮换、元数据/历史、播放标记/生命周期 | PHP，创建事务仍可调整 reqorder；不是第二个管理员调序 Owner |
+| 设置保存、播放控制、搜索 | PHP |
+
+五类领域写路由中 2/5 的主队列事务 Native，读仍为 3/7；不代表全应用迁移率，也不声称通知和全部 SQLite 写入已迁出 PHP。管理会话/角色、Origin/CSRF、配置撤销证明检查不变。Node 仅获得 runtime/queue 的 RW 目录，共享 gid 33、setgid 目录与组写权限；配置仍只读，不挂载通知 DB 或整个 Legacy。
+
+### 通知与 Legacy 边界
+
+Node 成功提交后通过已认证 queue-notify Bridge 单次调用原 UpdateNotice，保留计数阈值和 SSE 行为，无队列 SQL 回环。通知本来位于提交后且吞错；现失败显式返回 QUEUE_COMMITTED_NOTICE_FAILED，提示队列已提交、不要重试。若连 ROLLBACK 都无法确认，返回 QUEUE_WRITE_UNCERTAIN 而不宣称回滚成功。没有伪造跨两个数据库的原子性。
+
+Compose 启用 YUKARI_NODE_QUEUE_MUTATIONS=1：delete.php、公开 request_delete/request_move、admin.php 对应操作、旧批量 reorder、清空/导入、update.php 的 reqorder 和勾选数据库的恢复均在业务启动前关闭（410）；HTTP 测试/race 目录禁止。旧 swipe/表格不会把关闭响应当成功，提示独立管理端登录。旧普通队列、创建和其他尚未迁移操作保留。**拖拽/Undo、批量清空/导入、原 delete.php 状态重置及 DB 恢复本阶段未迁移，当前旧入口不可执行**，并未用 read ticket 或 Basic 隐式创建 Node 写会话。
+
+### 验证与现场数据
+
+- 三个应用 typecheck/build 通过；最终 API 镜像构建通过；恢复后的 PHP/Node healthy。
+- Legacy 304 个 PHP 源文件语法通过，6 个 PHP oracle/测试文件通过；既有 13 项 Node 认证不变量及 5 项旧管理认证检查通过。
+- 完整 API 测试 **18/18 通过**。新增真实 PHP helpers/normalize 对照覆盖空队列、不存在 ID、边界、间隔/重复/9999、NULL/文本/小数异常排序、播放标记及历史/完整记录；触发器失败整体回滚、缺失/越界路径、锁超时、通知失败后不重写。
+- 真实隔离部署覆盖 Node 写响应 Owner、通知精确递增、历史不变、无效参数无副作用、同 ID 并发删除只一次成功、旧写入口 410 且队列/通知不变。授权替身不提供 PHP 队列写业务也可完成 Native move；普通身份、伪造角色和撤销后写入被拒绝。
+- 跨运行时用真实 Linux PHP 持有 WAL 写锁，Node 开始竞争后才握手允许延迟提交，验证 Node 确实等待且使用提交后快照。初次把 Windows Node 与 Linux PHP 同时开 WAL 时出现 I/O 错误；已改为与部署一致的两个 Linux 容器，未将它算作通过或忽略。
+- Edge 用户端 **6 通过、1 跳过**（未配置真实曲库），管理端 **3 通过**。包含真实 UI 登录、PHP 创建 → Native SQLite 读取、Node 调序/删除、保密、无变化设置保存、播放器不可达和退出。
+- 所有本轮业务写测试均在 `.local/phase7-test-legacy` 合成部署或内存/临时库完成，不复制生产 DB/INI。测试工具/浏览器启动要求合成 marker，避免误跑现场。首次权限失败只影响合成记录，修复共享组权限后重跑通过。
+- 隔离结束恢复正常 Compose，原队列逻辑内容及真实 config.ini、ini.ini 指纹保持一致；没有对现场队列新增/删除测试记录。恢复后真实 user/admin 认证及 queue/settings GET 均 200，两个 Vite 与旧 search/swipe 页面 200。暂存区仍是原 652 项纯重命名，未暂存运行秘密或测试产物。
+
+访问保持：http://127.0.0.1:5173/（用户）、http://127.0.0.1:5174/（管理）、http://127.0.0.1:3000/health、http://127.0.0.1:8080/requestlist_swipe.php。正常启动仍 `docker compose -f docker/compose.yaml up --build -d`。隔离测试会暂占相同端口，按兼容文档测试后恢复；不删除 volume。
+
+### 下一阶段评估
+
+创建预约比本阶段删/移复杂：输入默认值/替换/自动轮换、身份与历史、Lister 元数据、Cookie、通知均需等价覆盖。exec.php 已在主 INSERT/reqorder/自动轮换 COMMIT 后才执行元数据和历史等步骤，后续异常导致“已入库但返回错误”。下一阶段先在隔离环境对各提交点注入故障，再明确必需原子数据、可选副作用、提交结果查询与幂等策略；不通过重试或双写掩盖部分成功，本阶段未更改其预约规则。
+
+queue-wal-anchor 保留。专用目录现为 RW，可能已允许只读 SQLite 自行创建旁文件，但尚未验证停 anchor 下全部重启/清理/readiness 场景；每次关闭的 Node 管理连接也不等于持久拥有整个 WAL 生命周期。可先做隔离生命周期验证再移除，不因路由 Native 化直接删除。大型队列同步事务性能、部分成功/跨请求幂等、旧批量管理功能迁移仍待后续；未改搜索算法、播放器或真实 Schema。
+
+## Phase 8：Node-native 预约创建与替换
+
+日期：2026-10-20（Asia/Tokyo）。在 Phase 7 工作区增量实施；未 commit/push。经用户明确批准后，仅在原 queue SQLite 添加 `request_submission` 幂等凭据表；不改现有列、密码、队列 Schema 或创建第二数据库。
+
+### Owner 与业务等价
+
+`POST /api/v1/requests` 与生产 Compose 的旧 `POST /exec.php` 兼容入口现由 Node 独占核心预约写入。React 继续使用原统一 API。Legacy 通过 request intent/短时签名上下文转交 Node，保留普通 Cookie 身份、singer/freesinger/comment、kind、小休止、secret、URL、替换/selectid、自动 reqorder、历史和通知语义；PHP 不再执行预约 INSERT。Node 预约、必要元数据、历史、身份更新和幂等结果在一个 `BEGIN IMMEDIATE` 事务提交；队列通知在 commit 后复用 PHP helper。通知失败明确返回“已提交但通知失败”，不自动重复写入。
+
+替换保留既有记录状态、位置和身份属性。提交凭据只持久化随机 receipt 的哈希、输入哈希、owner、记录 ID、操作、时间及结果；重复相同 receipt 返回原结果，不重复插入/历史/通知，改输入冲突，另一用户不可查询。React 在网络结果未知后复用同一 receipt；不依赖内存 Map。原 PHP `exec.php` 在隔离库中作为行为 oracle；主要差异是历史/必要数据写失败时 Node 整体回滚，消除 PHP 主 INSERT 已提交、后续历史失败而响应错误的部分成功状态。
+
+| 模块 | Phase 8 Owner |
+| --- | --- |
+| 预约创建/替换、顺序、历史、核心身份字段 | **Node-native**（同一 SQLite 事务） |
+| 持久提交结果与重试去重 | **Node-native**（`request_submission` additive 表） |
+| 预约后 SSE/更新通知 | PHP 通知 helper，仅提交后副作用；不拥有预约写入 |
+| Everything/YukaLister 搜索与只读元数据 | PHP；搜索算法不变 |
+| 管理删除、单项移动/归一化 | Node-native（Phase 7） |
+| 管理批量拖拽/Undo、清空/导入/恢复/旧状态重置 | 批量 Node endpoint 已有隔离 API 测试；Legacy 页面经 exact-path Apache proxy 的 Edge 测试通过；清空/导入/恢复/重置保持关闭 |
+| 设置写入、播放控制、播放器及媒体生命周期 | PHP |
+
+### 迁移、验证与运行状态
+
+显式 `node dist/migrate.js request.db` 在现有生产数据库运行一次。迁移前后只读摘要都是 `requesttable` 1 条记录、min/max id=3；新表列校验通过。未读取或输出真实标题、密码、INI 内容。正常 Compose 已设置 `YUKARI_NODE_REQUESTS=1`，未配置启动时 schema 迁移。`queue-wal-anchor` 继续保留；本阶段没有完成停用 anchor 的 WAL/重启/readiness 生命周期测试。
+
+- API 集成套件 **26/26 通过**；包括真实 PHP exec 业务体 oracle、创建/替换、幂等并发、通知不重放、事务故障回滚，以及已有队列/认证/调序回归。
+- API/user-web/admin-web typecheck 与 build 全通过。
+- user-web/Legacy Edge **5 通过、1 跳过**（未设置真实曲库命中条件）；覆盖 React 经 Node 创建、Legacy v2 旧页经 Node 创建、队列回读和 Legacy 管理批量排序测试。admin-web Edge **3/3 通过**，覆盖认证边界和现有管理操作。
+- PHP 原版预约 oracle 用临时数据库且配置快照在测试结束恢复；其他所有业务写回归继续只用带 marker 的合成 fixture。没有对生产队列做写测试。
+
+访问地址不变：user 5173、admin 5174、Node 3000、Legacy 8080。`docker compose -f docker/compose.yaml up --build -d` 启动已启用 Node 预约 Owner 的服务。
+
+### 尚未完成
+
+真实曲库搜索命中和播放器播放未验证。Legacy 批量排序最初的 regex 代理返回 403，改用单一路径固定 ProxyPass 后 Edge 回归通过；其他 `/api/v1` 路径继续默认拒绝。清空/导入/恢复/状态重置未迁移。SQLite 通知与队列是不同存储，跨库恰好一次通知未保证；预约不会因通知错误回滚/重放。Node 单一写入并不等于可移除 WAL anchor；后续先测试旁文件生命周期及 PHP 与 Node 重启。

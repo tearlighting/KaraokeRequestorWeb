@@ -10,6 +10,14 @@ export interface QueueItem {
   singer: string; kind: string; nowplaying: string;
 }
 export interface QueueData { items: QueueItem[]; total: number; remaining_count: number; has_more: boolean; remaining_seconds: number }
+/** Scoped Legacy read response. Sensitive fields are masked by the server. */
+export interface LegacyQueueItem extends QueueItem {
+  song_name: string; lister_artist: string; lister_work: string; lister_op_ed: string; lister_comment: string;
+  comment: string; masked: number; fullpath: string; volume: number;
+  secret: number; loop: number; pause: number; track: number; keychange: number; audiodelay: number; duration: number;
+}
+export interface LegacyQueueData extends Omit<QueueData, 'items'> { items: LegacyQueueItem[] }
+/** GET: Node-native read. PUT: PHP-only write. revision hashes exact config bytes. */
 export interface Settings { playmode: number; startvolume: number; requestlistactivereload: number; revision: string; changed?: boolean }
 export interface AdminSession { username: string; password_configured: boolean; authProvider: 'node' | 'legacy' }
 export interface SystemStatus {
@@ -19,7 +27,9 @@ export interface SystemStatus {
   password_configured: boolean;
 }
 export interface ReservationInput {
-  filename: string; fullpath: string; singer: string; comment: string; kind: '動画' | '小休止'; secret?: number;
+  filename: string; fullpath: string; singer: string; comment: string; kind: '動画' | '小休止' | 'カラオケ配信' | 'URL指定' | '動画_別プ'; secret?: number | string;
+  freesinger?: string; selectid?: number | string; loop?: number | string; otherplayer?: number | string; urlreq?: number | string;
+  keychange?: number | string; track?: number | string; pause?: number | string; audiodelay?: number | string; volume?: number | string; duration?: number | string;
 }
 export class ApiError extends Error {
   constructor(message: string, public status = 0, public code = 'NETWORK_ERROR', public legacyReason?: string) { super(message); }

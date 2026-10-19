@@ -1,5 +1,5 @@
 <?php
-require dirname(__DIR__, 4) . '/api/_node_auth.php';
+require dirname(__DIR__, 4) . '/legacy/php/api/_node_auth.php';
 $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
 $secret = str_repeat('test-service-key', 4);

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { TestAgent, phpBase } from '../../../packages/test-support/src/client';
+import { TestAgent, phpBase, testCredentials } from '../../../packages/test-support/src/client';
 
 test('用户代理连接统一 Node API，拒绝管理和旧 PHP 路径', async ({ request }) => {
   const session = await request.post('/api/v1/user/session', { headers: { 'X-Yukari-Client': '1' }, data: {} });
@@ -61,6 +61,59 @@ test('React → Node → PHP 小休止预约，查询队列并通过 Node 管理
   } finally {
     for (const item of (await admin.call('/admin/queue')).body.data.items.filter((item: {singer: string}) => item.singer === singer)) expect((await admin.call(`/admin/requests/${item.id}`, 'DELETE', {})).status).toBe(200);
     if (userid) await fetch(`${phpBase}/api/mypage.php`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ action: 'history_remove', userid, fullpath: '' }) });
+    expect((await admin.call('/admin/queue')).body.data).toEqual(before);
+  }
+});
+
+test('Legacy v2 旧浏览器预约通过 CSRF intent 到达 Node 写入 Owner', async ({ page }) => {
+  const admin = new TestAgent(); await admin.admin();
+  const before = (await admin.call('/admin/queue')).body.data;
+  const status = (await admin.call('/admin/status')).body.data;
+  test.skip(Boolean(status.playback || status.mpc_reachable || status.foobar_reachable), '活动播放器不写测试队列');
+  const singer = `LegacyV2_${Date.now()}`;
+  let id = 0;
+  try {
+    await page.goto(`${phpBase}/v2/search.html`);
+    const result = await page.evaluate(async (name) => {
+      return (window as unknown as { postRequest: (fields: Record<string, string>) => Promise<{newid:number}> }).postRequest({
+        filename: 'legacy v2 synthetic pause', singer: name, comment: 'isolated compatibility test', kind: '小休止', fullpath: '', secret: '1'
+      });
+    }, singer);
+    id = result.newid;
+    expect(id).toBeGreaterThan(0);
+    const found = (await admin.call('/admin/queue')).body.data.items.find((item: {id:number}) => item.id === id);
+    expect(found.singer).toBe(singer); expect(found.kind).toBe('小休止');
+  } finally {
+    if (id) expect((await admin.call(`/admin/requests/${id}`, 'DELETE', {})).status).toBe(200);
+    expect((await admin.call('/admin/queue')).body.data).toEqual(before);
+  }
+});
+
+test('Legacy 队列页面仅复用已登录 Node 管理会话完成批量排序与 Undo',async({page})=>{
+  const admin=new TestAgent();await admin.admin();const before=(await admin.call('/admin/queue')).body.data;
+  const status=(await admin.call('/admin/status')).body.data;
+  test.skip(Boolean(status.playback||status.mpc_reachable||status.foobar_reachable),'活动播放器不写测试队列');
+  const contiguous=before.items.map((item:{reqorder:number})=>item.reqorder).sort((a:number,b:number)=>a-b);
+  test.skip(contiguous.some((value:number,index:number)=>value!==index+1),'非连续原队列不运行归一化测试');
+  const user=new TestAgent();await user.user();const token=`LegacyReorder_${Date.now()}`;const ids:number[]=[];
+  try{
+    for(const name of ['A','B']){
+      const created=await user.call('/requests','POST',{filename:`${token}_${name}`,singer:token,comment:'legacy bulk reorder',kind:'小休止',fullpath:'',secret:1});
+      expect(created.status).toBe(201);ids.push(created.body.data.id);
+    }
+    const login=await page.request.post('http://127.0.0.1:3000/api/v1/admin/session',{headers:{'X-Yukari-Client':'1',Origin:'http://127.0.0.1:5174'},data:testCredentials()});
+    expect(login.ok()).toBe(true);
+    await page.goto(`${phpBase}/requestlist_swipe.php`);
+    const order=[...ids].reverse().concat(before.items.map((item:{id:number})=>item.id));
+    const moved=await page.evaluate(async(ids)=>{
+      const response=await fetch('/api/v1/admin/queue/reorder',{method:'POST',headers:{'Content-Type':'application/json','X-Yukari-Client':'1'},body:JSON.stringify({ids})});
+      return {status:response.status,owner:response.headers.get('x-yukari-owner'),body:await response.json()};
+    },order);
+    expect(moved.status).toBe(200);expect(moved.owner).toBe('node-queue-mutation');
+    const current=(await admin.call('/admin/queue')).body.data.items.filter((item:{id:number})=>ids.includes(item.id)).map((item:{id:number})=>item.id);
+    expect(current).toEqual([...ids].reverse());
+  }finally{
+    for(const id of ids)await admin.call(`/admin/requests/${id}`,'DELETE',{});
     expect((await admin.call('/admin/queue')).body.data).toEqual(before);
   }
 });

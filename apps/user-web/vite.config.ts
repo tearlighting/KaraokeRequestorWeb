@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 const paths = new Map([
   ['/api/v1/user/session', 'POST'], ['/api/v1/capabilities', 'GET'], ['/api/v1/search', 'GET'],
-  ['/api/v1/queue', 'GET'], ['/api/v1/playback', 'GET'], ['/api/v1/requests', 'POST'],
+  ['/api/v1/queue', 'GET'], ['/api/v1/playback', 'GET'], ['/api/v1/requests', 'POST'], ['/api/v1/requests/intent', 'POST'], ['/api/v1/requests/result', 'POST'],
 ]);
 const boundary: Plugin = { name: 'user-api-boundary', configureServer(server) {
   server.middlewares.use((req, res, next) => {

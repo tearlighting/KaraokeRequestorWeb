@@ -1,3 +1,4 @@
+import { testConfigPath } from '../../../packages/test-support/src/client.js';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { expect, test } from '@playwright/test';
@@ -24,7 +25,7 @@ test('认证只读和设置无变化保存，经统一 API 保留版本冲突', 
   const admin = new TestAgent(); await admin.admin();
   expect((await admin.call('/admin/queue')).status).toBe(200);
   expect((await admin.call('/admin/status')).status).toBe(200);
-  const config = new URL('../../../config.ini', import.meta.url);
+  const config = testConfigPath;
   const hash = () => createHash('sha256').update(readFileSync(config)).digest('hex');
   const before = hash(); const settings = (await admin.call('/settings')).body.data;
   const saved = await admin.call('/settings', 'PUT', settings);
@@ -72,7 +73,9 @@ test('真实 UI 登录、调序、删除、设置及播放器失败；无双写�
     await page.getByRole('button', { name: '系统与播放器', exact: true }).click();
     await expect(page.getByText('运行环境', { exact: true })).toBeVisible();
     if (!status.mpc_reachable) { await page.getByRole('button', { name: '播放', exact: true }).click(); await expect(page.getByRole('alert')).toContainText('播放器不可达'); }
+    const nativeRead = page.waitForResponse((response) => response.url().endsWith('/api/v1/settings') && response.request().method() === 'GET');
     await page.getByRole('button', { name: '管理设置', exact: true }).click();
+    expect((await nativeRead).headers()['x-yukari-owner']).toBe('node-settings-read');
     await expect(page.getByLabel('播放模式')).toBeVisible();
     await page.getByRole('button', { name: '保存设置' }).click();
     await expect(page.getByRole('status')).toContainText('设置没有变化');

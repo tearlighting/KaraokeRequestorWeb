@@ -45,6 +45,9 @@ playwright-report/
 *.sqlite-*
 *.sqlite3-*
 *.log
+**/*.ppk
+**/*.pem
+**/*.key
 .env
 .env.*
 !.env.example
@@ -52,3 +55,19 @@ playwright-report/
 /secrets/
 **/bridge-token
 /NUL
+
+# Legacy runtime files remain private after relocation.
+/legacy/php/NUL
+/legacy/php/cache/
+/legacy/php/_getid3_cache/
+/legacy/php/list/
+/legacy/php/foobar2000/
+!/legacy/php/foobar2000/foo_httpcontrol_data/
+!/legacy/php/foobar2000/foo_httpcontrol_data/karaokectrl/
+!/legacy/php/foobar2000/foo_httpcontrol_data/karaokectrl/*
+/legacy/php/player_compensation.json
+/legacy/php/volume_offset_state.json
+/legacy/php/mypage_google_debug.php
+
+# Dedicated runtime SQLite directory; never stage data or SQLite side files.
+/legacy/php/runtime/queue/

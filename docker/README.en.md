@@ -1,5 +1,9 @@
 # Docker Development Environment
 
+Phase 6: the original queue database now lives in `legacy/php/runtime/queue/`. Node mounts only that directory read-only; PHP remains the sole business writer and maintains WAL/SHM availability. Legacy swipe reads use a short-lived queue-only capability. Existing databases require an approved stopped-writer relocation; never create a replacement queue.
+
+Phase 4: legacy PHP sources and local runtime data now live in `legacy/php/`, mounted at Apache `/var/www/html`; browser URLs are unchanged. The repository is also mounted read-only at `/workspace` for CLI checks. The legacy UI proxies only Node-native `/api/v1/meta/health`; business remains PHP-owned. See [compatibility](../docs/LEGACY_COMPATIBILITY.md).
+
 ## Phase 3 endpoints
 
 From the repository root, run `docker compose -f docker/compose.yaml up --build -d`. This starts legacy PHP at http://127.0.0.1:8080 and the unified Node API at http://127.0.0.1:3000/health. Both ports bind to loopback. A one-shot service initializes the private bridge credential; PHP remains the only database writer.

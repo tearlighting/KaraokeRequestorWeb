@@ -16,7 +16,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY docker/docker-entrypoint.sh /usr/local/bin/yukari-dev-entrypoint
-RUN chmod +x /usr/local/bin/yukari-dev-entrypoint
+RUN chmod +x /usr/local/bin/yukari-dev-entrypoint \
+    && a2enmod proxy proxy_http headers
 
 WORKDIR /var/www/html
 

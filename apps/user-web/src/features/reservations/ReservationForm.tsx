@@ -9,6 +9,7 @@ export function ReservationForm({ song, onClear, onCreated }: {
   const [singer, setSinger] = useState('');
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
+  const [warning, setWarning] = useState('');
   const [error, setError] = useState('');
   const submitting = useRef(false);
 
@@ -17,8 +18,8 @@ export function ReservationForm({ song, onClear, onCreated }: {
     if (submitting.current || !singer.trim()) return;
     submitting.current = true; setBusy(true); setError('');
     try {
-      const id = await reserve(song, singer, comment);
-      setComment(''); onClear(); onCreated(id);
+      const result = await reserve(song, singer, comment);
+      setComment(''); onClear(); onCreated(result.id); setWarning(result.warnings.join('；'));
     } catch (error) { setError(errorMessage(error)); }
     finally { submitting.current = false; setBusy(false); }
   }
@@ -35,6 +36,7 @@ export function ReservationForm({ song, onClear, onCreated }: {
         <textarea id="comment" rows={2} maxLength={512} value={comment} onChange={(e) => setComment(e.target.value)} disabled={busy} /></div>
       <button className="primary w-full" disabled={busy || !singer.trim()}>{busy ? '正在提交…' : song ? '提交歌曲预约' : '提交休息预约'}</button>
     </form>
+    {warning && <p role="status" className="mt-4 text-amber-800">{warning}</p>}
     {error && <p role="alert" className="error mt-4">{error}</p>}
   </section>;
 }

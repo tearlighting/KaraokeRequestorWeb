@@ -1,5 +1,7 @@
 # Yukari admin-web
 
+Phase 4：Legacy PHP 已移动至 `legacy/php/`，本应用 API URL、端口和管理会话不变；真实测试从新位置瞬时读取配置。参见 [兼容性记录](../../docs/LEGACY_COMPATIBILITY.md)。
+
 React + TypeScript + Vite + Tailwind 独立管理端。Phase 3 已迁移到统一 Node `/api/v1`；不再把管理密码保存到 React 状态或向 PHP 发送 Basic。
 
 ## 启动
@@ -17,7 +19,7 @@ npm.cmd run dev
 
 用原版 admin 账号和**非空** `configpass` 登录；需要时填写原 EasyAuth 访问口令。空管理密码会被新 API 拒绝，即使从 localhost 访问。密码只用于一次登录验证，随后使用 Node 的 HttpOnly、SameSite=Strict 会话，退出会撤销服务端 token。修改原密码使旧会话证明失效。不要在聊天、提交文件或日志中提供密码。
 
-保留队列读取、删除确认、上移/下移/下一首、系统状态、原三个设置字段保存、MPC-BE/foobar 控制子集。数据与顺序由 PHP 决定，Node 不直接写数据库。播放器失败明确提示；接口应答不等于已经播放。
+保留队列读取、删除确认、上移/下移/下一首、系统状态、原三个设置字段保存、MPC-BE/foobar 控制子集。队列由 Node-native SQLite 读取，顺序写入仍由 PHP 决定，Node 不写数据库。播放器失败明确提示；接口应答不等于已经播放。
 
 ## 验证
 

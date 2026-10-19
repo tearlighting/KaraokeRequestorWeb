@@ -2,4 +2,4 @@
 /docker/*.sh text eol=lf
 
 # Legacy PHP already uses CRLF; keep its contents and recognize CR as end-of-line.
-/kara_config.php whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/legacy/php/kara_config.php whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

@@ -1,4 +1,6 @@
-![ゆかりフレンズ](images/yukarifriends_logo.png "ゆかりフレンズ")
+![ゆかりフレンズ](legacy/php/images/yukarifriends_logo.png "ゆかりフレンズ")
+
+開発用モノレポ（Phase 4）: 旧 PHP アプリは `legacy/php/`、新 UI は `apps/user-web`・`apps/admin-web`、統一 API は `apps/api-server` にあります。Docker の旧 URL は変更しません。[開発手順](docker/README.ja.md)・[互換性と担当範囲](docs/LEGACY_COMPATIBILITY.md)を参照してください。以下の従来 Windows 配布手順はモノレポのルートを DocumentRoot にする手順ではありません。
 
 ゆかり
 ==============================================

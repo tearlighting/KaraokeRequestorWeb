@@ -1,4 +1,4 @@
-services:
+﻿services:
   bridge-init:
     image: node:24-alpine
     command: ["node", "/init-bridge.mjs"]
@@ -13,7 +13,10 @@ services:
     ports:
       - "127.0.0.1:8080:80"
     volumes:
-      - ../:/var/www/html
+      # Preserve legacy browser URLs and relative config/SQLite paths.
+      - ../legacy/php:/var/www/html
+      # CLI validation only; this mount is outside Apache DocumentRoot.
+      - ../:/workspace:ro
       - ./apache-private.conf:/etc/apache2/conf-enabled/zz-yukari-private.conf:ro
       - legacy_bridge:/run/yukari:ro
     depends_on:
@@ -21,6 +24,10 @@ services:
         condition: service_completed_successfully
     environment:
       TZ: Asia/Tokyo
+      YUKARI_MONOREPO: "1"
+      YUKARI_NODE_QUEUE: "1"
+      YUKARI_NODE_QUEUE_MUTATIONS: "1"
+      YUKARI_NODE_REQUESTS: "1"
     healthcheck:
       test:
         - CMD
@@ -32,6 +39,7 @@ services:
       retries: 3
       start_period: 15s
   api-server:
+    group_add: ["33"]
     build:
       context: ..
       dockerfile: apps/api-server/Dockerfile
@@ -41,8 +49,24 @@ services:
       TZ: Asia/Tokyo
       LEGACY_PHP_URL: http://web
       LEGACY_BRIDGE_TOKEN_FILE: /run/yukari/bridge-token
+      LEGACY_DATABASE_ROOT: /run/legacy-db
+      LEGACY_SETTINGS_PATH: /run/legacy-settings/config.ini
     volumes:
       - legacy_bridge:/run/yukari:ro
+      # Dedicated DB/WAL/SHM directory only; Node owns admin deletion/movement.
+      - type: bind
+        source: ../legacy/php/runtime/queue
+        target: /run/legacy-db
+        read_only: false
+        bind:
+          create_host_path: false
+      # Only this existing file is shared, not passwords copied into env or a DB mount.
+      - type: bind
+        source: ../legacy/php/config.ini
+        target: /run/legacy-settings/config.ini
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       bridge-init:
         condition: service_completed_successfully

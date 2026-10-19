@@ -1,5 +1,9 @@
 # Docker 開発環境
 
+Phase 6: 元の予約 DB は `legacy/php/runtime/queue/` に移動済みです。Node はこの専用ディレクトリのみ読み取り専用でマウントし、PHP が書き込みと WAL/SHM の維持を担当します。旧 swipe 画面は短時間の読み取り専用チケットを使います。既存 DB の移動は停止・確認が必要で、代替 DB は作成しません。
+
+Phase 4: 旧 PHP ソースとローカル実行データは `legacy/php/` に移動し、Apache の `/var/www/html` にマウントします。ブラウザー URL は変更しません。CLI 検査用にリポジトリを `/workspace` に読み取り専用でマウントします。旧 UI の Node 接続は `/api/v1/meta/health` のみで、業務処理は PHP のままです。[互換性](../docs/LEGACY_COMPATIBILITY.md)を参照してください。
+
 ## Phase 3 の起動先
 
 リポジトリ直下で `docker compose -f docker/compose.yaml up --build -d` を実行すると、従来 PHP（http://127.0.0.1:8080）と統合 Node API（http://127.0.0.1:3000/health）が起動します。両ポートはローカルホストのみに公開されます。内部 Bridge の認証情報は初期化サービスが生成し、DB 更新は引き続き PHP だけが担当します。

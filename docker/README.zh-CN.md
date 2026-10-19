@@ -1,8 +1,10 @@
 # Docker 本地开发环境
 
-## Phase 3 当前入口
+Phase 6：原队列库已原样迁到 `legacy/php/runtime/queue/`，Node 仅只读挂载该目录；PHP 仍是唯一业务写入方，并以无长期事务连接维护 WAL/SHM。既有旧库不能自动搬迁/重建，须停服确认后调整 dbname；当前工作区已完成。旧队列页通过短时只读票据访问 Node，其他旧写操作不变。
 
-在项目根目录执行 `docker compose -f docker/compose.yaml up --build -d`，同时启动原 PHP（http://127.0.0.1:8080）和统一 Node API（http://127.0.0.1:3000/health）。内部 Bridge 凭据由初始化容器自动创建；数据库仍留在原目录，仅 PHP 写入。两个端口仅绑定本机。
+## Phase 6 当前入口
+
+在项目根目录执行 `docker compose -f docker/compose.yaml up --build -d`，同时启动原 PHP（http://127.0.0.1:8080）和统一 Node API（http://127.0.0.1:3000/health）。内部 Bridge 凭据由初始化容器自动创建；原 PHP 源码、配置和数据库位于 `legacy/php/`，仅 PHP 写入。两个端口仅绑定本机。
 
 两个 React 开发端分别在 `apps/user-web` 和 `apps/admin-web` 执行 `npm.cmd ci`、`npm.cmd run dev`，访问 5173 和 5174。两端现在代理 Node `/api/v1`，不再代理 PHP；新管理登录必须使用原配置的非空管理密码。详见 [API Server](../apps/api-server/README.md) 和 [重构进度](../docs/REFACTOR_PROGRESS.md)。
 
@@ -40,7 +42,7 @@ docker compose -f docker/compose.yaml down
 
 ## 开发与限制
 
-- Compose 将仓库根目录以读写 Bind Mount 挂载到容器的 `/var/www/html`。修改 PHP、CSS、JavaScript 或图片后刷新浏览器即可，无需重建镜像。
+- Compose 将 `legacy/php/` 以读写 Bind Mount 挂载到 Apache DocumentRoot `/var/www/html`；仓库另以只读方式挂载到 `/workspace` 供 CLI 检查。修改 PHP、CSS、JavaScript 或图片后刷新浏览器即可，无需重建镜像。
 - 配置文件、SQLite 数据库、上传图片和其他运行时文件保存在仓库工作区中。停止或重建容器不会删除这些数据。
 - 容器启动脚本会为本地开发开放工作区写权限。只应在可信任的本机开发环境使用，不要将此设置用于生产或公开服务。
 - 已启用 SQLite/PDO SQLite、mbstring、cURL、GD 和 ZIP 等 PHP 扩展，默认时区为 `Asia/Tokyo`。

@@ -1,6 +1,6 @@
 <?php
 // Exercise the real guard with an in-memory configured password, no config or DB writes.
-require dirname(__DIR__, 4) . '/api/_admin_auth.php';
+require dirname(__DIR__, 4) . '/legacy/php/api/_admin_auth.php';
 $config_ini = ['configpass' => 'isolated-auth-test-secret'];
 $_SERVER['HTTP_HOST'] = 'localhost';
 $_SERVER['REMOTE_ADDR'] = '127.0.0.1';

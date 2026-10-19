@@ -1,5 +1,7 @@
 # Yukari user-web
 
+Phase 4：Legacy PHP 已移动至 `legacy/php/`，本应用 API URL 和端口不变。新增旧页面真实 Edge 回归，仅接入 Node-native 健康状态。参见 [兼容性记录](../../docs/LEGACY_COMPATIBILITY.md)。
+
 第一阶段独立用户端：React + TypeScript + Vite + Tailwind CSS。只连接现有 PHP 服务，不提供新的业务后端。
 
 ## 本地开发
@@ -39,7 +41,7 @@ npm.cmd run test:e2e
 
 - 搜索调用 Node `/api/v1/search`，继续由原 Everything/YukaLister 搜索；连接不可用明确报错。
 - 预约调用 Node `/api/v1/requests`，收到合法 `data.id` 才显示保存成功。原 exec.php 仍独占实际入库。
-- 队列和播放状态经 Node 查询原 PHP，每 5 秒轮询，不自行排序或推断播放成功。
+- 队列由 Node-native SQLite 读取，播放状态仍经 Node 调原 PHP；每 5 秒轮询，不自行排序或推断播放成功。
 - 会话身份由 Node 分配，浏览器旧 PHP Cookie 和角色头不传入 Legacy；用户代理不开放管理接口。
 - `npm run preview` 仅预览构建产物，不提供后端代理。生产部署留待后续阶段。
 

@@ -1,3 +1,5 @@
+import { assertIsolatedWrites } from '../../packages/test-support/src/client';
+assertIsolatedWrites();
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests', workers: 1, fullyParallel: false, retries: 0,

@@ -9,9 +9,9 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && esbuild src/main.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/main.js",
+    "build": "npm run typecheck && esbuild src/main.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/main.js && esbuild src/migrate.ts --bundle --platform=node --format=esm --outfile=dist/migrate.js",
     "start": "node dist/main.js",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "node --import ./tests/windows-preload.mjs --import tsx --test --test-concurrency=1 tests/*.test.ts"
   },
   "dependencies": {
     "fastify": "5.12.7",

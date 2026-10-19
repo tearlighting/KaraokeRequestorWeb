@@ -1,0 +1,48 @@
+# Stop the normal web/api services first; same loopback ports allow unchanged browser tests.
+# No production DB/config mount. Only .local synthetic runtime data is writable.
+services:
+  bridge-init:
+    image: node:24-alpine
+    command: [node, /init-bridge.mjs]
+    volumes:
+      - ./init-bridge.mjs:/init-bridge.mjs:ro
+      - test_bridge:/run/yukari
+  web:
+    build: { context: .., dockerfile: docker/Dockerfile }
+    ports: ["127.0.0.1:8080:80"]
+    volumes:
+      - ../.local/phase7-test-legacy:/var/www/html
+      - ../:/workspace:ro
+      - ./apache-private.conf:/etc/apache2/conf-enabled/zz-yukari-private.conf:ro
+      - test_bridge:/run/yukari:ro
+    environment:
+      YUKARI_MONOREPO: "1"
+      YUKARI_NODE_QUEUE: "1"
+      YUKARI_NODE_QUEUE_MUTATIONS: "1"
+      YUKARI_NODE_REQUESTS: "1"
+    depends_on:
+      bridge-init: { condition: service_completed_successfully }
+    healthcheck:
+      test: [CMD, php, -r, "exit(@file_get_contents('http://127.0.0.1/search.php') === false ? 1 : 0);"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+  api-server:
+    group_add: ["33"]
+    build: { context: .., dockerfile: apps/api-server/Dockerfile }
+    ports: ["127.0.0.1:3000:3000"]
+    environment:
+      LEGACY_PHP_URL: http://web
+      LEGACY_BRIDGE_TOKEN_FILE: /run/yukari/bridge-token
+      LEGACY_DATABASE_ROOT: /run/legacy-db
+      LEGACY_SETTINGS_PATH: /run/legacy-settings/config.ini
+    volumes:
+      - test_bridge:/run/yukari:ro
+      - ../.local/phase7-test-legacy/runtime/queue:/run/legacy-db
+      - ../.local/phase7-test-tools:/test:ro
+      - ../.local/phase7-test-legacy/config.ini:/run/legacy-settings/config.ini:ro
+    depends_on:
+      web: { condition: service_healthy }
+      bridge-init: { condition: service_completed_successfully }
+volumes:
+  test_bridge:
