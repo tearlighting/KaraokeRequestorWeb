@@ -135,9 +135,7 @@ if(mb_strlen($l_freesinger) > 256 ) die();
 
 
 // print("{$l_singer} さんの {$l_filename} を追加する予定。<br>");
-?>
 
-<?php
 if(mb_stristr($l_kind , "URL指定") !== FALSE  || $l_urlreq == 1 ){
 //  $l_fullpath = $l_filename;
   $displayfilename = $l_filename;

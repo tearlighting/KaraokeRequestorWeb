@@ -1616,7 +1616,8 @@ function build_reservation_tabs($selectid = '', $current = 'search', $prefix = '
     // kara_config.php が未設定時に $_SERVER["TMP"] をデフォルト挿入するため、
     // TMP 値と一致する場合は「未設定」とみなし表示しない。
     $df_decoded = !empty($config_ini["downloadfolder"]) ? urldecode($config_ini["downloadfolder"]) : '';
-    $df_is_explicit = $df_decoded !== '' && rtrim($df_decoded, '\\') !== rtrim($_SERVER["TMP"], '\\');
+    $tmp_dir = $_SERVER["TMP"] ?? sys_get_temp_dir();
+    $df_is_explicit = $df_decoded !== '' && rtrim($df_decoded, '\\') !== rtrim($tmp_dir, '\\');
     if ($df_is_explicit && function_exists('check_access_from_online') && (check_access_from_online() === false)) {
         $tabs[] = [
             'id'    => 'upload',

@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@layer base {
+  body { @apply m-0 bg-slate-50 text-slate-900 antialiased; font-family: system-ui, sans-serif; }
+  button { @apply cursor-pointer disabled:cursor-not-allowed disabled:opacity-50; }
+  input, select, textarea { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base; }
+  :focus-visible { @apply outline-2 outline-offset-4 outline-teal-600; }
+}
+@layer components {
+  .panel { @apply rounded-2xl border border-slate-200 bg-white p-5 sm:p-6; }
+  .primary { @apply rounded-xl bg-teal-700 px-5 py-2.5 font-semibold text-white hover:bg-teal-800; }
+  .secondary { @apply rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50; }
+  .field-label { @apply mb-2 block text-sm font-medium text-slate-700; }
+  .error { @apply rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800; }
+}

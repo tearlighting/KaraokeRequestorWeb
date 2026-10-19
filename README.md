@@ -102,6 +102,8 @@
 
 インストール手順は [Wiki: インストール](https://github.com/bee7813993/KaraokeRequestorWeb/wiki/install) を参照してください。
 
+Windows での Docker 開発環境については、[日本語](docker/README.ja.md)、[简体中文](docker/README.zh-CN.md)、[English](docker/README.en.md) の各 README を参照してください。
+
 最初のセットアップがそこそこ面倒なことが分かったので、
 簡単にセットアップツールができるまで、Windowsのリモートアシスタンスでセットアップのお手伝いをしようと思います。
 何らかの方法(Twitter、mixi、Facebookなど)で連絡を取ってもらえればお手伝いしますので、ご連絡お待ちしています。

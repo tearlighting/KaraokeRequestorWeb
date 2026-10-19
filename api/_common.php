@@ -32,7 +32,8 @@ require_once __DIR__ . '/../easyauth_class.php';
 
 // 認証 (setcookie を内部で呼ぶため、いかなる出力よりも前に実行する)
 $easyauth = new EasyAuth();
-$easyauth->do_eashauthcheck();
+// Only the internal token-verified Node bridge may assert an already verified session.
+if (!defined('YUKARI_NODE_VERIFIED')) $easyauth->do_eashauthcheck();
 
 header('Content-Type: application/json; charset=utf-8');
 

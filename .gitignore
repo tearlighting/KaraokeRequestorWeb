@@ -32,3 +32,23 @@ _getid3_cache/
 
 # デバッグログ（実行時に生成）
 ykrdebug.log
+
+# Phase 1-3 local development artifacts and runtime data.
+node_modules/
+dist/
+test-results/
+playwright-report/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.log
+.env
+.env.*
+!.env.example
+/.local/
+/secrets/
+**/bridge-token
+/NUL

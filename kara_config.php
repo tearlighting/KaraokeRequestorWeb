@@ -143,6 +143,9 @@ function readconfig_array()
         $usebgv = 2;
         $config_ini = array_merge($config_ini,array("usebgv" => $usebgv));
     }
+    if(!array_key_exists("useotherplayer", $config_ini)){
+        $config_ini["useotherplayer"] = 0;
+    }
     if(!array_key_exists("usenewsearchui", $config_ini)){
         $config_ini = array_merge($config_ini,array("usenewsearchui" => 1));
     }

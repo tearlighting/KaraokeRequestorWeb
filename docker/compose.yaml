@@ -1,0 +1,57 @@
+services:
+  bridge-init:
+    image: node:24-alpine
+    command: ["node", "/init-bridge.mjs"]
+    volumes:
+      - ./init-bridge.mjs:/init-bridge.mjs:ro
+      - legacy_bridge:/run/yukari
+    restart: "no"
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ../:/var/www/html
+      - ./apache-private.conf:/etc/apache2/conf-enabled/zz-yukari-private.conf:ro
+      - legacy_bridge:/run/yukari:ro
+    depends_on:
+      bridge-init:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Tokyo
+    healthcheck:
+      test:
+        - CMD
+        - php
+        - -r
+        - "$$context = stream_context_create(['http' => ['follow_location' => 1]]); exit(@file_get_contents('http://127.0.0.1/', false, $$context) === false ? 1 : 0);"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+  api-server:
+    build:
+      context: ..
+      dockerfile: apps/api-server/Dockerfile
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      TZ: Asia/Tokyo
+      LEGACY_PHP_URL: http://web
+      LEGACY_BRIDGE_TOKEN_FILE: /run/yukari/bridge-token
+    volumes:
+      - legacy_bridge:/run/yukari:ro
+    depends_on:
+      bridge-init:
+        condition: service_completed_successfully
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+volumes:
+  legacy_bridge:
