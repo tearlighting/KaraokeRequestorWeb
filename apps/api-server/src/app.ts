@@ -13,6 +13,9 @@ import { verifyQueueTicket } from './legacy-queue.js';
 import { QueueRepository, QueueService, queueSchema, queueContextSchema } from './queue.js';
 import type { AdminSession } from '../../../packages/contracts/src/index.js';
 import { PlayerTaskStore, agentAuthorized } from './player-agent.js';
+import { QueueAutoplayOwner, QueueAutoplayRepository, QueueAutoplayService } from './queue-autoplay.js';
+import { PlaybackTaskRepository } from './playback-tasks.js';
+import { MediaCheckCoordinator, type MediaCheckResult } from './media-checks.js';
 
 const id = z.coerce.number().int().positive().max(2147483647);
 const statusSchema = z.object({ php_version: z.string(), os: z.string(), detected_player: z.string(), playmode: z.number(),
@@ -23,7 +26,7 @@ function legacyParse<T>(schema: z.ZodType<T>, value: unknown): T {
   if (!parsed.success) throw new BoundaryError(502, 'LEGACY_CONTRACT_ERROR', '原 PHP 响应不符合预期字段：' + parsed.error.issues.map((item) => item.path.join('.')).join(', '));
   return parsed.data;
 }
-export interface AppOptions { legacyUrl: string; bridgeToken: string; userOrigins: string[]; adminOrigins: string[]; secureCookies?: boolean; settingsPath?: string; queueRoot?: string; legacyOrigins?: string[]; playerAgentToken?: string; playerStatePath?: string }
+export interface AppOptions { legacyUrl: string; bridgeToken: string; userOrigins: string[]; adminOrigins: string[]; secureCookies?: boolean; settingsPath?: string; queueRoot?: string; queueDatabase?: string; nodeAutoplay?: boolean; legacyOrigins?: string[]; playerAgentToken?: string; playerStatePath?: string }
 export function createApp(options: AppOptions) {
   // No request/body logging: login secrets, session cookies and service tokens never enter logs.
   const app = Fastify({ logger: false, bodyLimit: 65536, trustProxy: false });
@@ -33,8 +36,14 @@ export function createApp(options: AppOptions) {
   const requests = new RequestService(new RequestRepository(options.queueRoot || '/run/legacy-db'), receipts);
   const mutations = new QueueMutationService(new QueueMutationRepository(options.queueRoot || '/run/legacy-db'));
   const queue = new QueueService(new QueueRepository(options.queueRoot || '/run/legacy-db'));
+  const autoplay = new QueueAutoplayService(new QueueAutoplayRepository(options.queueRoot || '/run/legacy-db'));
+  const autoplayOwner = new QueueAutoplayOwner(options.queueRoot || '/run/legacy-db');
+  const playbackTasks = new PlaybackTaskRepository(options.queueRoot || '/run/legacy-db');
+  const playbackDatabase = options.queueDatabase || 'request.db';
+  app.addHook('onReady', async () => { if (options.nodeAutoplay) { playbackTasks.requireSchema(playbackDatabase); playbackTasks.recoverOnStartup(playbackDatabase); if(playbackTasks.current(playbackDatabase)&&!autoplayOwner.active())autoplayOwner.acquire(); } });
   const settings = new SettingsService(new SettingsRepository(options.settingsPath || '/run/legacy-settings/config.ini'));
   const playerTasks = new PlayerTaskStore(options.playerStatePath || join(tmpdir(), 'yukari-player-agent', randomUUID(), 'state.json'));
+  const mediaChecks = new MediaCheckCoordinator();
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
     if (request.method === 'GET' && (request.url === '/health' || request.url === '/api/v1/meta/health')) return;
@@ -112,11 +121,24 @@ export function createApp(options: AppOptions) {
   app.get('/api/v1/playback/agent', async (request) => {
     sessions.get(request, 'user');
     const value = playerTasks.status();
-    return success({ connected: value.connected, playback: value.playback, active: Boolean(value.task && ['claimed','playing'].includes(value.task.state)) });
+    const formal=playbackTasks.hasSchema(playbackDatabase)?playbackTasks.current(playbackDatabase):undefined;
+    return success({ connected: value.connected, playback: value.playback, active: Boolean(formal&&['claimed','playing'].includes(String(formal.state)) || value.task && ['claimed','playing'].includes(value.task.state)) });
   });
-  app.get('/api/v1/admin/player-agent', async (request) => { sessions.get(request, 'admin'); return success(playerTasks.status()); });
+  app.get('/api/v1/admin/player-agent', async (request) => { sessions.get(request, 'admin'); const current=playbackTasks.hasSchema(playbackDatabase)?playbackTasks.current(playbackDatabase):undefined; return success({ ...playerTasks.status(), task:current||playerTasks.status().task, nodeOwnsQueue: autoplayOwner.active(), nodeAutoplayAvailable: options.nodeAutoplay === true }); });
+  app.post('/api/v1/admin/queue/:id/media-check', async (request) => {
+    sessions.get(request, 'admin'); const requestId=id.parse((request.params as {id:string}).id); z.object({}).strict().parse(request.body);
+    const live=playerTasks.status(); if(!live.connected) return success({state:'agent_offline' as const,requestId});
+    const row=autoplay.read(playbackDatabase,requestId); if(!row)throw new BoundaryError(404,'REQUEST_NOT_FOUND','Reservation was not found');
+    return success(mediaChecks.create(requestId,row.fullpath));
+  });
+  app.get('/api/v1/admin/queue/:id/media-check/:checkId', async (request) => {
+    sessions.get(request, 'admin'); const params=z.object({id:z.coerce.number().int().positive(),checkId:z.string().uuid()}).parse(request.params);
+    return success(mediaChecks.read(params.checkId,params.id));
+  });
+  app.get('/api/v1/admin/playback/history', async (request) => { sessions.get(request,'admin'); const paging=z.object({limit:z.coerce.number().int().min(1).max(100).default(50),offset:z.coerce.number().int().min(0).max(100000).default(0)}).strict().parse(request.query); return success(playbackTasks.history(playbackDatabase,paging.limit,paging.offset)); });
   app.post('/api/v1/admin/player-agent/test', async (request) => {
     sessions.get(request, 'admin'); z.object({}).strict().parse(request.body);
+    if (autoplayOwner.active()) throw new BoundaryError(409,'AUTOPLAY_ACTIVE','Stop formal autoplay before starting a local test task');
     if (!options.playerAgentToken) throw new BoundaryError(503, 'PLAYER_AGENT_NOT_CONFIGURED', 'Player Agent 未配置');
     return success(playerTasks.createTest());
   });
@@ -126,19 +148,96 @@ export function createApp(options: AppOptions) {
     if (!options.playerAgentToken) throw new BoundaryError(503, 'PLAYER_AGENT_NOT_CONFIGURED', 'Player Agent 未配置');
     return success(playerTasks.control(body.action));
   });
+  app.post('/api/v1/admin/player-agent/autoplay', async (request) => {
+    sessions.get(request, 'admin');
+    if (!options.nodeAutoplay) throw new BoundaryError(503, 'NODE_AUTOPLAY_DISABLED', 'Node 自动播放尚未在服务端启用');
+    if (!options.playerAgentToken) throw new BoundaryError(503, 'PLAYER_AGENT_NOT_CONFIGURED', 'Player Agent 未配置');
+    const { action } = z.object({ action: z.enum(['start','arm-manual','start-next','stop','pause','resume','skip']) }).strict().parse(request.body);
+    if (['pause','resume','skip'].includes(action)) return success(playbackTasks.control(playbackDatabase,action as 'pause'|'resume'|'skip'));
+    if (action === 'stop') {
+      const local=playerTasks.status().task;
+      if(local?.kind==='test'&&['claimed','playing'].includes(local.state))throw new BoundaryError(409,'TEST_TASK_ACTIVE','Stop the local test task with its dedicated control');
+      const formal=playbackTasks.current(playbackDatabase);
+      if(formal?.state==='claimed')playbackTasks.stopPending(playbackDatabase);
+      else if(formal)playbackTasks.control(playbackDatabase,'stop');
+      const result=playerTasks.autoplayAction('stop');
+      if(!formal||formal.state==='claimed')autoplayOwner.release();
+      return success(result);
+    }
+    if (action === 'arm-manual') {
+      if (!playerTasks.status().connected) throw new BoundaryError(503,'PLAYER_AGENT_OFFLINE','Player Agent is offline');
+      const mode=(await settings.readCurrent()).playmode;
+      if(mode!==2)throw new BoundaryError(409,'LEGACY_MODE_MISMATCH','Manual queue start requires the existing Legacy playmode=2; this action does not change that setting');
+      if(playbackTasks.current(playbackDatabase))throw new BoundaryError(409,'PLAYBACK_TASK_ACTIVE','Resolve the active playback task before arming manual mode');
+      if(playbackTasks.hasLegacyActivePlayback(playbackDatabase))throw new BoundaryError(409,'LEGACY_PLAYBACK_ACTIVE','A Legacy playback marker exists; stop and reconcile the old playback manager before transferring ownership');
+      if(!autoplayOwner.active())autoplayOwner.acquire();
+      try { return success(playerTasks.armManual()); } catch(error) { if(!playerTasks.status().autoplayEnabled)autoplayOwner.release(); throw error; }
+    }
+    if (action === 'start-next') {
+      const mode=(await settings.readCurrent()).playmode;
+      if(mode!==2)throw new BoundaryError(409,'LEGACY_MODE_MISMATCH','Manual queue start requires the existing Legacy playmode=2');
+      if(!playerTasks.status().manualMode)throw new BoundaryError(409,'MANUAL_PLAYBACK_NOT_ARMED','Arm manual playback before starting the next request');
+      if(playbackTasks.current(playbackDatabase))throw new BoundaryError(409,'PLAYBACK_TASK_ACTIVE','Wait for the current reservation to finish or stop it before starting the next');
+      return success(playerTasks.requestManualStart());
+    }
+    let acquiredOwner = false;
+    if (action === 'start') {
+      const live = playerTasks.status();
+      if (!live.connected) throw new BoundaryError(503, 'PLAYER_AGENT_OFFLINE', 'Player Agent 未连接');
+      if (live.task?.kind === 'test' && ['pending','claimed','playing'].includes(live.task.state)) throw new BoundaryError(409, 'TEST_TASK_ACTIVE', 'Stop the local test task before starting queue autoplay');
+      const mode = (await settings.readCurrent()).playmode;
+      if (mode !== 1) throw new BoundaryError(409, 'AUTOPLAY_MODE_UNSUPPORTED', '当前原版播放模式不是顺序自动模式（playmode=1）；设置未改变');
+      if (playbackTasks.hasLegacyActivePlayback(playbackDatabase)) throw new BoundaryError(409,'LEGACY_PLAYBACK_ACTIVE','A Legacy playback marker exists; stop and reconcile the old playback manager before transferring ownership');
+      if (!autoplayOwner.active()) { autoplayOwner.acquire(); acquiredOwner = true; }
+    }
+    let result;
+    try { result = playerTasks.autoplayAction('start'); }
+    catch (error) { if (acquiredOwner) autoplayOwner.release(); throw error; }
+    return success(result);
+  });
   const agentIdentity = z.object({ agentId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/), testReady: z.boolean().optional() }).strict();
   const requireAgent = (request: { headers: { authorization?: string } }) => {
     if (!options.playerAgentToken || !agentAuthorized(request.headers.authorization, options.playerAgentToken)) throw new BoundaryError(401, 'PLAYER_AGENT_UNAUTHORIZED', 'Player Agent 凭据无效');
   };
   app.post('/api/v1/agent/next', async (request) => {
-    requireAgent(request); const body = agentIdentity.parse(request.body); return success(playerTasks.next(body.agentId, body.testReady === true));
+    requireAgent(request); const body = agentIdentity.parse(request.body);
+    let assignment: {task:{id:string;kind:'test'|'queue';requestId?:number;state:'pending'|'claimed'|'playing'|'completed'|'failed';createdAt?:number;agentId?:string;error?:string;mediaPath?:string}|null;command:'pause'|'resume'|'stop'|'skip'|null;commandTaskId?:string;mediaCheck?:{id:string;requestId:number;path:string}}=playerTasks.next(body.agentId,body.testReady===true);
+    if(assignment.task?.kind==='queue')assignment={task:null,command:null};
+    if(!assignment.command){const mediaCheck=mediaChecks.claim(body.agentId);if(mediaCheck)assignment={...assignment,mediaCheck};}
+    const agentStatus=playerTasks.status();
+    if(!assignment.task&&!assignment.command&&!assignment.mediaCheck&&options.nodeAutoplay&&autoplayOwner.active()&&(!agentStatus.manualMode||agentStatus.manualStartRequested)){
+      const configuredMode=(await settings.readCurrent()).playmode;
+      if(agentStatus.manualMode&&configuredMode!==2)throw new BoundaryError(409,'LEGACY_MODE_MISMATCH','Manual playback strategy no longer matches configured playmode=2');
+      const claimed=playbackTasks.claimNext(playbackDatabase,agentStatus.manualMode?1:configuredMode,body.agentId);
+      if(agentStatus.manualMode)playerTasks.consumeManualStart();
+      if(claimed.task)assignment={...assignment,task:claimed.task,command:claimed.command};
+      else if(claimed.command)assignment={...assignment,task:null,command:claimed.command,commandTaskId:claimed.commandTaskId};
+    }
+    return success(assignment);
   });
   app.post('/api/v1/agent/report', async (request) => {
     requireAgent(request);
     const body = z.object({ agentId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/), taskId: z.string().uuid().optional(),
       state: z.enum(['claimed','playing','completed','failed']).optional(), playback: z.enum(['idle','starting','playing','paused','stopped','unavailable']),
-      testReady: z.boolean().optional(), file: z.string().max(255).optional(), error: z.string().max(300).optional() }).strict().parse(request.body);
-    return success(playerTasks.report(body.agentId, body));
+      testReady: z.boolean().optional(), file: z.string().max(255).optional(), error: z.string().max(300).optional(), endReason: z.literal('eof').optional(), outcome: z.literal('skipped').optional() }).strict().parse(request.body);
+    if(body.taskId){
+      const formal=playbackTasks.readTask(playbackDatabase,body.taskId);
+      if(formal){
+        const result=playbackTasks.report(playbackDatabase,body.taskId,body.agentId,body);
+        if(result.changed&&result.eventType)void legacy.notifyQueueService().catch(()=>{});
+        if(body.state==='failed'&&body.outcome!=='skipped')playerTasks.setAutoplay(false,'Formal playback failed; inspect task history and explicitly stop the owner fence');
+        const heartbeat=playerTasks.report(body.agentId,{playback:body.playback,testReady:body.testReady===true,file:body.file});
+        if(!playerTasks.status().autoplayEnabled&&body.state==='failed')autoplayOwner.release();
+        return success({...heartbeat,task:result.state});
+      }
+    }
+    if(body.state==='completed'&&body.endReason!=='eof')throw new BoundaryError(400,'PLAYER_EOF_REQUIRED','Only real mpv end-file reason=eof can complete a task');
+    return success(playerTasks.report(body.agentId,body));
+  });
+  app.post('/api/v1/agent/media-check', async (request) => {
+    requireAgent(request);
+    const body=z.object({agentId:z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),checkId:z.string().uuid(),result:z.enum(['playable','path_unmapped','file_missing','invalid_path'])}).strict().parse(request.body);
+    return success(mediaChecks.complete(body.checkId,body.agentId,body.result as MediaCheckResult));
   });
   app.get('/api/v1/search', async (request) => {
     const identity = sessions.get(request, 'user');
@@ -243,6 +342,7 @@ export function createApp(options: AppOptions) {
   });
   app.post('/api/v1/playback/control', async (request) => {
     const identity = sessions.get(request, 'admin');
+    if (autoplayOwner.active()) throw new BoundaryError(409, 'AUTOPLAY_OWNS_PLAYER', 'Fastify owns playback while queue autoplay is active');
     const body = z.object({ player: z.enum(['mpc', 'foobar']), action: z.enum(['play', 'pause', 'playpause', 'stop']) }).strict().parse(request.body);
     return success(legacyParse(z.object({ acknowledged: z.literal(true), player: z.literal(body.player), action: z.literal(body.action), message: z.string() }), await legacy.call('admin-player', identity, body)));
   });

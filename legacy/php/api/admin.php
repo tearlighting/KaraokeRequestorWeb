@@ -120,6 +120,8 @@ try {
             'playback' => build_playingstatus_data($db, $config_ini),
             'password_configured' => !empty($config_ini['configpass'])];
     } elseif ($operation === 'player') {
+        require_once __DIR__ . '/_node_autoplay_owner.php';
+        if (yukari_node_autoplay_active()) admin_fail('Fastify owns the player while queue autoplay is active', 409);
         $player = $_POST['player'] ?? '';
         $action = $_POST['action'] ?? '';
         if (!in_array($player, ['mpc', 'foobar'], true) || !in_array($action, ['play', 'pause', 'playpause', 'stop'], true)) admin_fail('不支持的播放器操作', 400);

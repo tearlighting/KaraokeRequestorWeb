@@ -62,11 +62,19 @@ export class SettingsRepository {
       return bytes;
     } catch { throw unavailable(); }
   }
+  async currentSnapshot(): Promise<Buffer> {
+    try { const bytes = await readFile(this.path); if (bytes.length > 2 * 1024 * 1024) throw unavailable(); return bytes; }
+    catch { throw unavailable(); }
+  }
 }
 
 export class SettingsService {
   constructor(private repository: SettingsRepository) {}
   async read(expectedRevision: string): Promise<Settings> {
     return projectSettings(await this.repository.snapshot(expectedRevision));
+  }
+  /** Internal playback coordinator projection; exposes only the existing allowlisted scalar settings. */
+  async readCurrent(): Promise<Settings> {
+    return projectSettings(await this.repository.currentSnapshot());
   }
 }

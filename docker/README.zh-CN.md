@@ -55,3 +55,7 @@ docker compose -f docker/compose.yaml down
 - 若无法识别 `docker` 命令，请安装并启动 Docker Desktop，然后重新打开 PowerShell。
 - PHP 页面报错时查看 `docker compose -f docker/compose.yaml logs web`。常见原因包括镜像构建失败、工作区写入权限问题，或访问了依赖 Windows 播放器的功能。
 - `docker compose ... down` 不会删除工作区数据；除非确实要重置本地状态，否则不要手动删除配置文件或 SQLite 数据库。
+
+## Windows 11 本地启动器
+
+一键启动、停止、状态、日志和本机媒体目录配置见[Windows 本地运行手册](../docs/WINDOWS_LOCAL_RUNBOOK.zh-CN.md)。正式 React 页面由 Apache 在 `/user/`、`/admin/` 提供，统一入口 `/app/`；原 PHP URL 保持可用。停止脚本只停止指定 Agent 和 Compose 的 web/API 服务，不删除容器卷。

@@ -37,9 +37,13 @@ services:
       LEGACY_DATABASE_ROOT: /run/legacy-db
       LEGACY_SETTINGS_PATH: /run/legacy-settings/config.ini
       PLAYER_AGENT_STATE_PATH: /run/player-agent-state/state.json
+      PLAYER_AGENT_TOKEN_FILE: /run/player-agent-token/token
+      PLAYER_QUEUE_DATABASE: request.db
+      YUKARI_NODE_AUTOPLAY: "1"
     volumes:
       - test_bridge:/run/yukari:ro
       - test_player_agent_state:/run/player-agent-state
+      - ../.local/player-agent-token:/run/player-agent-token/token:ro
       - ../.local/phase7-test-legacy/runtime/queue:/run/legacy-db
       - ../.local/phase7-test-tools:/test:ro
       - ../.local/phase7-test-legacy/config.ini:/run/legacy-settings/config.ini:ro

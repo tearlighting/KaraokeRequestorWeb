@@ -29,10 +29,17 @@ export interface SystemStatus {
 export interface PlayerAgentStatus {
   connected: boolean;
   testReady: boolean;
+  autoplayEnabled: boolean;
+  manualMode: boolean;
+  manualStartRequested: boolean;
+  nodeOwnsQueue: boolean;
+  nodeAutoplayAvailable: boolean;
+  blockedReason?: string;
   playback: 'idle'|'starting'|'playing'|'paused'|'stopped'|'unavailable';
   file?: string;
-  task: { id: string; kind: 'test'; state: 'pending'|'claimed'|'playing'|'completed'|'failed'; createdAt: number; error?: string } | null;
+  task: { id: string; kind: 'test'|'queue'; requestId?: number; state: 'pending'|'claimed'|'playing'|'completed'|'failed'|'uncertain'; createdAt: number; error?: string } | null;
 }
+export type MediaAvailability = 'playable' | 'path_unmapped' | 'file_missing' | 'invalid_path' | 'agent_offline' | 'pending' | 'claimed';
 export interface ReservationInput {
   filename: string; fullpath: string; singer: string; comment: string; kind: '動画' | '小休止' | 'カラオケ配信' | 'URL指定' | '動画_別プ'; secret?: number | string;
   freesinger?: string; selectid?: number | string; loop?: number | string; otherplayer?: number | string; urlreq?: number | string;

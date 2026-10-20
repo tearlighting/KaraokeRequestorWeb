@@ -11,7 +11,8 @@ const app = createApp({ legacyUrl: process.env.LEGACY_PHP_URL || 'http://web', b
   legacyOrigins: (process.env.LEGACY_QUEUE_ORIGINS || 'http://127.0.0.1:8080,http://localhost:8080').split(','),
   settingsPath: process.env.LEGACY_SETTINGS_PATH,
   secureCookies: process.env.COOKIE_SECURE === '1', playerAgentToken,
-  playerStatePath: process.env.PLAYER_AGENT_STATE_PATH || '/run/player-agent-state/state.json' });
+  playerStatePath: process.env.PLAYER_AGENT_STATE_PATH || '/run/player-agent-state/state.json',
+  nodeAutoplay: process.env.YUKARI_NODE_AUTOPLAY === '1', queueDatabase: process.env.PLAYER_QUEUE_DATABASE || 'request.db' });
 await app.listen({ host: process.env.HOST || '127.0.0.1', port: Number(process.env.PORT || 3000) });
 console.log('Yukari API ready');
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => { void app.close().then(() => process.exit(0)); });

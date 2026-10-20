@@ -1,4 +1,9 @@
 <?php
+function yukari_node_autoplay_owns_queue() { return is_file(__DIR__ . '/runtime/queue/node-autoplay.owner'); }
+if (yukari_node_autoplay_owns_queue()) {
+    fwrite(STDERR, "Node/Fastify owns the playback queue; Legacy manage-mpc is disabled until ownership is released.\n");
+    exit(3);
+}
 //setlocale(LC_ALL,  'ja_JP.UTF-8','ja_JP.Shift_JIS');
 if (setlocale(LC_ALL,  'ja_JP.UTF-8', 'Japanese_Japan.932') === false) {
     logtocmd('Locale not found: ja_JP.UTF-8');
@@ -301,6 +306,7 @@ function mpc_waiting_start($db, $id){
 // status が 再生中になるのを待つ
    $state = 6;
    while($state == 6){
+     if (yukari_node_autoplay_owns_queue()) exit(3);
      $state = check_nowplaying_state ($db,$id);
      if($state != 6) break;
      sleep(0.5);
@@ -514,6 +520,7 @@ function runningcheck_shop_karaoke($db,$id){
    $exit = 1;
    while($exit == 1)
    {
+       if (yukari_node_autoplay_owns_queue()) exit(3);
        // db statusを確認
        $stat = check_nowplaying_state ($db,$id);
        if($stat === 3  || $stat === 4 || $stat === 5){
@@ -533,6 +540,7 @@ function runningcheck_audio($db,$id,$playerchecktimes){
    $exit = 1;
    while($exit == 1)
    {
+       if (yukari_node_autoplay_owns_queue()) exit(3);
        // db statusを確認
        $stat = check_nowplaying_state ($db,$id);
        if($stat === 3 ){
@@ -1089,6 +1097,7 @@ function check_end_song($db,$id,$playerchecktimes,$playmode,$commenturl){
     $stat = 2;
     while($exit == 1)
     {
+       if (yukari_node_autoplay_owns_queue()) exit(3);
        //★ echo ".";
        // db statusを確認
        $stat = check_nowplaying_state ($db,$id);
@@ -1154,6 +1163,7 @@ function runningcheck_mpc($db,$id,$playerchecktimes,$commenturl){
    $startonce = false;
    while($exit == 1)
    {
+       if (yukari_node_autoplay_owns_queue()) exit(3);
        // db statusを確認
        $stat = check_nowplaying_state ($db,$id);
        if($stat === 3 ){
@@ -1226,6 +1236,7 @@ function autoopenbingo($id){
 
 /******** ここからメイン処理 ********/
 while(1){
+    if (yukari_node_autoplay_owns_queue()) exit(3);
     logtocmd_dbg( '全体ループ開始'."\n");
      //config 再読込
      readconfig($dbname,$playmode,$playerpath,$foobarpath,$requestcomment,$usenfrequset,$historylog,$waitplayercheckstart,$playerchecktimes,$connectinternet,$usevideocapture,$moviefullscreen,$helpurl,$commenturl_base,$commentroot,$commenturl);

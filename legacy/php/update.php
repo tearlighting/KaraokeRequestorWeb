@@ -1,4 +1,9 @@
 <?php
+if (isset($_REQUEST['nowplaying']) && is_file(__DIR__ . '/runtime/queue/node-autoplay.owner')) {
+    http_response_code(409);
+    echo 'Playback status is owned by Fastify while queue autoplay is active';
+    exit;
+}
 if (isset($_REQUEST['reqorder'])) require __DIR__ . '/api/_queue_write_owner.php';
 $db = null;
 

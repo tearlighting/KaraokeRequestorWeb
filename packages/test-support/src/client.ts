@@ -12,7 +12,8 @@ export function testCredentials() {
 /** Hard stop against accidentally running Phase 7 write regression on deployed data. */
 export function assertIsolatedWrites() {
   const path = process.env.E2E_CONFIG_PATH;
-  if (!path || !resolve(path).replaceAll('\\', '/').endsWith('/.local/phase7-test-legacy/config.ini')
+  const normalized=path?resolve(path).replaceAll('\\','/'):'';
+  if (!path || !/\/\.local\/[a-z0-9-]*-test-legacy\/config\.ini$/i.test(normalized)
       || readFileSync(join(dirname(path), '.isolated-test-fixture'), 'utf8') !== 'synthetic only') {
     throw new Error('Write regression requires the synthetic compose.isolated deployment and E2E_CONFIG_PATH');
   }

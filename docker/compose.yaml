@@ -47,12 +47,16 @@
       - "127.0.0.1:3000:3000"
     environment:
       TZ: Asia/Tokyo
+      USER_ORIGINS: "http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:5173,http://localhost:5173"
+      ADMIN_ORIGINS: "http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:5174,http://localhost:5174"
       LEGACY_PHP_URL: http://web
       LEGACY_BRIDGE_TOKEN_FILE: /run/yukari/bridge-token
       LEGACY_DATABASE_ROOT: /run/legacy-db
       LEGACY_SETTINGS_PATH: /run/legacy-settings/config.ini
       PLAYER_AGENT_TOKEN_FILE: /run/player-agent-token/token
       PLAYER_AGENT_STATE_PATH: /run/player-agent-state/state.json
+      PLAYER_QUEUE_DATABASE: request.db
+      YUKARI_NODE_AUTOPLAY: "0"
     volumes:
       - legacy_bridge:/run/yukari:ro
       - ../.local/player-agent-token:/run/player-agent-token/token:ro

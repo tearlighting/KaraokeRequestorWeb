@@ -12,7 +12,10 @@ test('Legacy 同源适配仅开放 Node-native 健康状态，保留 URL 和权�
   assert.deepEqual(await proxy.json(), await direct.json());
   for (const path of ['/api/v1/admin/queue', '/api/v1/user/session', '/api/v1/settings', '/api/v1/meta/health/extra']) {
     const result = await fetch(phpBase + path, { headers: { 'X-Yukari-Client': '1', 'X-Yukari-Role': 'admin' } });
-    assert.equal(result.status, 403, path);
+    // The unified reverse proxy now lets Fastify answer API paths. Its auth
+    // boundary may return 401, while unsupported methods/paths return 404;
+    // none may be treated as a successful legacy-page bypass.
+    assert.ok([401, 403, 404].includes(result.status), `${path}: ${result.status}`);
   }
   for (const path of ['/config.ini', '/ini.ini', '/request.db', '/request.db-wal', '/runtime/queue/', '/runtime/queue/request.db', '/runtime/queue/request.db-wal', '/pfwd_forykr/ykrnkkr.ppk']) {
     assert.equal((await fetch(phpBase + path)).status, 403, path);

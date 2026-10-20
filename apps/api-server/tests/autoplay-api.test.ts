@@ -1,0 +1,91 @@
+﻿import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { DatabaseSync } from 'node:sqlite';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createApp } from '../src/app.js';
+
+test('Fastify autoplay claims one ordered row and projects only observed playing/eof into Legacy markers', async () => {
+  const root=mkdtempSync(join(tmpdir(),'yukari-autoplay-api-'));
+  const db=new DatabaseSync(join(root,'request.db'));
+  db.exec(`CREATE TABLE requesttable(id INTEGER PRIMARY KEY,songfile TEXT,fullpath TEXT,kind TEXT,reqorder INTEGER,nowplaying TEXT,playtimes INTEGER,loop INTEGER,pause INTEGER,track INTEGER,keychange INTEGER,audiodelay INTEGER,volume INTEGER);
+    INSERT INTO requesttable VALUES(10,'first','D:\\media\\first.mp4','動画',1,'未再生',0,0,0,0,0,0,0);
+    INSERT INTO requesttable VALUES(11,'second','D:\\media\\second.mp4','動画',2,'未再生',0,0,0,0,0,0,0);`);
+  db.exec(readFileSync(new URL('../migrations/002-playback-task.sql',import.meta.url),'utf8'));db.close();
+  writeFileSync(join(root,'config.ini'),'playmode=1\nstartvolume=50\nrequestlistactivereload=1\n');
+  let notices=0;
+  const legacy=createServer(async(req,res)=>{
+    const op=new URL(req.url||'/', 'http://legacy').searchParams.get('operation');
+    if(op==='queue-notify-service')notices++;
+    const data=op==='admin-auth'||op==='user-auth'?{proof:'p'.repeat(64)}:op==='queue-notify-service'?{notified:true}:{};
+    res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({ok:true,data}));
+  });
+  await new Promise<void>(resolve=>legacy.listen(0,'127.0.0.1',resolve));
+  const address=legacy.address();assert.ok(address&&typeof address!=='string');
+  const app=createApp({legacyUrl:`http://127.0.0.1:${address.port}`,bridgeToken:'b'.repeat(48),playerAgentToken:'a'.repeat(48),playerStatePath:join(root,'state.json'),settingsPath:join(root,'config.ini'),queueRoot:root,queueDatabase:'request.db',nodeAutoplay:true,userOrigins:['http://user'],adminOrigins:['http://admin']});
+  const common={'x-yukari-client':'1','content-type':'application/json'};
+  const agent={...common,authorization:`Bearer ${'a'.repeat(48)}`};
+  const sql=()=>new DatabaseSync(join(root,'request.db'));
+  try {
+    let r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',playback:'idle',testReady:true}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/autoplay',headers:common,payload:{action:'start'}});assert.equal(r.statusCode,401);
+    r=await app.inject({method:'POST',url:'/api/v1/admin/session',headers:common,payload:{username:'admin',password:'fixture-only'}});assert.equal(r.statusCode,200);
+    const cookie=String(r.headers['set-cookie']).split(';')[0];const admin={...common,cookie};
+    let check=sql();check.prepare('UPDATE requesttable SET nowplaying=? WHERE id=10').run('再生中');check.close();
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/autoplay',headers:admin,payload:{action:'start'}});assert.equal(r.statusCode,409);assert.equal(r.json().error.code,'LEGACY_PLAYBACK_ACTIVE');
+    const legacyOwnership=await app.inject({method:'GET',url:'/api/v1/admin/player-agent',headers:admin});assert.equal(legacyOwnership.json().data.nodeOwnsQueue,false);
+    check=sql();check.prepare('UPDATE requesttable SET nowplaying=? WHERE id=10').run('未再生');check.close();
+    const availability=await app.inject({method:'POST',url:'/api/v1/admin/queue/10/media-check',headers:admin,payload:{}});assert.equal(availability.statusCode,200);assert.equal(availability.json().data.state,'pending');
+    const checkId=availability.json().data.id;
+    const assignedCheck=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agent,payload:{agentId:'fixture-agent',testReady:true}});assert.equal(assignedCheck.json().data.mediaCheck.requestId,10);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/media-check',headers:agent,payload:{agentId:'fixture-agent',checkId,result:'path_unmapped'}});assert.equal(r.statusCode,200);
+    const availabilityResult=await app.inject({method:'GET',url:`/api/v1/admin/queue/10/media-check/${checkId}`,headers:admin});assert.equal(availabilityResult.json().data.state,'path_unmapped');
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/test',headers:admin,payload:{}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/autoplay',headers:admin,payload:{action:'start'}});assert.equal(r.statusCode,409);
+    let ownership=await app.inject({method:'GET',url:'/api/v1/admin/player-agent',headers:admin});assert.equal(ownership.json().data.nodeOwnsQueue,false);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agent,payload:{agentId:'fixture-agent',testReady:true}});assert.equal(r.json().data.task.kind,'test');
+    const testTask=r.json().data.task.id;
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId:testTask,state:'claimed',playback:'starting'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId:testTask,state:'failed',playback:'stopped',error:'fixture cleanup'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/autoplay',headers:admin,payload:{action:'start'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agent,payload:{agentId:'fixture-agent',testReady:true}});assert.equal(r.statusCode,200);assert.equal(r.json().data.task?.requestId,10,JSON.stringify(r.json()));
+    const taskId=r.json().data.task.id;
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId,state:'claimed',playback:'starting'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId,state:'playing',playback:'playing',file:'first.mp4'}});assert.equal(r.statusCode,200);
+    check=sql();assert.deepEqual({...check.prepare('SELECT nowplaying,playtimes FROM requesttable WHERE id=10').get() as object},{nowplaying:'再生中',playtimes:1});check.close();await new Promise(resolve=>setTimeout(resolve,20));assert.equal(notices,1);
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/autoplay',headers:admin,payload:{action:'pause'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agent,payload:{agentId:'fixture-agent',testReady:true}});assert.equal(r.json().data.command,'pause');
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId,state:'playing',playback:'paused'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/autoplay',headers:admin,payload:{action:'resume'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agent,payload:{agentId:'fixture-agent',testReady:true}});assert.equal(r.json().data.command,'resume');
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId,state:'playing',playback:'playing'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId,state:'completed',playback:'idle'}});assert.equal(r.statusCode,400);
+    check=sql();assert.equal((check.prepare('SELECT nowplaying FROM requesttable WHERE id=10').get() as {nowplaying:string}).nowplaying,'再生中');check.close();
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId,state:'completed',playback:'idle',endReason:'eof'}});assert.equal(r.statusCode,200);assert.equal(r.json().data.task.state,'completed');
+    check=sql();assert.equal((check.prepare('SELECT nowplaying FROM requesttable WHERE id=10').get() as {nowplaying:string}).nowplaying,'再生済');check.close();await new Promise(resolve=>setTimeout(resolve,20));assert.equal(notices,4);
+    check=sql();assert.equal((check.prepare("SELECT COUNT(*) n FROM playback_event WHERE task_id=? AND event_type='eof'").get(taskId) as {n:number}).n,1);check.close();
+    r=await app.inject({method:'GET',url:'/api/v1/admin/playback/history',headers:admin});assert.equal(r.statusCode,200);assert.equal(JSON.stringify(r.json()).includes('D:\\media'),false);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agent,payload:{agentId:'fixture-agent',testReady:true}});assert.equal(r.statusCode,200);assert.equal(r.json().data.task.requestId,11);
+    const status=await app.inject({method:'GET',url:'/api/v1/admin/player-agent',headers:admin});assert.equal(status.statusCode,200);assert.equal(status.json().data.task.requestId,11);
+    const secondTask=status.json().data.task.id;
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/autoplay',headers:admin,payload:{action:'skip'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agent,payload:{agentId:'fixture-agent',testReady:true}});assert.equal(r.json().data.command,'skip');
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId:secondTask,state:'failed',playback:'stopped',outcome:'skipped'}});assert.equal(r.statusCode,200);
+    check=sql();assert.equal((check.prepare('SELECT nowplaying FROM requesttable WHERE id=11').get() as {nowplaying:string}).nowplaying,'\u505c\u6b62\u4e2d');assert.equal((check.prepare('SELECT state FROM playback_task WHERE task_id=?').get(secondTask) as {state:string}).state,'failed');check.close();
+    writeFileSync(join(root,'config.ini'),'playmode=2\nstartvolume=50\nrequestlistactivereload=1\n');
+    check=sql();check.prepare('UPDATE requesttable SET nowplaying=? WHERE id=11').run('未再生');check.close();
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/autoplay',headers:admin,payload:{action:'arm-manual'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agent,payload:{agentId:'fixture-agent',testReady:true}});assert.equal(r.json().data.task,null,'manual strategy must not auto-claim');
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/autoplay',headers:admin,payload:{action:'start-next'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agent,payload:{agentId:'fixture-agent',testReady:true}});assert.equal(r.json().data.task.requestId,11);
+    const manualTask=r.json().data.task.id;
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId:manualTask,state:'playing',playback:'playing',file:'second.mp4'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agent,payload:{agentId:'fixture-agent',taskId:manualTask,state:'completed',playback:'idle',endReason:'eof'}});assert.equal(r.statusCode,200);
+    r=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/autoplay',headers:admin,payload:{action:'stop'}});assert.equal(r.statusCode,200);
+  } finally { await app.close();await new Promise<void>(resolve=>legacy.close(()=>resolve()));rmSync(root,{recursive:true,force:true}); }
+});
+
+
+

@@ -16,12 +16,31 @@ if (!$secret || strlen(trim($secret)) < 32 || !hash_equals(trim($secret), $provi
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') bridge_fail('Bridge 只接受 POST', 405);
 $role = $_SERVER['HTTP_X_YUKARI_ROLE'] ?? '';
 $userid = $_SERVER['HTTP_X_YUKARI_USER_ID'] ?? '';
-if (!in_array($role, ['user', 'admin'], true) || !preg_match('/^[a-f0-9-]{36}$/D', $userid)) bridge_fail('服务身份无效', 403);
 require_once 'func_readconfig.php';
 $config_ini = (new ReadConfig())->read_config();
 if (!is_array($config_ini)) bridge_fail('配置不可读取', 503);
 $operation = $_GET['operation'] ?? '';
 if (!is_string($operation)) bridge_fail('operation 无效', 400);
+
+// Narrow service-token capability for queue invalidation after native playback
+// transitions. It cannot invoke admin APIs or mutate requesttable.
+if ($operation === 'queue-notify-service') {
+    require_once 'function_updatenotice.php';
+    ob_start();
+    try {
+        $notice = new UpdateNotice();
+        $notice->initdb();
+        if ($notice->db === null) throw new RuntimeException('Notification unavailable');
+        $notice->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $notice->updaterequestlist();
+        $notice->closedb();
+        $output = ob_get_clean();
+        if ($output !== '') bridge_fail('Notification helper failed', 503);
+        bridge_reply(['ok' => true, 'data' => ['notified' => true]]);
+    } catch (Throwable $error) { bridge_fail('Notification failed after queue commit', 503); }
+}
+
+if (!in_array($role, ['user', 'admin'], true) || !preg_match('/^[a-f0-9-]{36}$/D', $userid)) bridge_fail('服务身份无效', 403);
 
 // Only queue-scoped signed legacy identity is accepted here, never raw role/IP headers.
 if ($operation === 'legacy-queue-context') {

@@ -16,7 +16,7 @@ test('绕过 Vite 也必须有 Node 管理会话，空密码、角色伪造和 C
   expect((await admin.call('/admin/queue', 'GET', undefined, { Origin: 'http://127.0.0.1:5173' })).status).toBe(403);
   expect((await request.post(apiBase + '/api/v1/admin/session', { data: {} })).status()).toBe(403);
   expect((await request.get('http://127.0.0.1:5173/api/v1/admin/queue')).status()).toBe(403);
-  expect((await request.get('/php/api/admin.php?operation=queue')).status()).toBe(403);
+  expect([403, 404]).toContain((await request.get('/php/api/admin.php?operation=queue')).status());
   await admin.call('/admin/session', 'DELETE', {});
   expect((await admin.call('/admin/queue')).status).toBe(401);
 });
@@ -51,7 +51,7 @@ test('真实 UI 登录、调序、删除、设置及播放器失败；无双写�
     }
     await page.setViewportSize({ width: 390, height: 844 });
     const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
-    await page.goto('/'); const credentials = testCredentials();
+    await page.goto(process.env.E2E_APP_PATH || '/'); const credentials = testCredentials();
     await page.getByLabel('管理密码', { exact: true }).fill(credentials.password);
     if (credentials.easyPass) { await page.getByText('另外启用了访问口令？').click(); await page.getByLabel('原版访问口令').fill(credentials.easyPass); }
     await page.getByRole('button', { name: '登录管理端' }).click();
@@ -75,6 +75,7 @@ test('真实 UI 登录、调序、删除、设置及播放器失败；无双写�
     expect((await agentRead).status()).toBe(200);
     await expect(page.getByText('运行环境', { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Windows Player Agent' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '预约播放历史' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Start local test video' })).toBeDisabled();
     if (!status.mpc_reachable) { await page.getByRole('button', { name: '播放', exact: true }).click(); await expect(page.getByRole('alert')).toContainText('播放器不可达'); }
     const nativeRead = page.waitForResponse((response) => response.url().endsWith('/api/v1/settings') && response.request().method() === 'GET');

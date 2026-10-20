@@ -20,8 +20,9 @@ export function QueuePage({ client }: { client: AdminClient }) {
     } catch (error) { setError(message(error)); }
     finally { await reload(false); setBusy(false); }
   }
-  return <section className="panel"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">预约队列</h2><p className="mt-2 text-sm text-slate-500">{data?.total ?? '—'} 条记录 · 待播放 {data?.remaining_count ?? '—'}</p></div><button className="secondary" disabled={busy} onClick={() => void reload()}>刷新队列</button></div>
+  return <section className="panel" aria-busy={!data && !error}><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">预约队列</h2><p className="mt-2 text-sm text-slate-500">{data?.total ?? '—'} 条记录 · 待播放 {data?.remaining_count ?? '—'}</p></div><button className="secondary" disabled={busy} onClick={() => void reload()}>刷新队列</button></div>
     <p className="mt-4 text-xs text-slate-500">按服务器返回顺序显示。上移/下移对应显示位置，不代表下一首播放。</p>
+    {!data && !error && <p role="status" className="mt-4 text-sm text-slate-500">正在读取服务端队列…</p>}
     {error && <p role="alert" className="error mt-4">{error}</p>}{notice && <p role="status" className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-800">{notice}</p>}
     <ul className="mt-4 divide-y divide-slate-100">{data?.items.map((item) => <li key={item.id} data-request-id={item.id} className="py-5">
       <div className="flex items-center justify-between gap-2"><span className="text-xs text-slate-500">位置 {item.position} · ID {item.id}</span><span className="rounded-full bg-slate-100 px-3 py-1 text-xs">{item.nowplaying}</span></div>

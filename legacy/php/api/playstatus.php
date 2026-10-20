@@ -11,6 +11,13 @@
  *
  * 応答: { "ok":true, "data": { "id":N, "nowplaying":"再生済" } }
  */
+require_once __DIR__ . '/_node_autoplay_owner.php';
+if (yukari_node_autoplay_active()) {
+    http_response_code(409);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => 'Playback status is owned by Fastify while autoplay is active'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 require_once __DIR__ . '/_common.php';
 
 // 許可する再生状況の値 (ホワイトリスト。changeplaystatus.php と同一)

@@ -129,3 +129,7 @@ Windows での Docker 開発環境については、[日本語](docker/README.ja
 上のロゴは
 https://aratama.github.io/kemonogen/
 を使用して、「楽シャア」さんが作ってくれました。
+
+## Windows 11 local startup
+
+See [the Windows local runbook](docs/WINDOWS_LOCAL_RUNBOOK.zh-CN.md) for one-click start/stop, status, logs and local media setup. Production React is served at `/user/` and `/admin/` from Apache; the portal is `/app/`, and original PHP URLs remain available. Vite remains available for UI development.

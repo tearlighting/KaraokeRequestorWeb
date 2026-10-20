@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/api/_node_autoplay_owner.php';
+if (yukari_node_autoplay_active()) { http_response_code(409); echo 'Fastify owns the player while queue autoplay is active'; exit; }
 
   require_once 'foobar_func.php';
 

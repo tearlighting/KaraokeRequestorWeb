@@ -14,8 +14,10 @@ test('Player Agent token and durable task transitions are strict and single-owne
     let now = 1000;
     const store = new PlayerTaskStore(path, () => now);
     assert.throws(() => store.createTest(), { code: 'PLAYER_AGENT_OFFLINE' });
+    assert.throws(() => store.armManual(), { code: 'PLAYER_AGENT_OFFLINE' });
     store.report('agent-one', { playback: 'idle', testReady: false });
     assert.throws(() => store.createTest(), { code: 'PLAYER_TEST_NOT_READY' });
+    store.report('agent-one', { playback: 'idle', testReady: true });
     store.report('agent-one', { playback: 'idle', testReady: true });
     const task = store.createTest();
     assert.equal(task.state, 'pending');
@@ -33,6 +35,22 @@ test('Player Agent token and durable task transitions are strict and single-owne
     assert.ok(agentAuthorized(`Bearer ${'a'.repeat(48)}`, 'a'.repeat(48)));
     assert.ok(!agentAuthorized(`Bearer ${'b'.repeat(48)}`, 'a'.repeat(48)));
     assert.ok(!agentAuthorized(`Bearer ${'a'.repeat(47)}`, 'a'.repeat(48)));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('manual strategy waits for one explicit start request per song and survives state reload', () => {
+  const root = mkdtempSync(join(tmpdir(), 'yukari-manual-player-'));
+  const path = join(root, 'state.json');
+  try {
+    let now = 1000; const store = new PlayerTaskStore(path, () => now);
+    store.report('agent-one', { playback: 'idle', testReady: false });
+    assert.deepEqual(store.armManual(), { autoplayEnabled: true, manualMode: true });
+    assert.equal(store.status().manualStartRequested, false);
+    const restarted = new PlayerTaskStore(path, () => now);
+    assert.equal(restarted.status().manualMode, true);
+    restarted.requestManualStart(); assert.equal(restarted.status().manualStartRequested, true);
+    restarted.consumeManualStart(); assert.equal(restarted.status().manualStartRequested, false);
+    restarted.autoplayAction('stop'); assert.equal(restarted.status().manualMode, false);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

@@ -15,11 +15,12 @@ const boundary: Plugin = { name: 'user-api-boundary', configureServer(server) {
     res.end(JSON.stringify({ ok: false, error: { code: 'USER_PROXY_DENIED', message: '用户端不代理管理接口或旧 PHP 路径' } }));
   });
 } };
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode, command }) => ({
+  base: command === 'build' ? '/user/' : '/',
   plugins: [boundary, react(), tailwindcss()],
   server: { host: '127.0.0.1', port: 5173, strictPort: true, cors: false,
     fs: { allow: [process.cwd(), resolve(process.cwd(), '../../packages/contracts')] },
-    proxy: { '/api/v1/': { target: loadEnv(mode, process.cwd(), 'API_').API_PROXY_TARGET || 'http://127.0.0.1:3000',
+    proxy: { '/api/v1/': { target: process.env.API_PROXY_TARGET || loadEnv(mode, process.cwd(), 'API_').API_PROXY_TARGET || 'http://127.0.0.1:3000',
       changeOrigin: false, configure(proxy) { proxy.on('proxyReq', (request) => request.removeHeader('authorization')); } } },
   },
   preview: { host: '127.0.0.1', port: 4173, strictPort: true, cors: false },

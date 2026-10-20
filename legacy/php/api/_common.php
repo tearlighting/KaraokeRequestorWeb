@@ -27,6 +27,7 @@ if (isset($_SERVER['REQUEST_URI'])) {
     $_SERVER['REQUEST_URI'] = preg_replace('#^/api/#', '/', $_SERVER['REQUEST_URI'], 1);
 }
 
+require_once __DIR__ . '/_node_autoplay_owner.php';
 require_once __DIR__ . '/../commonfunc.php';
 require_once __DIR__ . '/../easyauth_class.php';
 

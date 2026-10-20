@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/api/_node_autoplay_owner.php';
+if (yukari_node_autoplay_active()) { http_response_code(409); echo 'Fastify owns the player while queue autoplay is active'; exit; }
 require_once 'mpcctrl_func.php';
 // 音量初期値リセット / 字幕補正の実装 (api/player.php と共用)
 require_once 'function_playeradjust.php';

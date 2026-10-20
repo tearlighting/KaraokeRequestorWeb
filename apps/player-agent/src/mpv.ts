@@ -73,7 +73,7 @@ export class MpvJsonIpcAdapter implements PlayerAdapter {
     if (this.socket?.destroyed === false) return;
     try { await this.connect(); return; } catch { /* start a local mpv only if the configured IPC endpoint is absent */ }
     if (!this.child || this.child.exitCode !== null) {
-      this.child = spawn(this.executable, ['--no-config', '--idle=yes', '--force-window=yes', '--no-terminal', '--input-ipc-server=' + this.pipe], { shell: false, windowsHide: false, stdio: 'ignore' });
+      this.child = spawn(this.executable, ['--no-config', '--idle=yes', '--force-window=immediate', '--geometry=960x540+40+40', '--title=Yukari Player Agent', '--no-terminal', '--input-ipc-server=' + this.pipe], { shell: false, windowsHide: false, stdio: 'ignore' });
       this.child.once('error', (error) => this.failPending(error));
     }
     let last: Error | undefined;

@@ -22,6 +22,12 @@
 <body>
 
 <?php
+require_once __DIR__ . '/api/_node_autoplay_owner.php';
+if (yukari_node_autoplay_active()) {
+    http_response_code(409);
+    echo 'Playback status is owned by Fastify while autoplay is active';
+    exit;
+}
 // 許可する再生状況の値 (ホワイトリスト)
 $allowed_nowplaying = array('未再生','再生中','停止中','再生済','再生済？','再生開始待ち','変更中');
 

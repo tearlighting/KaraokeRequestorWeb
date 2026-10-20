@@ -64,6 +64,13 @@
  * 応答: { "ok":true, "data": { "player":"mpc", "action":"...", ... } }
  *       非対応操作は 501 + {"ok":false,"error":"not supported ..."}
  */
+require_once __DIR__ . '/_node_autoplay_owner.php';
+if (isset($_REQUEST['action']) && $_REQUEST['action'] !== 'info' && yukari_node_autoplay_active()) {
+    http_response_code(409);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => 'Playback is owned by Fastify while queue autoplay is active'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 require_once __DIR__ . '/_common.php';
 
 $valid_actions = ['info', 'next', 'start', 'play', 'pause', 'playpause', 'stop', 'start_first',

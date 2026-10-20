@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { TestAgent, phpBase, testCredentials } from '../../../packages/test-support/src/client';
+import { TestAgent, apiBase, phpBase, testCredentials } from '../../../packages/test-support/src/client';
 
 test('用户代理连接统一 Node API，拒绝管理和旧 PHP 路径', async ({ request }) => {
   const session = await request.post('/api/v1/user/session', { headers: { 'X-Yukari-Client': '1' }, data: {} });
   expect(session.ok()).toBe(true);
   const queue = await request.get('/api/v1/queue', { headers: { 'X-Yukari-Client': '1' } });
   expect(Array.isArray((await queue.json()).data.items)).toBe(true);
-  for (const path of ['/api/v1/admin/queue', '/api/v1/settings', '/php/init.php', '/php/api/player.php', '/php/api/node_bridge.php']) expect((await request.get(path)).status()).toBe(403);
+  for (const path of ['/api/v1/admin/queue', '/api/v1/settings']) expect([401, 403]).toContain((await request.get(path)).status());
+  for (const path of ['/php/init.php', '/php/api/player.php', '/php/api/node_bridge.php']) expect([403, 404]).toContain((await request.get(path)).status());
   for (const path of ['/', '/search.php', '/requestlist_top.php']) expect((await request.get(phpBase + path)).ok()).toBe(true);
   expect((await request.get(phpBase + '/init.php')).status()).toBe(401);
 });
@@ -15,7 +16,7 @@ test('用户代理连接统一 Node API，拒绝管理和旧 PHP 路径', async 
 test('手机真实搜索；连接失败保留原因，不伪造成功空列表', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/');
+  await page.goto(process.env.E2E_APP_PATH || '/');
   await expect(page.getByRole('heading', { name: '下一首，唱你的。' })).toBeVisible();
   await page.getByLabel('歌曲或关键词').fill(`NoSuchSong_${randomUUID()}`);
   for (const backend of ['everything', 'lister']) {
@@ -44,7 +45,7 @@ test('React → Node → PHP 小休止预约，查询队列并通过 Node 管理
   let userid = '';
   try {
     const session = page.waitForResponse((response) => response.url().endsWith('/api/v1/user/session'));
-    await page.goto('/'); userid = (await (await session).json()).data.userId;
+    await page.goto(process.env.E2E_APP_PATH || '/'); userid = (await (await session).json()).data.userId;
     await page.getByLabel('你的名字').fill(singer);
     await page.getByLabel('备注（选填）').fill('Unified API integration; auto cleanup');
     const created = page.waitForResponse((response) => response.url().endsWith('/api/v1/requests') && response.request().method() === 'POST');
@@ -101,7 +102,7 @@ test('Legacy 队列页面仅复用已登录 Node 管理会话完成批量排序�
       const created=await user.call('/requests','POST',{filename:`${token}_${name}`,singer:token,comment:'legacy bulk reorder',kind:'小休止',fullpath:'',secret:1});
       expect(created.status).toBe(201);ids.push(created.body.data.id);
     }
-    const login=await page.request.post('http://127.0.0.1:3000/api/v1/admin/session',{headers:{'X-Yukari-Client':'1',Origin:'http://127.0.0.1:5174'},data:testCredentials()});
+    const login=await page.request.post(`${apiBase}/api/v1/admin/session`,{headers:{'X-Yukari-Client':'1',Origin:'http://127.0.0.1:5174'},data:testCredentials()});
     expect(login.ok()).toBe(true);
     await page.goto(`${phpBase}/requestlist_swipe.php`);
     const order=[...ids].reverse().concat(before.items.map((item:{id:number})=>item.id));
@@ -123,7 +124,7 @@ test('真实歌曲预约链（需接入真实曲库）', async ({ page }) => {
   const admin = new TestAgent(); await admin.admin();
   const singer = `RealSongNodeE2E_${Date.now()}`;
   try {
-    await page.goto('/');
+    await page.goto(process.env.E2E_APP_PATH || '/');
     await page.getByLabel('曲库来源').selectOption(process.env.E2E_SEARCH_BACKEND || 'lister');
     await page.getByLabel('歌曲或关键词').fill(process.env.E2E_SONG_KEYWORD!);
     await page.getByRole('button', { name: '搜索歌曲' }).click();

@@ -296,7 +296,7 @@ Phase 7 的常用旧版批量排序/Undo 已切至 admin-only `/api/v1/admin/que
 
 真实数据库只执行经批准的 additive `request_submission` 表迁移；迁移前后 queue 记录摘要需一致。没有对真实预约进行写测试。跨 SQLite 通知恰好一次、曲库命中和播放器执行尚未验证；Legacy reorder exact-path Apache 映射已通过 Edge。queue-wal-anchor 暂留：本阶段没有完成其停机与旁文件生命周期测试，不能因 Node 预约化直接删除。
 
-## Phase 9：Windows Player Agent（人工实播验收待完成）
+## Phase 9：Windows Player Agent（实播验收通过）
 
 ### 播放业务审计与 Owner
 
@@ -304,7 +304,7 @@ Phase 7 的常用旧版批量排序/Undo 已切至 admin-only `/api/v1/admin/que
 | --- | --- | --- |
 | 原预约状态、nowplaying 标记、播放进度/音量偏移、next/start/stop | Legacy PHP + MPC-BE/foobar | 保留原入口和语义，未转接新 Agent |
 | 播放任务、任务 ID/状态、Agent 心跳、管理员任务/控制命令 | Fastify + 单独 Player Agent JSON 状态卷 | Node 新增；只支持管理员发起本地测试视频，不读写 requesttable |
-| 实际解码/暂停/继续/EOF 反馈 | Windows mpv 通过本机 JSON IPC | 已实现 Adapter；本机尚无 mpv、测试视频，因此未实播验收 |
+| 实际解码/暂停/继续/EOF 反馈 | Windows mpv 通过本机 JSON IPC | 2026-10-20 以 15 秒本地合成视频实际验收；API → Fastify → Agent → mpv 已播放、暂停、恢复、停止，并在第二次完整播放收到 EOF |
 | 用户公开 Agent 状态 | Fastify | 只暴露 connected/playback/active，不暴露文件名、绝对路径或 task ID |
 | PotPlayer 控制 | 无新 Owner | 本机版本 26.06.22.0 的 CmdLine64.txt 确认命令行可指定 content、/current、/new 和 playlist；未发现支持的播放状态/结束事件或可靠无焦点 pause API，故不伪称支持 |
 
@@ -320,9 +320,96 @@ Agent 的 PLAYER_MEDIA_ROOT 必须是绝对目录；PLAYER_TEST_VIDEO 只能是�
 
 mpv 官方手册确认 Windows 的 input-ipc-server 使用 named pipe，JSON IPC 有命令响应、属性与事件；IPC 本身不安全，因此只保留在宿主本机，Fastify 凭据用于网络 Agent 边界。Agent 先连固定宿主 pipe，再按固定配置启动 mpv；实况来自 idle-active / pause / path 属性，结束只认 end-file reason eof。见 [mpv 官方 JSON IPC 手册](https://mpv.io/manual/stable/#json-ipc)。
 
-本机已确认 winget 包 `shinchiro.mpv 0.41.0` 的可执行文件 `C:\Program Files\MPV Player\mpv.exe` 可直接运行 `--version`，输出版本 `v0.41.0-244-gaf9c81fa1`；Agent 经显式 `MPV_PATH` 使用该文件，不依赖 PATH。FFmpeg 9.0 生成了仓库外 `D:\project\yukari\test-media\agent-test.mp4`，时长 15 秒，含 H.264 视频与 AAC 音轨。唯一宿主 Agent 已连到 Docker Fastify，心跳 connected/testReady=true/playback=idle。尚未由管理员创建任务；管理员需在 System 页启动测试，并人工确认画面/声音、暂停/继续/停止，随后允许完整播放确认真实 EOF。PotPlayer 命令行打开未做实播验收，且状态/结束事件能力仍未确认。
+本机已确认 winget 包 `shinchiro.mpv 0.41.0` 的可执行文件 `C:\Program Files\MPV Player\mpv.exe` 可直接运行 `--version`，输出版本 `v0.41.0-244-gaf9c81fa1`；Agent 经显式 `MPV_PATH` 使用该文件，不依赖 PATH。FFmpeg 9.0 生成仓库外 `D:\project\yukari\test-media\agent-test.mp4`，15 秒，H.264 640×360 视频与 AAC 48kHz 音轨。实际 Fastify 管理会话创建两项测试任务：第一项由 Node API 与 Agent 确认 playing → pause → resume → stop，停止后没有重开；第二项只有收到 mpv JSON IPC `end-file reason=eof` 后 Fastify 才保存为 completed。播放记录仅在 `player_agent_state` 测试任务卷，不触碰 requesttable。mpv 空闲时 `path` 属性的 `property unavailable` 已按 idle 处理；缺少已加载路径仍不能报告 playing。管理端实际 UI 触发的早期任务超时曾失败，之后用认证 Fastify API 完成上述闭环；尚待用户确认桌面画面与声音。PotPlayer 只验证了命令行文档，未实播，且状态/结束事件能力仍未确认。
 
-当前只运行测试任务，不自动领取真实预约、不改变 nowplaying、不触发原 songstart/songnext、volume offset、progress SSE 或 update_playerprogress.php。自动切歌要先对真实媒体路径映射、当前 Legacy 再生中/停止中/再生済更新时机、MPC track/key/audiodelay/volume、异常结束/人工停止语义与通知做隔离等价测试；没有把“播放一定时长”当结束。原 /playback 与 /playback/control Legacy 实况/控制仍兼容。
+Phase 9 acceptance update: real media playback, audio, visible video, pause/resume/stop and mpv EOF were verified on the Windows host. Phase 10 adds isolated queue playback; production autoplay remains disabled and does not yet replace karaoke-specific playback lifecycle integrations.
 
 
 Phase 9 admin Vite routes: the dev proxy permits only exact /api/v1/admin/player-agent GET and /test/control POST paths. This is a routing filter only; every request still requires the normal Fastify admin session and write CSRF/Origin validation. The no-session smoke check returns 401 from Fastify.
+
+
+## Phase 10：Node-native 自动播放（仅隔离验证）
+
+| Operation | Owner | Contract and effects | Status |
+| --- | --- | --- | --- |
+| Opt-in queue claim / task scheduling | Fastify + SQLite `playback_task` | Admin-only start/control; Agent Bearer polling; ordered by existing reqorder ASC, id ASC | Implemented in code and isolated SQLite tests; explicit additive migration still pending for the deployed DB; Compose default disabled |
+| Media path / player operations | Windows Player Agent + mpv | Realpath must remain under configured media root; fixed mpv executable/argv, shell disabled | Real video, pause/resume/skip and real EOF tested |
+| Queue playback projection | Fastify `PlaybackTaskRepository` | Existing states only: 未再生 → 再生開始待ち → 再生中 → 再生済; explicit skip/stop/failure → 停止中; playtimes increments only on observed playing | Node-native; task/event and projection share transactions on the existing queue DB |
+| Formal playback history | Fastify SQLite `playback_event` | Append-only authenticated state/command events; no credentials or media paths; admin-only read API | Implemented in isolated tests; deployed DB migration pending |
+| Queue notification | Legacy notification helper | Called after committed state transitions; no queue-selection SQL or PHP playback control | Reused post-commit |
+| Search, reservation, admin delete/move, settings write | Existing owners | Unchanged | Node/PHP ownership as prior phases |
+
+YUKARI_NODE_AUTOPLAY is 0 in normal Compose and must remain opt-in until deployment-specific isolation and owner handoff are complete. The runtime file runtime/queue/node-autoplay.owner fences guarded Legacy playback/status writers while Node owns consumption; admin Stop releases it only after a terminal/idle task. Do not assume the fence reaches a separate Windows Legacy installation: it must share the same queue runtime directory and that manager must honor the fence, or be stopped before Node autoplay is enabled. On unsupported queue entries Node stops without changing the row and keeps ownership fenced; an administrator must explicitly stop automation before handoff.
+
+Supported scope is playmode 1, local kind=動画 files in supported video formats, with all existing loop/pause/track/key/audiodelay/volume options at their neutral value. Small-pause entries, URLs/live streams, audio requests, alternate player kinds, karaoke options, comments, capture and progress integrations are not migrated. No song is selected twice concurrently; SQLite BEGIN IMMEDIATE serializes claims, and actual mpv EOF is required before 再生済. A lost/failed Agent report never infers completion.
+
+Isolated real sequence: first video was played, paused/resumed, then skipped by admin and projected to 停止中; the next two synthetic rows were opened by mpv and each projected to 再生済 only after its real EOF. Each row's playtimes was one. Two trailing synthetic 小休止 rows remained untouched and safely blocked further automation. The three rows were deleted by exact synthetic singer/kind/path after Admin Stop. No real user queue was consumed. Automated regression: API/PHP oracle 35/35, user Edge 8 passed/1 skipped, admin Edge 3/3, Player Agent 3/3, and all typechecks/builds passed.
+
+Phase 10 stop-control follow-up: a separate isolated real-mpv queue task was stopped by the authenticated admin route while playing. Fastify waited for Agent stop feedback, projected 停止中, did not claim a successor, then released the Legacy owner fence. The synthetic request/history were precisely cleaned up; no deployed queue was used.
+
+### Phase 10 durable task-store follow-up
+
+Formal queue task state no longer uses the JSON volume. `player_agent_state` remains for Phase 9 test tasks and short-lived Agent status only; old JSON queue snapshots are ignored and not deleted. Formal task assignment, command acknowledgement, state events, and the corresponding `requesttable.nowplaying`/`playtimes` projection are written in one `BEGIN IMMEDIATE` transaction. Node retains 15-second leases, refreshed by Agent polls. A lease timeout or Fastify restart turns `claimed`/`playing` into `uncertain`; the task is not replayed or marked completed. The owner fence remains until the authenticated Agent confirms a stop. A duplicate EOF is idempotent and creates no second event.
+
+New additive migration `apps/api-server/migrations/002-playback-task.sql` creates `playback_task` and `playback_event` plus partial/lookup indexes. Task rows retain request ID, state, Agent ID, lease, command sequence, observed playback state, timestamps and sanitized error codes; event rows retain task ID, unique event key, event type, Agent ID, timestamp and allowlisted JSON details. Neither table stores media paths or credentials. Admin-only read API: `GET /api/v1/admin/playback/history?limit=&offset=`. It returns task/event pages and remains unavailable until the explicit schema migration is installed.
+
+The migration was executed only against temporary synthetic SQLite files. It has not been applied to the deployed `request.db`; production autoplay remains disabled. Before deployment, stop all queue writers and the WAL anchor, take and verify a consistent backup including SQLite sidecar state, run `node dist/migrate.js request.db playback-task` once, verify table/index definitions and existing request/submission row counts, then restart with autoplay still disabled for smoke checks. Enabling autoplay is a separate operational decision after media-root and Legacy-owner handoff checks. No JSON volume was removed or rewritten by this follow-up.
+
+Follow-up validation on 2026-10-21: full API/PHP oracle suite 40 passed, 1 optional real-mpv test skipped there; the separate Windows real-mpv + temporary-SQLite test passed 1/1 after actual playing, pause/resume, and EOF. user-web Edge passed 8 runnable tests with 1 real-search fixture skip; admin-web Edge passed 3/3. All four applications typechecked and built. Browser tests now take `API_PROXY_TARGET` from the process environment and support `E2E_WEB_PORT` to avoid reusing a developer server. One initial browser run used the default API proxy and created three uniquely marked `ReactNodeE2E_` small-rest test reservations in the deployed queue. They were immediately deleted through the authenticated Node admin endpoint; the associated three test users/history and submission receipts were removed by exact owner/request IDs. Read-only verification found no matching rows or receipts and a contiguous remaining queue. The deployed schema was not migrated and autoplay remained off. After stopping the normal PHP/API containers, a consistent pre-migration copy of `request.db` plus present `-wal`/`-shm` sidecars was placed in the Git-ignored `.local/phase10-playback-backup/`; `integrity_check`, queue/receipt counts, and the main-file SHA256 matched. Take a fresh snapshot again immediately before any later migration. Reservation/cleanup notification side effects cannot be reversed.
+
+## Phase 11: isolated automatic playback and explicit media path mapping
+
+Legacy `init.php` defines mode 1 as automatic sequential playback, mode 2 as manual playback start, mode 3 as manual playlist registration, mode 4 as BGM/jukebox mode that selects least-played eligible entries and randomizes ties (with anti-repeat/play-count balancing), and mode 5 as full random selection from the list including already-played rows. Modes 4/5 also exclude the Legacy karaoke-delivery kind; mode 5's legacy random upper bound has an off-by-one defect. Node does not reproduce those semantics. Fastify start and the SQLite claim repository accept only mode 1, so the current saved mode is never rewritten to force activation. Modes 2–5 remain unsupported pending a separate behavior/equivalence decision.
+
+Queue `fullpath` is supplied by the Legacy search result and persisted unchanged; PHP search templates construct it from the result path plus filename. Docker Compose does not mount Windows media into the PHP or Node containers. The new Windows Agent accepts a POSIX absolute queue path only when it matches an explicitly configured `PLAYER_PATH_MAPPINGS` source. The corresponding target must already exist beneath `PLAYER_MEDIA_ROOT`; longest source-prefix matching, canonical POSIX checks, `realpath`, file checks, and root containment reject traversal, missing files, external symlinks, and unmapped roots. These mappings are host Agent configuration, not API/client input. Existing Windows absolute/relative paths remain accepted only when their resolved real path is under `PLAYER_MEDIA_ROOT`. The synthetic test used `/synthetic-media` mapped to a temporary Windows directory; it did not configure or infer a production library mapping. Production queue path formats have not been surfaced in this report; a real mapping must be prepared from the operator's reviewed storage layout before enabling formal playback.
+
+The admin System page now displays the current Agent/task state and a sanitized task history (request ID, state, timestamps only); the history endpoint remains admin-session protected and never returns media paths. A Windows real-mpv test with a temporary SQLite database and two synthetic rows completed the first row, verified its actual EOF event and Legacy `再生済`/`playtimes=1` projection, then automatically claimed and completed the second row on its own EOF. It also exercised pause/resume, admin start/stop, history response, one active task at a time, and mapped paths. During this test a defect was found: deterministic `playback_event.event_key` values were unique across the whole database, so fixed event types on later tasks could be silently ignored. Keys are now scoped by task ID; the two-task test verifies an EOF event for each. No real queue was read for writing or modified.
+
+Validation: Player Agent path/IPC tests 4/4; focused playback-task/autoplay API tests 13/13; the real Windows mpv + isolated SQLite sequential playback E2E passed 1/1; API, admin-web, user-web and Player Agent typecheck/build passed. The full API suite was attempted but 15 integration/oracle cases could not run in this environment because Docker Engine access is denied and the isolated-write `E2E_CONFIG_PATH` is not configured; the suite reported 25 passed, 15 failed due those prerequisites, and 1 optional real-mpv test skipped. User/admin browser E2E were not run because no isolated Docker deployment could be started; production endpoints were not used for write tests. Compose service health endpoints returned HTTP 200, but Docker process inspection was denied. Formal autoplay remains disabled. Production media mapping, saved playmode 3 compatibility, Windows Legacy manager handoff/fence, and full Legacy karaoke side effects remain prerequisites before any production enablement.
+
+## Phase 12: manual-start strategy, media preflight, and test environment
+
+### Playback mode compatibility
+
+The Legacy setting remains the source of truth and is only read by Fastify:
+
+| Legacy setting | Legacy behavior | Node strategy available in admin System | Compatibility notes |
+| --- | --- | --- | --- |
+| `playmode=1` | Sequential automatic start/advance | Arm FIFO automatic playback | Same `reqorder ASC, id ASC` selection; actual mpv playing/EOF still gates projection. |
+| `playmode=2` | Manual playback-start handshake for each request | Arm manual mode, then click **Start next request** per song | Fastify claims one FIFO row only after the explicit click; after EOF it waits for another click. This is a Node runtime policy, not a change to the Legacy INI. |
+| `playmode=3` | Register/manage a manual player playlist | No Node control; admin page explains unsupported mode | Playlist insertion/order and user-driven player state are not equivalent to one-file mpv tasks. Feasibility only; not implemented. |
+| `playmode=4` | Jukebox, least-played eligible songs, random ties, anti-repeat/balancing | Unsupported | Do not approximate with FIFO or mutate play counts to force eligibility. |
+| `playmode=5` | Random selection regardless of prior play count; excludes karaoke-delivery kind | Unsupported | Legacy random selection has an upper-bound defect; neither algorithm is copied. |
+
+Mode 2 is deliberately single-step: arming acquires the existing shared owner fence but does not claim a request. An admin start-next action is required before each task. Existing queue position/status markers remain the same; the Node claim, real playing, and real mpv EOF transaction rules are unchanged. Pause/resume/skip/stop remain admin-only. A mode mismatch or a Legacy active marker returns a conflict before Node takes ownership. Fastify does not save the `playmode` field.
+
+`manage-mpc.php` refuses startup while `runtime/queue/node-autoplay.owner` exists and checks the same fence inside its long-running playback loops. Fastify also refuses initial handoff when `requesttable` contains a Legacy active playback marker. This guards both already-running manager loops and new launches. Windows process inspection during Phase 12 found no running PHP/MPC/foobar/mpv playback process; the containerized Legacy runtime was healthy. Before future production activation, also ensure no external scheduled task/launcher will repeatedly run the Windows manager. The normal Compose setting remains `YUKARI_NODE_AUTOPLAY=0`.
+
+### Media preflight and paths
+
+Admin System lists current queue rows and lets an authenticated administrator request a media check. The request contains a queue ID only. Fastify reads that row's stored `fullpath`, creates a short-lived check handoff in memory, and returns no path to the browser. The Agent receives the path only over its independent Bearer-authenticated poll, applies the configured `PLAYER_PATH_MAPPINGS`/`PLAYER_MEDIA_ROOT` realpath allowlist, and reports a sanitized state. Results distinguish `playable`, `path_unmapped`, `file_missing`, and `invalid_path`; a disconnected Agent is shown as `agent_offline`. Probe paths are not persisted, logged, or included in API responses. An expired or stale probe fails closed and can be requested again.
+
+The mapping format is explicitly configured on the Windows host, for example:
+
+```powershell
+$env:PLAYER_MEDIA_ROOT = 'D:\KaraokeMedia'
+$env:PLAYER_PATH_MAPPINGS = '[{"source":"/verified/posix/library","target":"D:\\KaraokeMedia"}]'
+```
+
+Both roots above are examples only. The production POSIX prefix and Windows directory have not been determined; operators must compare actual stored queue paths with their reviewed host storage layout. No production path is inferred or supplied by the browser. A successful preflight confirms an existing regular file under the configured root; it does not imply that currently unsupported request kinds/options or karaoke-specific controls (audio track, key, volume, delay, comments, progress capture, loops) have been migrated.
+
+### Docker Compose test environment repair and Phase 12 validation
+
+This Windows installation has Docker Engine 29.8.2 and standalone Docker Compose v5.6.0, but the Docker CLI did not load the Compose plugin from the inaccessible per-user configuration. A temporary Compose plugin copy under ignored `.local/empty-docker-config/cli-plugins/` restored `docker compose` without changing Docker Desktop configuration. The separately mounted synthetic fixture `.local/phase10-sqlite-437670ad-test-legacy` was run as project `phase12isolated` on API/PHP ports 3100/8180. No production database or volume was used for write tests.
+
+Run the protected API suite only with the synthetic path marker and matching compose file/project variables. Browser runs also need `API_PROXY_TARGET`, `E2E_API_BASE`, `E2E_PHP_BASE`, and a free `E2E_WEB_PORT`. After tests, stop only the synthetic `web` and `api-server` services; do not remove volumes. The Phase 12 result was: API/PHP oracle 44 tests, 43 passed, 0 failed, 1 optional real-mpv skipped; user Edge 8 passed/1 real-search fixture skipped; admin Edge 3 passed; Player Agent tests 4 passed. Real mpv two-request FIFO EOF verification remains from Phase 11. Formal production autoplay was not enabled.
+
+Final rerun on 2026-10-21: API/PHP oracle **43 passed, 0 failed, 1 optional real-mpv skipped**; the optional test was separately run with installed Windows mpv and the external 15-second clip against temporary SQLite and passed **1/1**, including actual two-row FIFO advancement on real EOF. Player Agent **4/4**, PHP syntax **305/305**, and all four typecheck/build jobs passed. User-web Edge assertions: **8 passed, 1 skipped** (no real search result fixture); admin-web Edge: **3/3 passed**. Playwright printed all passing assertions but its Windows teardown process stayed alive; it was manually interrupted after result output. No live database writes were run. Both normal and synthetic Compose services reported healthy, and normal Compose retains `YUKARI_NODE_AUTOPLAY=0`. The visible process list did not show mpv/PHP/Legacy manager; restricted permissions did not allow ruling out another user's elevated process or scheduled task.
+
+## Phase 13: local operation and unified built UI
+
+Production-built user-web and admin-web are built as Docker image stages and served by the existing Apache origin at `/user/` and `/admin/`; `/app/` is a small portal. The old PHP page URLs remain on the same DocumentRoot. Apache reverse-proxies `/api/v1/` to Fastify for same-origin browser requests; Apache strips Authorization and does not grant roles. Fastify continues to enforce sessions, Origin, CSRF markers, and per-operation authorization. Vite remains the separate UI development mode on 5173/5174.
+
+The Windows 11 launch scripts are in `scripts/windows/`. The media configuration wizard uses explicit folder/file selection and stores path-only settings in `%LOCALAPPDATA%\YukariPlayerAgent\agent-config.json`; credentials remain outside that file. POSIX-to-Windows mapping is only created from an operator-entered, exact verified prefix and remains constrained by the Agent's configured real media root. No production media root or mapping is supplied by this repository. Compose autoplay remains disabled.
+
+Playwright's Windows teardown is handled by `scripts/run-web-e2e.mjs`, which owns and stops the exact Vite child. `E2E_BASE_URL` lets the same tests target built Apache pages without starting Vite.

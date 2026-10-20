@@ -58,17 +58,22 @@ test('触发器失败整体回滚、缺失文件不创建、锁超时、通知�
 });
 test('真实 Linux PHP/Node WAL writer：持锁期间等待，提交后新快照调序', async () => {
   assert.equal(process.env.E2E_COMPOSE_FILE, 'docker/compose.isolated.yaml', 'Requires isolated deployment');
+  const project = process.env.E2E_COMPOSE_PROJECT;
+  const files = (process.env.E2E_COMPOSE_FILES || process.env.E2E_COMPOSE_FILE).split(';');
+  const compose = (...args: string[]) => ['compose', ...(project ? ['-p', project] : []), ...files.flatMap(file => ['-f', file]), ...args];
+  const runnerHostPath = process.env.E2E_QUEUE_RUNNER_HOST_OUT || '../../.local/phase7-test-tools/queue-runner.mjs';
+  const runnerContainerPath = process.env.E2E_QUEUE_RUNNER_CONTAINER_PATH || '/test/queue-runner.mjs';
   buildSync({ entryPoints: ['tests/queue-mutation-runner.ts'], bundle: true, platform: 'node', format: 'esm',
-    outfile: '../../.local/phase7-test-tools/queue-runner.mjs' });
+    outfile: runnerHostPath });
   const name = 'yukari-mutation-' + randomUUID(), path = '/var/www/html/runtime/queue/' + name + '/request.db';
-  const args = ['compose','-f','docker/compose.isolated.yaml','exec','-T','web','php','/workspace/apps/api-server/tests/php/queue-lock-writer.php',path];
+  const args = compose('exec','-T','web','php','/workspace/apps/api-server/tests/php/queue-lock-writer.php',path);
   execFileSync('docker', [...args,'init'], { cwd: resolve('../..'), timeout:10000 });
   const child = execFile('docker', args, { cwd: resolve('../..'), timeout:10000 });
   const completed = new Promise<void>((resolve, reject) => { child.once('error',reject); child.once('exit',code=>code===0?resolve():reject(Error('PHP writer failed'))); });
   void completed.catch(()=>{});
   await new Promise<void>((resolve,reject)=>{ child.stdout!.once('data',data=>String(data).includes('locked')?resolve():reject(Error('No PHP lock: '+String(data)))); child.once('error',reject); });
-  const runner = execFile('docker', ['compose','-f','docker/compose.isolated.yaml','exec','-T','api-server','node',
-    '/test/queue-runner.mjs',name+'/request.db'], { cwd: resolve('../..'), encoding:'utf8',timeout:10000 });
+  const runner = execFile('docker', compose('exec','-T','api-server','node',
+    runnerContainerPath,name+'/request.db'), { cwd: resolve('../..'), encoding:'utf8',timeout:10000 });
   let output = '';
   runner.stdout!.on('data', data => {
     output += String(data);
