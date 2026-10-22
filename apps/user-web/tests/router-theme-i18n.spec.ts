@@ -1,0 +1,30 @@
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { expect, test } from '@playwright/test';
+const appUrl = (route: string) => `${(process.env.E2E_APP_PATH || '/').replace(/\/$/, '')}/${route}`;
+
+test('user routes, locale and themes persist; direct refresh and mobile layout work', async ({ page }) => {
+  const shots = resolve(process.cwd(), '../../.local/phase15-shots'); await mkdir(shots, { recursive: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(appUrl('queue')); await expect(page.getByRole('heading', { name: '予約キュー' })).toBeVisible();
+  await page.reload(); await expect(page.getByRole('heading', { name: '予約キュー' })).toBeVisible();
+  await expect(page.getByTestId('queue-panel')).toHaveAttribute('data-loaded', 'true');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.goto(appUrl(''));
+  await expect(page.getByTestId('queue-panel')).toHaveAttribute('data-loaded', 'true');
+  await page.getByTestId('theme-switch').selectOption('default');
+  await page.screenshot({ path: resolve(shots, 'user-default-mobile.png'), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: resolve(shots, 'user-default-desktop.png'), fullPage: true });
+  await page.getByTestId('theme-switch').selectOption('anisong-dark');
+  await expect.poll(() => page.locator('html').getAttribute('data-theme')).toBe('anisong-dark');
+  await page.screenshot({ path: resolve(shots, 'user-dark-desktop.png'), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: resolve(shots, 'user-dark-mobile.png'), fullPage: true });
+  await page.getByTestId('locale-switch').selectOption('en');
+  await expect(page.getByRole('link', { name: 'Search & request' })).toBeVisible();
+  await page.reload(); await expect(page.getByRole('link', { name: 'Queue' })).toBeVisible();
+  expect(await page.evaluate(() => [document.documentElement.lang, document.documentElement.dataset.theme])).toEqual(['en', 'anisong-dark']);
+  await page.goto(appUrl('missing-route')); await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await page.getByRole('link', { name: 'Back to home' }).click(); await expect(page.getByTestId('user-heading')).toBeVisible();
+});

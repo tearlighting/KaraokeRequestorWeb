@@ -35,7 +35,7 @@ test('认证只读和设置无变化保存，经统一 API 保留版本冲突', 
   expect(hash()).toBe(before);
 });
 
-test('真实 UI 登录、调序、删除、设置及播放器失败；无双写与原数据不变', async ({ page }, testInfo) => {
+test('真实 UI 登录、队列管理、设置及播放器失败；无双写与原数据不变', async ({ page }, testInfo) => {
   const admin = new TestAgent(); await admin.admin();
   const before = (await admin.call('/admin/queue')).body.data;
   const status = (await admin.call('/admin/status')).body.data;
@@ -44,6 +44,7 @@ test('真实 UI 登录、调序、删除、设置及播放器失败；无双写�
   const user = new TestAgent(); const userid = await user.user();
   const singer = `AdminNodeE2E_${Date.now()}`;
   const ids: number[] = [];
+  let mediaId = 0;
   try {
     for (const suffix of ['A', 'B']) {
       const created = await user.call('/requests', 'POST', { filename: singer + suffix, singer, comment: 'Node admin E2E', kind: '小休止', fullpath: '' });
@@ -52,43 +53,67 @@ test('真实 UI 登录、调序、删除、设置及播放器失败；无双写�
     await page.setViewportSize({ width: 390, height: 844 });
     const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(process.env.E2E_APP_PATH || '/'); const credentials = testCredentials();
-    await page.getByLabel('管理密码', { exact: true }).fill(credentials.password);
-    if (credentials.easyPass) { await page.getByText('另外启用了访问口令？').click(); await page.getByLabel('原版访问口令').fill(credentials.easyPass); }
-    await page.getByRole('button', { name: '登录管理端' }).click();
-    await expect(page.getByRole('heading', { name: '现场管理', exact: true })).toBeVisible();
+    await page.getByTestId('admin-password').fill(credentials.password);
+    if (credentials.easyPass) { await page.getByText('アクセスパスワードも設定している場合').click(); await page.getByLabel('アクセスパスワード').fill(credentials.easyPass); }
+    await page.getByTestId('admin-login').click();
+    await expect(page.getByTestId('admin-page-title')).toHaveText('予約管理');
     const pending = (await admin.call('/admin/queue')).body.data;
     expect(pending.total).toBe(before.total + 2);
     const positions = ids.map((id) => pending.items.findIndex((item: {id: number}) => item.id === id)).sort((a, b) => a - b);
     expect(positions[1] - positions[0]).toBe(1);
     const upper = pending.items[positions[0]].id, lower = pending.items[positions[1]].id;
     const moved = page.waitForResponse((response) => response.url().endsWith(`/api/v1/admin/requests/${lower}/move`));
-    await page.locator(`[data-request-id="${lower}"]`).getByRole('button', { name: '上移', exact: true }).click();
+    await page.locator(`[data-request-id="${lower}"]`).getByRole('button', { name: '上へ', exact: true }).click();
     expect((await moved).ok()).toBe(true);
     await expect.poll(async () => (await admin.call('/admin/queue')).body.data.items.filter((item: {id: number}) => ids.includes(item.id)).map((item: {id: number}) => item.id)).toEqual([lower, upper]);
-    await page.locator(`[data-request-id="${lower}"]`).getByRole('button', { name: '删除', exact: true }).click();
-    await page.getByRole('button', { name: '确认删除', exact: true }).click();
+    await page.locator(`[data-request-id="${lower}"]`).getByLabel(`予約 ${lower} を選択`).check();
+    await page.locator(`[data-request-id="${upper}"]`).getByLabel(`予約 ${upper} を選択`).check();
+    const reordered = page.waitForResponse(response => response.url().endsWith('/api/v1/admin/queue/reorder'));
+    await page.getByTestId('admin-reorder-selected').click();
+    expect((await reordered).ok()).toBe(true);
+    await expect.poll(async () => (await admin.call('/admin/queue')).body.data.items.filter((item: {id: number}) => ids.includes(item.id)).map((item: {id: number}) => item.id)).toEqual([lower, upper]);
+    await page.locator(`[data-request-id="${lower}"]`).getByRole('button', { name: '削除', exact: true }).click();
+    await page.getByTestId('admin-delete-confirm').click();
     await expect(page.locator(`[data-request-id="${lower}"]`)).toHaveCount(0);
+    expect((await admin.call(`/admin/requests/${upper}`, 'DELETE', {})).status).toBe(200);
+    await page.getByTestId('admin-refresh-queue').click();
+    await expect(page.locator(`[data-request-id="${upper}"]`)).toHaveCount(0);
+    const mediaPath = '/phase14-unmapped/NoRealMedia.mp4';
+    const media = await user.call('/requests', 'POST', { filename: 'Phase14 media probe', fullpath: mediaPath, singer, comment: 'synthetic media availability check', kind: '動画' });
+    expect(media.status).toBe(201); mediaId = media.body.data.id;
+    await page.getByTestId('admin-refresh-queue').click();
+    const mediaRow = page.locator(`[data-request-id="${mediaId}"]`);
+    await expect(mediaRow).toBeVisible(); await expect(mediaRow).not.toContainText(mediaPath);
+    const mediaCheck = page.waitForResponse(response => response.url().endsWith(`/api/v1/admin/queue/${mediaId}/media-check`));
+    await mediaRow.getByRole('button', { name: 'メディア確認' }).click();
+    const checked = await mediaCheck; expect(checked.ok()).toBe(true); expect((await checked.json()).data.state).toBe('agent_offline');
+    await expect(mediaRow).toContainText('Agent オフライン');
+    expect((await admin.call(`/admin/requests/${mediaId}`, 'DELETE', {})).status).toBe(200); mediaId = 0;
+    await page.getByTestId('admin-refresh-queue').click(); await expect(mediaRow).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('admin-mobile.png'), fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.screenshot({ path: testInfo.outputPath('admin-desktop.png'), fullPage: true });
     const agentRead = page.waitForResponse((response) => response.url().endsWith('/api/v1/admin/player-agent') && response.request().method() === 'GET');
-    await page.getByRole('button', { name: '系统与播放器', exact: true }).click();
+    await page.getByTestId('admin-nav-system').click();
     expect((await agentRead).status()).toBe(200);
-    await expect(page.getByText('运行环境', { exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Windows Player Agent' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: '预约播放历史' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Start local test video' })).toBeDisabled();
-    if (!status.mpc_reachable) { await page.getByRole('button', { name: '播放', exact: true }).click(); await expect(page.getByRole('alert')).toContainText('播放器不可达'); }
+    await expect(page.getByText('実行環境', { exact: true })).toBeVisible();
+    await expect(page.getByText('Windows Player Agent', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '予約再生履歴' })).toBeVisible();
+    await expect(page.getByTestId('system-start-test')).toBeDisabled();
+    if (!status.mpc_reachable) { await page.getByRole('button', { name: '再生', exact: true }).click(); await expect(page.getByRole('alert')).toBeVisible(); }
     const nativeRead = page.waitForResponse((response) => response.url().endsWith('/api/v1/settings') && response.request().method() === 'GET');
-    await page.getByRole('button', { name: '管理设置', exact: true }).click();
+    await page.getByTestId('admin-nav-settings').click();
     expect((await nativeRead).headers()['x-yukari-owner']).toBe('node-settings-read');
-    await expect(page.getByLabel('播放模式')).toBeVisible();
-    await page.getByRole('button', { name: '保存设置' }).click();
-    await expect(page.getByRole('status')).toContainText('设置没有变化');
-    await page.getByRole('button', { name: '退出管理端' }).click();
-    await expect(page.getByRole('button', { name: '登录管理端' })).toBeVisible();
+    await expect(page.getByLabel('再生モード')).toBeVisible();
+    await page.getByRole('button', { name: '設定を保存' }).click();
+    await expect(page.getByRole('status')).toContainText('設定に変更はありません');
+    await page.getByRole('button', { name: 'ログアウト' }).click();
+    await expect(page.getByTestId('admin-login')).toBeVisible();
     expect((await page.request.get('/api/v1/admin/session', { headers: { 'X-Yukari-Client': '1' } })).status()).toBe(401);
     expect(errors).toEqual([]);
   } finally {
+    if (mediaId) expect((await admin.call(`/admin/requests/${mediaId}`, 'DELETE', {})).status).toBe(200);
     for (const item of (await admin.call('/admin/queue')).body.data.items.filter((item: {singer: string}) => item.singer === singer)) expect((await admin.call(`/admin/requests/${item.id}`, 'DELETE', {})).status).toBe(200);
     await fetch(`${phpBase}/api/mypage.php`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ action: 'history_remove', userid, fullpath: '' }) });
     expect((await admin.call('/admin/queue')).body.data).toEqual(before);

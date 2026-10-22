@@ -1,34 +1,32 @@
 import { useCallback, useEffect, useState } from 'react';
-import { message, type AdminClient, type QueueData } from '../../lib/admin';
+import { useT } from '../../../../../packages/web-foundation/src/i18n';
+import { Button, EmptyState } from '../../../../../packages/web-foundation/src/primitives';
+import { message, type AdminClient, type MediaCheck, type QueueData } from '../../lib/admin';
+import { PlaybackConsole } from './PlaybackConsole';
+import { useQueuePageStore } from '../../store/queuePageStore';
 
 export function QueuePage({ client }: { client: AdminClient }) {
-  const [data, setData] = useState<QueueData | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [deleting, setDeleting] = useState<number | null>(null);
-  const reload = useCallback(async (clearError = true) => {
-    try { setData(await client<QueueData>('queue')); if (clearError) setError(''); }
-    catch (error) { setError(message(error)); }
-  }, [client]);
+  const t = useT(); const [data, setData] = useState<QueueData | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState('');
+  const [deleting, setDeleting] = useState<number | null>(null); const selected = useQueuePageStore(state => state.selected); const [checks, setChecks] = useState<Record<number, string>>({});
+  const setSelected = (next: number[] | ((previous: number[]) => number[])) => { const previous = useQueuePageStore.getState().selected; useQueuePageStore.setState({ selected: typeof next === 'function' ? next(previous) : next }); };
+  const reload = useCallback(async (clearError = true) => { try { setData(await client<QueueData>('queue')); if (clearError) setError(''); } catch (cause) { setError(message(cause)); } }, [client]);
   useEffect(() => { void reload(); }, [reload]);
-  async function mutate(operation: string, id: number, action?: string) {
-    if (busy) return; setBusy(true); setError(''); setNotice('');
-    try {
-      const result = await client<{ message?: string }>(operation, { id: String(id), ...(action ? { action } : {}) });
-      setNotice(result.message || '操作已由服务端处理，队列已重新查询。'); setDeleting(null);
-    } catch (error) { setError(message(error)); }
-    finally { await reload(false); setBusy(false); }
-  }
-  return <section className="panel" aria-busy={!data && !error}><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold">预约队列</h2><p className="mt-2 text-sm text-slate-500">{data?.total ?? '—'} 条记录 · 待播放 {data?.remaining_count ?? '—'}</p></div><button className="secondary" disabled={busy} onClick={() => void reload()}>刷新队列</button></div>
-    <p className="mt-4 text-xs text-slate-500">按服务器返回顺序显示。上移/下移对应显示位置，不代表下一首播放。</p>
-    {!data && !error && <p role="status" className="mt-4 text-sm text-slate-500">正在读取服务端队列…</p>}
-    {error && <p role="alert" className="error mt-4">{error}</p>}{notice && <p role="status" className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-800">{notice}</p>}
-    <ul className="mt-4 divide-y divide-slate-100">{data?.items.map((item) => <li key={item.id} data-request-id={item.id} className="py-5">
-      <div className="flex items-center justify-between gap-2"><span className="text-xs text-slate-500">位置 {item.position} · ID {item.id}</span><span className="rounded-full bg-slate-100 px-3 py-1 text-xs">{item.nowplaying}</span></div>
-      <h3 className="mt-2 break-all font-semibold">{item.songfile || item.display_name}</h3><p className="mt-1 break-all text-sm text-slate-500">{item.singer} · {item.kind}</p>
-      <div className="mt-3 flex flex-wrap gap-2"><button className="secondary" disabled={busy} onClick={() => void mutate('move', item.id, 'up')}>上移</button><button className="secondary" disabled={busy} onClick={() => void mutate('move', item.id, 'down')}>下移</button><button className="secondary" disabled={busy} onClick={() => void mutate('move', item.id, 'warikomi')}>下一首</button><button className="secondary text-red-700" disabled={busy} onClick={() => setDeleting(item.id)}>删除</button></div>
-      {deleting === item.id && <div role="group" aria-label="删除确认" className="mt-3 rounded-xl bg-red-50 p-3 text-sm"><p>确认删除 ID {item.id} 的预约？</p><div className="mt-3 flex gap-2"><button className="primary bg-red-700" disabled={busy} onClick={() => void mutate('delete', item.id)}>确认删除</button><button className="secondary" disabled={busy} onClick={() => setDeleting(null)}>取消</button></div></div>}
-    </li>)}</ul>{data?.items.length === 0 && <p className="py-8 text-slate-500">队列为空</p>}
-  </section>;
+  async function mutate(operation: string, id: number, action?: string) { if (busy) return; setBusy(true); setError(''); setNotice(''); try { const result = await client<{message?:string}>(operation,{id:String(id),...(action?{action}:{})}); setNotice(result.message || '操作を受け付けました。最新状態を読み込みました。'); setDeleting(null); setSelected(value=>value.filter(item=>item!==id)); } catch(cause) { setError(message(cause)); } finally { await reload(false); setBusy(false); } }
+  async function reorderSelected() { if (!data || busy || !selected.length) return; setBusy(true); setError(''); setNotice(''); const order=[...selected,...data.items.filter(item=>!selected.includes(item.id)&&item.nowplaying==='未再生').map(item=>item.id)]; try { const result=await client<{reordered:boolean;count:number}>('reorder',{ids:order}); setNotice(`${result.count} 件を選択順に並べ替えました。`); setSelected([]); } catch(cause) { setError(message(cause)); } finally { await reload(false); setBusy(false); } }
+  async function checkMedia(id: number) { setChecks(value=>({...value,[id]:'pending'})); try { let result=await client<MediaCheck>('media-check',{id:String(id)}); if(result.state==='pending'&&result.id){const checkId=result.id;for(let attempt=0;attempt<20&&result.state==='pending';attempt++){await new Promise(resolve=>window.setTimeout(resolve,500));result=await client<MediaCheck>('media-check-result',{id:String(id),checkId});}} setChecks(value=>({...value,[id]:result.state==='pending'?'timeout':result.state}));} catch(cause){setChecks(value=>({...value,[id]:message(cause)}));} }
+  const unplayed=data?.items.filter(item=>item.nowplaying==='未再生')??[]; const allSelected=unplayed.length>0&&unplayed.every(item=>selected.includes(item.id));
+  const mediaLabels: Record<string,string>={playable:'再生可能',path_unmapped:'パス未設定',file_missing:'ファイルなし',invalid_path:'無効なパス',agent_offline:'Agent オフライン',pending:'確認中',timeout:'タイムアウト'};
+  return <div className="space-y-5" aria-busy={!data&&!error}><PlaybackConsole client={client} queue={data}/><section className="panel" aria-labelledby="queue-title">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="eyebrow">QUEUE</p><h2 id="queue-title" className="text-2xl font-bold">{t('queueManage')}</h2><p className="mt-2 text-sm text-slate-500">{data?t('queueCount',{total:data.total,remaining:data.remaining_count}):t('queueLoading')}</p></div><Button tone="secondary" data-testid="admin-refresh-queue" disabled={busy} onClick={()=>void reload()}>{t('refresh')}</Button></div>
+    <p className="mt-3 text-xs text-slate-500">順序と再生状態はサーバーが管理します。予約者名は表示しますが、絶対パスや Agent 内部情報は表示しません。</p>
+    {error&&<p role="alert" className="error mt-4">{error}</p>}{notice&&<p role="status" className="success-banner mt-4">{notice}</p>}
+    {unplayed.length>0&&<div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-slate-50 p-3"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={allSelected} onChange={e=>setSelected(e.target.checked?unplayed.map(item=>item.id):[])}/><span>{t('selectAll')}</span></label><Button tone="secondary" data-testid="admin-reorder-selected" disabled={busy||!selected.length} onClick={()=>void reorderSelected()}>{t('reorderSelected')} · {selected.length}</Button></div>}
+    {!data&&!error&&<p role="status" className="mt-4 text-sm text-slate-500">{t('queueLoading')}</p>}
+    <ol className="mt-2 divide-y divide-slate-100">{data?.items.map(item=><li key={item.id} data-request-id={item.id} className="admin-queue-row">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-3">{item.nowplaying==='未再生'&&<input aria-label={`予約 ${item.id} を選択`} type="checkbox" checked={selected.includes(item.id)} onChange={e=>setSelected(value=>e.target.checked?[...value,item.id]:value.filter(id=>id!==item.id))}/>}<div className="min-w-0"><span className="text-xs font-semibold text-slate-500">#{String(item.position).padStart(2,'0')} · ID {item.id}</span><h3 className="mt-1 break-words font-semibold">{item.display_name}</h3><p className="mt-1 text-sm text-slate-600">{item.singer} · {item.kind}</p></div></div><span className="status-chip">{item.nowplaying}</span></div>
+      <div className="mt-3 flex flex-wrap items-center gap-2"><Button tone="secondary" disabled={busy} onClick={()=>void mutate('move',item.id,'up')}>{t('reorderUp')}</Button><Button tone="secondary" disabled={busy} onClick={()=>void mutate('move',item.id,'down')}>{t('reorderDown')}</Button><Button tone="secondary" disabled={busy} onClick={()=>void mutate('move',item.id,'warikomi')}>{t('playNext')}</Button><Button tone="secondary" disabled={busy||item.kind!=='動画'||checks[item.id]==='pending'} onClick={()=>void checkMedia(item.id)}>{t('checkMedia')}</Button><span className="text-xs font-medium text-slate-600">{mediaLabels[checks[item.id]]||(checks[item.id]&&checks[item.id]!=='pending'?checks[item.id]:'')}</span><Button tone="danger" disabled={busy} onClick={()=>setDeleting(item.id)}>{t('delete')}</Button></div>
+      {deleting===item.id&&<div role="group" aria-label="削除確認" className="mt-3 rounded-2xl bg-red-50 p-4 text-sm"><p>予約 #{item.id}「{item.display_name}」を削除します。この操作は取り消せません。</p><div className="mt-3 flex gap-2"><Button data-testid="admin-delete-confirm" tone="danger" disabled={busy} onClick={()=>void mutate('delete',item.id)}>{t('confirm')}</Button><Button tone="secondary" disabled={busy} onClick={()=>setDeleting(null)}>{t('cancel')}</Button></div></div>}
+    </li>)}</ol>
+    {data?.items.length===0&&<EmptyState className="mt-4">{t('noAdminQueue')}</EmptyState>}
+  </section></div>;
 }

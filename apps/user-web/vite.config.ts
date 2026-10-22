@@ -18,8 +18,9 @@ const boundary: Plugin = { name: 'user-api-boundary', configureServer(server) {
 export default defineConfig(({ mode, command }) => ({
   base: command === 'build' ? '/user/' : '/',
   plugins: [boundary, react(), tailwindcss()],
+  resolve: { dedupe: ['react', 'react-dom'], alias: { react: resolve(process.cwd(), 'node_modules/react'), '@vue/reactivity': resolve(process.cwd(), 'node_modules/@vue/reactivity'), i18next: resolve(process.cwd(), 'node_modules/i18next') } },
   server: { host: '127.0.0.1', port: 5173, strictPort: true, cors: false,
-    fs: { allow: [process.cwd(), resolve(process.cwd(), '../../packages/contracts')] },
+    fs: { allow: [process.cwd(), resolve(process.cwd(), '../../packages/contracts'), resolve(process.cwd(), '../../packages/web-foundation'), resolve(process.cwd(), '../../packages/theme'), resolve(process.cwd(), '../../packages/language'), resolve(process.cwd(), '../../packages/reactiveStore')] },
     proxy: { '/api/v1/': { target: process.env.API_PROXY_TARGET || loadEnv(mode, process.cwd(), 'API_').API_PROXY_TARGET || 'http://127.0.0.1:3000',
       changeOrigin: false, configure(proxy) { proxy.on('proxyReq', (request) => request.removeHeader('authorization')); } } },
   },

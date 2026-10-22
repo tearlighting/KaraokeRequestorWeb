@@ -3,6 +3,7 @@ WORKDIR /repo
 COPY apps/user-web/package.json apps/user-web/package-lock.json ./apps/user-web/
 RUN npm --prefix apps/user-web ci
 COPY packages/contracts ./packages/contracts
+COPY packages/web-foundation ./packages/web-foundation
 COPY packages/test-support ./packages/test-support
 COPY apps/user-web ./apps/user-web
 RUN npm --prefix apps/user-web run build
@@ -12,6 +13,7 @@ WORKDIR /repo
 COPY apps/admin-web/package.json apps/admin-web/package-lock.json ./apps/admin-web/
 RUN npm --prefix apps/admin-web ci
 COPY packages/contracts ./packages/contracts
+COPY packages/web-foundation ./packages/web-foundation
 COPY packages/test-support ./packages/test-support
 COPY apps/admin-web ./apps/admin-web
 RUN npm --prefix apps/admin-web run build

@@ -590,3 +590,30 @@ Playwright Windows teardown 改由 `scripts/run-web-e2e.mjs` 管理：用 `E2E_W
 正式自动播放仍未启用。管理员仍需在本机运行 `Configure-PlayerAgent.cmd`，人工选择实际媒体根和 mpv.exe；POSIX → Windows 路径前缀必须对照真实预约 fullpath 后再填写。正式启用前还需确认独立 Windows Legacy 调度器停止或共享并遵守 owner fence，并单独批准开关。启动器首次启动需可用的 Docker Desktop、Node.js 24、原 PHP 配置；需要播放器时需先配置 Agent。命令与恢复说明见 [Windows 本地运行手册](WINDOWS_LOCAL_RUNBOOK.zh-CN.md)。
 
 The launch scripts include a conditional Compose plugin fallback for installations where the default Docker CLI config is unreadable. It preserves any explicitly selected Docker config/context and does not alter Docker Desktop settings.
+
+## Phase 14：用户端与管理端 UI/UX 重构
+
+日期：2026-10-21。只调整 React 展示和现有管理 API 调用，不改 PHP/Node 业务 Owner、正式数据库、playmode、媒体目录、凭据或自动播放开关。
+
+user-web 改为日语 mobile-first：首屏突出服务端当前播放状态；搜索结果隐藏内部媒体路径，保留 Everything/Lister 真实结果及原错误；预约表单提供歌手、评论和已存在的 `secret` 非公开选项。选择歌曲后页面定位到预约表单。预约成功反馈使用服务端返回的预约 ID 和队列再读取状态；隐私遮罩仍由服务端决定。当前 API 未提供个人历史列表，因此界面只指示最近一次本页提交，不推断历史预约归属。
+
+admin-web 改为日语 desktop-first 控制室：主页面并排展示 Agent 连接/实测播放状态、下一首、现存 Legacy 播放模式、自动播放 Pause/Resume/Skip/Stop 和队列操作；支持已存在 Node endpoint 的多选排序、单项上下移/插队/删除和媒体预检。删除、接管、跳过、停止需显式确认。绝对媒体路径和 Agent 内部文件字段不显示。设置、播放历史、系统诊断位于次级页；原 MPC-BE/foobar 控制和本地测试视频仍在诊断页。模式 3–5 继续标注 TODO，不伪称支持，也没有通过 UI 改写正式播放模式。
+
+API 契约、认证及服务端状态权威保持不变；管理端 Vite 代理仅允许既有受保护的 POST `/api/v1/admin/queue/reorder`，Fastify 仍做 session/CSRF/Origin/角色校验。修改文件限于两个 React 应用、管理端测试和代理配置。
+
+验证：user-web/admin-web typecheck 与 production build 均通过。真实 Edge E2E 在 `.local` synthetic Phase 13 SQLite/PHP/API 部署通过：user-web **8 passed、1 skipped**（fixture 没有真实曲库命中）；admin-web **3/3 passed**。覆盖实际登录、搜索成功/失败真实反馈、隐私字段请求、Node 预约和队列回读、调序/批量排序/删除、媒体预检的 `agent_offline` 状态及路径不泄露、无变化设置保存、播放器不可达和注销权限；390px 视口检查无横向溢出。暂用未占用的 API/PHP 端口 3201/8281 和 Vite 端口 5193/5194，正常部署端口未改。隔离 Apache 镜像与随后正常 `web` 镜像均重建；正常 Compose 的 Fastify/PHP healthy，`/user/`、`/admin/`、原 `/search.php`、Fastify `/health` 均 HTTP 200，首页返回的 bundle 是最新构建。没有对正式服务执行写回归，自动播放仍关闭。
+
+桌面和手机 Edge 截图保存在忽略目录 `.local/phase14-ui-shots/`（不进入 Git）。本阶段无新增业务 Owner 或未迁移后端模块；Everything/YukaLister、Node 认证和预约队列逻辑均未改。
+# Phase 15: React routing, themes, i18n and Legacy feature inventory
+
+Added independent React Router trees for user and admin apps. User routes cover home/search and queue; admin routes cover login, queue/control room, system diagnostics and settings, with direct navigation, refresh, history navigation, localized 404 and protected-session redirect behavior. Production Apache fallback is limited to `/user/` and `/admin/`; `/app/` and the original PHP endpoints remain reachable.
+
+Added `packages/web-foundation/` for the shared pure translation dictionary/interpolation/fallback core, React locale adapter, semantic CSS theme tokens, preference bootstrap and small UI primitives. Japanese is the default locale, with Simplified Chinese and English. Both apps offer persisted locale and default/anisong-dark theme switches; first paint reads local preferences before React mounts. The dark theme uses original CSS styling and no unlicensed anime assets. Main user/admin screens now use the dictionaries and shared primitives while API clients, server-authoritative state and authorization remain unchanged.
+
+The Legacy page/action inventory and follow-up priorities are in [LEGACY_FEATURE_MATRIX.md](LEGACY_FEATURE_MATRIX.md). It distinguishes complete UI migration, partial migration, missing UI/API, and obsolete/risky Legacy tools. No business owner changed in this phase: search remains PHP-backed, reservation/queue/player ownership follows the existing matrix, and this work did not touch production SQLite, playmode, media configuration, credentials or autoplay.
+
+Validation on the isolated synthetic deployment: API typecheck/build passed; user-web and admin-web typecheck/build passed; API/PHP oracle suite passed 43 with 1 optional real-mpv test skipped; user-web Edge passed 9 with 1 real-search fixture skipped; admin-web Edge passed 4; built-Apache route/theme/i18n tests passed 1 per app. Direct HTTP checks passed for `/user/`, `/user/queue`, `/admin/`, `/admin/system`, `/app/` and representative Legacy PHP URLs. Desktop/mobile viewport checks found no horizontal overflow. Eight default/dark desktop/mobile screenshots are in ignored `.local/phase15-shots/` and were not added to Git.
+
+### User manager integration follow-up
+
+Integrated the project-owned `packages/theme/`, `packages/language/` and `packages/reactiveStore/` with both React apps. Theme and language global stores now use the Vue-reactivity-to-React adapter; user home/search/queue and admin queue selection use app-local page stores for shared page state. The web-foundation preference controls consume these managers, while web-foundation remains the home for presentation primitives and compatibility exports. `@vue/reactivity` and `i18next` are installed separately in each app and explicitly resolved from that app's `node_modules`; shared packages are included in Vite's allowed source roots. Both app typechecks and production builds pass after integration. Browser E2E could not be rerun in this shell because Docker Engine denied access to its named pipe; this is an environment permission failure, not a test assertion failure. No API, database, playback mode, media path or autoplay setting changed.

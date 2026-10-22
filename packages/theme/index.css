@@ -1,0 +1,39 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+@theme inline {
+  --color-bg: var(--color-bg); 
+  --color-surface: var(--color-surface); 
+  --color-border: var(--color-border); 
+  --color-text: var(--color-text); 
+  --color-muted: var(--color-muted); 
+  --color-invert: var(--color-invert); 
+  --color-primary: var(--color-primary); 
+  --color-secondary: var(--color-secondary); 
+  --color-accent: var(--color-accent); 
+  --color-success: var(--color-success); 
+  --color-warning: var(--color-warning); 
+  --color-danger: var(--color-danger); 
+  --color-btn-bg: var(--btn-bg); 
+  --color-btn-text: var(--btn-text); 
+  --color-btn-hover: var(--btn-hover); 
+  --color-card-bg: var(--card-bg); 
+  --color-card-border: var(--card-border); 
+  --color-input-bg: var(--input-bg); 
+  --color-input-border: var(--input-border); 
+  --color-input-text: var(--input-text); 
+  --color-input-focus: var(--input-focus); 
+}
+
+:root {
+  color-scheme: light;
+  --background:#fafafa; --surface:#fff; --surface-muted:#f2f2f2; --text:#4a4a4a; --muted:#a1a1aa;
+  --primary:#f472b6; --primary-strong:#fb7185; --border:#f5d0dc; --danger:#f87171; --success:#4ade80;
+}
+:root[data-theme="anisong-dark"] {
+  color-scheme: dark;
+  --background:#0f172a; --surface:#1e293b; --surface-muted:#263449; --text:#f1f5f9; --muted:#94a3b8;
+  --primary:#7dd3fc; --primary-strong:#a78bfa; --border:#334155; --danger:#f87171; --success:#34d399;
+}
+

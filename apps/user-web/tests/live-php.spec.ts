@@ -17,22 +17,24 @@ test('手机真实搜索；连接失败保留原因，不伪造成功空列表',
   await page.setViewportSize({ width: 390, height: 844 });
   const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(process.env.E2E_APP_PATH || '/');
-  await expect(page.getByRole('heading', { name: '下一首，唱你的。' })).toBeVisible();
-  await page.getByLabel('歌曲或关键词').fill(`NoSuchSong_${randomUUID()}`);
+  await expect(page.getByTestId('user-heading')).toBeVisible();
+  await page.getByTestId('search-keyword').fill(`NoSuchSong_${randomUUID()}`);
   for (const backend of ['everything', 'lister']) {
-    await page.getByLabel('曲库来源').selectOption(backend);
+    await page.getByLabel('検索元').selectOption(backend);
     const response = page.waitForResponse((response) => response.url().includes('/api/v1/search?'));
-    await page.getByRole('button', { name: '搜索歌曲' }).click();
+    await page.getByTestId('search-submit').click();
     const result = await response; const body = await result.json();
     if (!result.ok()) {
       expect(body.ok).toBe(false); expect(body.error.message).toBeTruthy();
       await expect(page.getByRole('alert')).toContainText(body.error.message);
-      expect(await page.getByText('没有返回歌曲。', { exact: false }).count()).toBe(0);
-    } else await expect(page.getByText('没有返回歌曲。', { exact: false })).toBeVisible();
+      expect(await page.getByTestId('search-empty').count()).toBe(0);
+    } else await expect(page.getByTestId('search-empty')).toBeVisible();
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath('mobile.png'), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: testInfo.outputPath('desktop.png'), fullPage: true });
 });
 
 test('React → Node → PHP 小休止预约，查询队列并通过 Node 管理接口清理', async ({ page }, testInfo) => {
@@ -46,19 +48,23 @@ test('React → Node → PHP 小休止预约，查询队列并通过 Node 管理
   try {
     const session = page.waitForResponse((response) => response.url().endsWith('/api/v1/user/session'));
     await page.goto(process.env.E2E_APP_PATH || '/'); userid = (await (await session).json()).data.userId;
-    await page.getByLabel('你的名字').fill(singer);
-    await page.getByLabel('备注（选填）').fill('Unified API integration; auto cleanup');
+    await page.getByTestId('reservation-singer').fill(singer);
+    await page.getByTestId('reservation-comment').fill('Unified API integration; auto cleanup');
+    await page.getByTestId('reservation-private').check();
     const created = page.waitForResponse((response) => response.url().endsWith('/api/v1/requests') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: '提交休息预约' }).click();
+    await page.getByTestId('reservation-submit').click();
     const result = await created; expect(result.status()).toBe(201);
+    expect((await result.request().postDataJSON()).secret).toBe(1);
     const id = (await result.json()).data.id;
-    await expect(page.getByRole('status').filter({ hasText: `预约已保存，ID ${id}` })).toBeVisible();
+    await expect(page.getByTestId('reservation-feedback')).toContainText('未再生');
     await expect(page.locator(`[data-request-id="${id}"]`)).toContainText(singer);
     await expect(page.locator(`[data-request-id="${id}"]`)).toContainText('未再生');
     const current = (await admin.call('/admin/queue')).body.data;
     expect(current.total).toBe(before.total + 1);
     expect(current.items.find((item: {id: number}) => item.id === id).kind).toBe('小休止');
     await page.screenshot({ path: testInfo.outputPath('reservation.png'), fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.screenshot({ path: testInfo.outputPath('reservation-desktop.png'), fullPage: true });
   } finally {
     for (const item of (await admin.call('/admin/queue')).body.data.items.filter((item: {singer: string}) => item.singer === singer)) expect((await admin.call(`/admin/requests/${item.id}`, 'DELETE', {})).status).toBe(200);
     if (userid) await fetch(`${phpBase}/api/mypage.php`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ action: 'history_remove', userid, fullpath: '' }) });
@@ -125,12 +131,12 @@ test('真实歌曲预约链（需接入真实曲库）', async ({ page }) => {
   const singer = `RealSongNodeE2E_${Date.now()}`;
   try {
     await page.goto(process.env.E2E_APP_PATH || '/');
-    await page.getByLabel('曲库来源').selectOption(process.env.E2E_SEARCH_BACKEND || 'lister');
-    await page.getByLabel('歌曲或关键词').fill(process.env.E2E_SONG_KEYWORD!);
-    await page.getByRole('button', { name: '搜索歌曲' }).click();
-    await page.getByRole('button', { name: '选择预约' }).first().click();
-    await page.getByLabel('你的名字').fill(singer);
-    await page.getByRole('button', { name: '提交歌曲预约' }).click();
+    await page.getByLabel('検索元').selectOption(process.env.E2E_SEARCH_BACKEND || 'lister');
+    await page.getByTestId('search-keyword').fill(process.env.E2E_SONG_KEYWORD!);
+    await page.getByTestId('search-submit').click();
+    await page.getByRole('button', { name: 'この曲を予約' }).first().click();
+    await page.getByTestId('reservation-singer').fill(singer);
+    await page.getByTestId('reservation-submit').click();
     await expect(page.getByTestId('queue')).toContainText(singer);
   } finally {
     for (const item of (await admin.call('/admin/queue')).body.data.items.filter((item: {singer: string}) => item.singer === singer)) await admin.call(`/admin/requests/${item.id}`, 'DELETE', {});

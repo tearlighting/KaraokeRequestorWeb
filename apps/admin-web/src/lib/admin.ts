@@ -8,8 +8,10 @@ export interface MediaCheck { id?: string; requestId: number; state: import('../
 export function message(error: unknown) { return error instanceof Error ? error.message : '请求失败'; }
 export const login = (credentials: Credentials) => apiRequest<import('../../../../packages/contracts/src/index').AdminSession>('/admin/session', { method: 'POST', body: JSON.stringify(credentials) });
 export const logout = () => apiRequest('/admin/session', { method: 'DELETE', body: '{}' });
+export const currentSession = () => apiRequest<import('../../../../packages/contracts/src/index').AdminSession>('/admin/session');
+export type AdminInput = Record<string, string | number | number[] | boolean>;
 export function adminClient() {
-  return async function request<T>(operation: string, body?: Record<string, string>): Promise<T> {
+  return async function request<T>(operation: string, body?: AdminInput): Promise<T> {
     let path: string;
     let method = 'GET';
     let payload: unknown;
@@ -21,12 +23,13 @@ export function adminClient() {
       case 'player-agent-test': path = '/admin/player-agent/test'; method = 'POST'; payload = body || {}; break;
       case 'player-agent-control': path = '/admin/player-agent/control'; method = 'POST'; payload = body; break;
       case 'player-agent-autoplay': path = '/admin/player-agent/autoplay'; method = 'POST'; payload = body; break;
-      case 'media-check': path = `/admin/queue/${encodeURIComponent(body?.id || '')}/media-check`; method = 'POST'; payload = {}; break;
-      case 'media-check-result': path = `/admin/queue/${encodeURIComponent(body?.id || '')}/media-check/${encodeURIComponent(body?.checkId || '')}`; break;
+      case 'media-check': path = `/admin/queue/${encodeURIComponent(String(body?.id || ''))}/media-check`; method = 'POST'; payload = {}; break;
+      case 'media-check-result': path = `/admin/queue/${encodeURIComponent(String(body?.id || ''))}/media-check/${encodeURIComponent(String(body?.checkId || ''))}`; break;
       case 'settings': path = '/settings'; break;
       case 'settings-save': path = '/settings'; method = 'PUT'; payload = { ...body, playmode: Number(body?.playmode), startvolume: Number(body?.startvolume), requestlistactivereload: Number(body?.requestlistactivereload) }; break;
-      case 'delete': path = `/admin/requests/${encodeURIComponent(body?.id || '')}`; method = 'DELETE'; payload = {}; break;
-      case 'move': path = `/admin/requests/${encodeURIComponent(body?.id || '')}/move`; method = 'POST'; payload = { action: body?.action }; break;
+      case 'delete': path = `/admin/requests/${encodeURIComponent(String(body?.id || ''))}`; method = 'DELETE'; payload = {}; break;
+      case 'move': path = `/admin/requests/${encodeURIComponent(String(body?.id || ''))}/move`; method = 'POST'; payload = { action: body?.action }; break;
+      case 'reorder': path = '/admin/queue/reorder'; method = 'POST'; payload = { ids: body?.ids }; break;
       case 'player': path = '/playback/control'; method = 'POST'; payload = body; break;
       default: throw new ApiError('未知管理操作', 400, 'UNKNOWN_OPERATION');
     }
