@@ -1,12 +1,12 @@
 # Docker Development Environment
 
-Phase 6: the original queue database now lives in `legacy/php/runtime/queue/`. Node mounts only that directory read-only; PHP remains the sole business writer and maintains WAL/SHM availability. Legacy swipe reads use a short-lived queue-only capability. Existing databases require an approved stopped-writer relocation; never create a replacement queue.
+Current MySQL mode: Fastify stores business data in MySQL. Legacy PHP source is baked into the Apache image; only the auth config, dedicated read-only YukaLister index location, and a separate playback-owner fence volume are mounted. Business SQLite files and the WAL anchor are not mounted or used by the normal runtime. Unmigrated Legacy business pages return HTTP 410.
 
-Phase 4: legacy PHP sources and local runtime data now live in `legacy/php/`, mounted at Apache `/var/www/html`; browser URLs are unchanged. The repository is also mounted read-only at `/workspace` for CLI checks. The legacy UI proxies only Node-native `/api/v1/meta/health`; business remains PHP-owned. See [compatibility](../docs/LEGACY_COMPATIBILITY.md).
+Historical Phase 4 setup is superseded by MySQL mode. Supported Legacy search/authentication URLs remain unchanged; see the current [compatibility matrix](../docs/LEGACY_COMPATIBILITY.md) for retired endpoints.
 
 ## Phase 3 endpoints
 
-From the repository root, run `docker compose -f docker/compose.yaml up --build -d`. This starts legacy PHP at http://127.0.0.1:8080 and the unified Node API at http://127.0.0.1:3000/health. Both ports bind to loopback. A one-shot service initializes the private bridge credential; PHP remains the only database writer.
+From the repository root, run `docker compose up -d --build`. The root Compose file includes `docker/compose.yaml` and preserves the existing Compose project name. This starts PHP, Fastify, MySQL and both Vite development servers. A one-shot MySQL bootstrap runs before Fastify; it does not delete data or volumes. Loopback-only development credentials are provided by default and may be overridden in the ignored root `.env`; never use the defaults outside local development.
 
 Run `npm ci` and `npm run dev` separately in `apps/user-web` and `apps/admin-web` (use `npm.cmd` in PowerShell). They use ports 5173 and 5174 and proxy Node `/api/v1`, not PHP. The new admin login requires a nonempty legacy configuration password. See the [API Server README](../apps/api-server/README.md) and [progress record](../docs/REFACTOR_PROGRESS.md).
 
@@ -21,13 +21,13 @@ This setup is for local development and UI testing of the Yukari Web UI on Windo
 ## Start
 
 ```powershell
-docker compose -f docker/compose.yaml up --build
+docker compose up -d --build
 ```
 
-The first run builds a PHP 8.2 + Apache image and installs the required PHP extensions. Once Apache starts, open <http://localhost:8080>. To run it in the background:
+The first run builds a PHP 8.2 + Apache image and installs the required PHP extensions. Once Apache starts, open <http://localhost:8180>. To run it in the background:
 
 ```powershell
-docker compose -f docker/compose.yaml up --build -d
+docker compose up -d --build
 ```
 
 View logs:
@@ -53,7 +53,7 @@ docker compose -f docker/compose.yaml down
 
 ## Troubleshooting
 
-- If port 8080 is already in use, stop the program using it.
+- If port 8180 is already in use, stop the program using it.
 - If the `docker` command is not recognized, install and start Docker Desktop, then reopen PowerShell.
 - For PHP errors, inspect `docker compose -f docker/compose.yaml logs web`. Common causes include an image build failure, workspace write permissions, or using a feature that depends on a Windows player.
 - `docker compose ... down` does not delete workspace data. Do not manually remove configuration files or SQLite databases unless you intend to reset the local state.

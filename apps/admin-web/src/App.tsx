@@ -8,6 +8,7 @@ import { Login } from './features/auth/Login';
 import { QueuePage } from './features/queue/QueuePage';
 import { SystemPage } from './features/system/SystemPage';
 import { SettingsPage } from './features/settings/SettingsPage';
+import { PlaybackPage } from './features/playback/PlaybackPage';
 import { currentSession, adminClient, logout, message, type Session } from './lib/admin';
 
 function AdminRoutes() {
@@ -20,11 +21,11 @@ function AdminRoutes() {
   if (!auth || !client) return <Navigate to="/login" replace state={{from: location.pathname}} />;
   return <div className="admin-shell min-h-screen lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
     <aside className="admin-sidebar"><Link to="/" className="brand-mark admin-brand"><span className="brand-orbit">♫</span><span><small>YUKARI / ADMIN</small><strong>{t('adminTitle')}</strong></span></Link>
-      <nav aria-label="管理ナビゲーション" className="mt-6 flex flex-wrap gap-2 lg:flex-col"><NavLink data-testid="admin-nav-queue" end to="/" className={({isActive})=>`admin-nav-item ${isActive?'admin-nav-current':''}`}>{t('queueManage')}</NavLink><NavLink data-testid="admin-nav-system" to="/system" className={({isActive})=>`admin-nav-item ${isActive?'admin-nav-current':''}`}>{t('diagnostics')}</NavLink><NavLink data-testid="admin-nav-settings" to="/settings" className={({isActive})=>`admin-nav-item ${isActive?'admin-nav-current':''}`}>{t('settings')}</NavLink></nav>
+      <nav aria-label="管理ナビゲーション" className="mt-6 flex flex-wrap gap-2 lg:flex-col"><NavLink data-testid="admin-nav-queue" end to="/" className={({isActive})=>`admin-nav-item ${isActive?'admin-nav-current':''}`}>{t('queueManage')}</NavLink><NavLink data-testid="admin-nav-playback" to="/playback" className={({isActive})=>`admin-nav-item ${isActive?'admin-nav-current':''}`}>{t('playbackRoute')}</NavLink><NavLink data-testid="admin-nav-system" to="/system" className={({isActive})=>`admin-nav-item ${isActive?'admin-nav-current':''}`}>{t('diagnostics')}</NavLink><NavLink data-testid="admin-nav-settings" to="/settings" className={({isActive})=>`admin-nav-item ${isActive?'admin-nav-current':''}`}>{t('settings')}</NavLink></nav>
       <div className="mt-6 border-t border-white/10 pt-5"><p className="text-xs text-slate-400">{auth.username}</p><button className="mt-3 text-sm text-slate-300 underline" onClick={() => void signOut()}>{t('logout')}</button><div className="mt-4"><Preferences /></div></div>
     </aside>
-    <main className="mx-auto w-full max-w-[1500px] min-w-0 p-4 sm:p-7 xl:p-9"><header className="mb-6"><p className="eyebrow">YUKARI · KARAOKE</p><h1 data-testid="admin-page-title" className="mt-2 text-3xl font-bold tracking-tight">{location.pathname === '/system' ? t('systemTitle') : location.pathname === '/settings' ? t('settingsTitle') : t('queueManage')}</h1></header>{error && <p role="alert" className="error mb-5">{error}</p>}
-      <Routes><Route path="/" element={<QueuePage client={client} />} /><Route path="/system" element={<SystemPage client={client} />} /><Route path="/settings" element={<SettingsPage client={client} />} /><Route path="*" element={<AdminNotFound />} /></Routes>
+    <main className="mx-auto w-full max-w-[1500px] min-w-0 p-4 sm:p-7 xl:p-9"><header className="mb-6"><p className="eyebrow">YUKARI · KARAOKE</p><h1 data-testid="admin-page-title" className="mt-2 text-3xl font-bold tracking-tight">{location.pathname === '/system' ? t('systemTitle') : location.pathname === '/settings' ? t('settingsTitle') : location.pathname === '/playback' ? t('playbackRoute') : t('queueManage')}</h1></header>{error && <p role="alert" className="error mb-5">{error}</p>}
+      <Routes><Route path="/" element={<QueuePage client={client} />} /><Route path="/playback" element={<PlaybackPage client={client} />} /><Route path="/system" element={<SystemPage client={client} />} /><Route path="/settings" element={<SettingsPage client={client} />} /><Route path="*" element={<AdminNotFound />} /></Routes>
     </main>
   </div>;
 }

@@ -60,7 +60,7 @@ $listerdbfile = "List.sqlite3";
 if(array_key_exists("listerDBPATH", $config_ini)) {
     $listerdbfile = urldecode($config_ini['listerDBPATH']);
 }
-$listerdb = new PDO('sqlite:'. $listerdbfile);
+$listerdb = new PDO(getenv('YUKARI_MYSQL_MODE') === '1' ? 'sqlite:file:' . realpath($listerdbfile) . '?mode=ro' : 'sqlite:'. $listerdbfile);
 
 // 検索条件
 $select_where = "";

@@ -1,22 +1,80 @@
 ﻿services:
   bridge-init:
+    container_name: yukari-bridge-init
     image: node:24-alpine
     command: ["node", "/init-bridge.mjs"]
     volumes:
       - ./init-bridge.mjs:/init-bridge.mjs:ro
       - legacy_bridge:/run/yukari
     restart: "no"
+  mysql:
+    container_name: yukari-mysql
+    image: mysql:8.4
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--default-time-zone=+00:00"]
+    environment:
+      MYSQL_DATABASE: yukari
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-yukari-local-root-only}
+      TZ: Asia/Tokyo
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - yukari_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping --host=127.0.0.1 --user=root --password=\"$${MYSQL_ROOT_PASSWORD}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+  mysql-bootstrap:
+    # Idempotent local initialization. Fastify waits until schema/settings exist.
+    build:
+      context: ..
+      dockerfile: apps/api-server/Dockerfile
+    command: ["node", "dist/mysql-bootstrap.js"]
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: yukari
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-yukari-local-root-only}
+      MYSQL_APP_PASSWORD: ${MYSQL_PASSWORD:-yukari-local-app-only}
+      MYSQL_VIEWER_PASSWORD: ${MYSQL_VIEWER_PASSWORD:-yukari-local-viewer-only}
+      MYSQL_LEGACY_SETTINGS_FILE: /run/legacy-settings/config.ini
+    volumes:
+      - type: bind
+        source: ../legacy/php/config.ini
+        target: /run/legacy-settings/config.ini
+        read_only: true
+        bind: { create_host_path: false }
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
   web:
+    container_name: yukari-web-php
+    # Serves Legacy PHP plus the production-built user-web (/user/) and admin-web (/admin/).
+    # Fastify runs as the api-server service below; Vite is only for separate UI development.
     build:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8180:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      # Preserve legacy browser URLs and relative config/SQLite paths.
-      - ../legacy/php:/var/www/html
-      # CLI validation only; this mount is outside Apache DocumentRoot.
-      - ../:/workspace:ro
+      # PHP sources are baked into the image. Only the active auth configuration
+      # and the independent, read-only YukaLister search index are mounted.
+      - type: bind
+        source: ../legacy/php/config.ini
+        target: /var/www/html/config.ini
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ../legacy/php/List.sqlite3
+        target: /var/www/html/List.sqlite3
+        read_only: true
+        bind: { create_host_path: false }
+      - yukari_queue_owner:/var/www/html/runtime/queue-owner
       - ./apache-private.conf:/etc/apache2/conf-enabled/zz-yukari-private.conf:ro
       - legacy_bridge:/run/yukari:ro
     depends_on:
@@ -25,20 +83,22 @@
     environment:
       TZ: Asia/Tokyo
       YUKARI_MONOREPO: "1"
-      YUKARI_NODE_QUEUE: "1"
-      YUKARI_NODE_QUEUE_MUTATIONS: "1"
       YUKARI_NODE_REQUESTS: "1"
+      YUKARI_MYSQL_MODE: "1"
+      YUKARI_EVERYTHING_HOST: "host.docker.internal"
+      YUKARI_LISTER_DB_PATH: /var/www/html/List.sqlite3
     healthcheck:
       test:
         - CMD
         - php
         - -r
-        - "$$context = stream_context_create(['http' => ['follow_location' => 1]]); exit(@file_get_contents('http://127.0.0.1/', false, $$context) === false ? 1 : 0);"
+        - "exit(@file_get_contents('http://127.0.0.1/app/') === false ? 1 : 0);"
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 15s
   api-server:
+    container_name: yukari-api-server
     group_add: ["33"]
     build:
       context: ..
@@ -47,35 +107,32 @@
       - "127.0.0.1:3000:3000"
     environment:
       TZ: Asia/Tokyo
-      USER_ORIGINS: "http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:5173,http://localhost:5173"
-      ADMIN_ORIGINS: "http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:5174,http://localhost:5174"
+      USER_ORIGINS: "http://127.0.0.1:8180,http://localhost:8180,http://127.0.0.1:5173,http://localhost:5173"
+      ADMIN_ORIGINS: "http://127.0.0.1:8180,http://localhost:8180,http://127.0.0.1:5174,http://localhost:5174"
+      LEGACY_QUEUE_ORIGINS: "http://127.0.0.1:8180,http://localhost:8180"
       LEGACY_PHP_URL: http://web
       LEGACY_BRIDGE_TOKEN_FILE: /run/yukari/bridge-token
-      LEGACY_DATABASE_ROOT: /run/legacy-db
-      LEGACY_SETTINGS_PATH: /run/legacy-settings/config.ini
+      NODE_QUEUE_OWNER_ROOT: /run/queue-owner
       PLAYER_AGENT_TOKEN_FILE: /run/player-agent-token/token
       PLAYER_AGENT_STATE_PATH: /run/player-agent-state/state.json
-      PLAYER_QUEUE_DATABASE: request.db
       YUKARI_NODE_AUTOPLAY: "0"
+      YUKARI_AGENT_SEARCH: "0"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: yukari
+      MYSQL_USER: yukari_app
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-yukari-local-app-only}
     volumes:
       - legacy_bridge:/run/yukari:ro
       - ../.local/player-agent-token:/run/player-agent-token/token:ro
       - player_agent_state:/run/player-agent-state
-      # Dedicated DB/WAL/SHM directory only; Node owns admin deletion/movement.
-      - type: bind
-        source: ../legacy/php/runtime/queue
-        target: /run/legacy-db
-        read_only: false
-        bind:
-          create_host_path: false
-      # Only this existing file is shared, not passwords copied into env or a DB mount.
-      - type: bind
-        source: ../legacy/php/config.ini
-        target: /run/legacy-settings/config.ini
-        read_only: true
-        bind:
-          create_host_path: false
+      # Separate shared owner fence only; no SQLite database/config mount.
+      - yukari_queue_owner:/run/queue-owner
     depends_on:
+      mysql:
+        condition: service_healthy
+      mysql-bootstrap:
+        condition: service_completed_successfully
       bridge-init:
         condition: service_completed_successfully
       web:
@@ -85,6 +142,64 @@
       interval: 15s
       timeout: 5s
       retries: 3
+  user-web-dev:
+    container_name: yukari-user-web-dev
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: user-web-build
+    command: ["npm", "--prefix", "apps/user-web", "run", "dev", "--", "--host", "0.0.0.0"]
+    ports:
+      - "127.0.0.1:5173:5173"
+    environment:
+      API_PROXY_TARGET: http://api-server:3000
+    volumes:
+      - ../apps/user-web/src:/repo/apps/user-web/src
+      - ../apps/user-web/index.html:/repo/apps/user-web/index.html:ro
+      - ../apps/user-web/vite.config.ts:/repo/apps/user-web/vite.config.ts:ro
+      - ../packages/contracts:/repo/packages/contracts
+      - ../packages/web-foundation:/repo/packages/web-foundation
+      - ../packages/theme:/repo/packages/theme
+      - ../packages/language:/repo/packages/language
+      - ../packages/reactiveStore:/repo/packages/reactiveStore
+    depends_on:
+      api-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  admin-web-dev:
+    container_name: yukari-admin-web-dev
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: admin-web-build
+    command: ["npm", "--prefix", "apps/admin-web", "run", "dev", "--", "--host", "0.0.0.0"]
+    ports:
+      - "127.0.0.1:5174:5174"
+    environment:
+      API_PROXY_TARGET: http://api-server:3000
+    volumes:
+      - ../apps/admin-web/src:/repo/apps/admin-web/src
+      - ../apps/admin-web/index.html:/repo/apps/admin-web/index.html:ro
+      - ../apps/admin-web/vite.config.ts:/repo/apps/admin-web/vite.config.ts:ro
+      - ../packages/contracts:/repo/packages/contracts
+      - ../packages/web-foundation:/repo/packages/web-foundation
+      - ../packages/theme:/repo/packages/theme
+      - ../packages/language:/repo/packages/language
+      - ../packages/reactiveStore:/repo/packages/reactiveStore
+    depends_on:
+      api-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5174/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 volumes:
   legacy_bridge:
   player_agent_state:
+  yukari_mysql_data:
+  yukari_queue_owner:

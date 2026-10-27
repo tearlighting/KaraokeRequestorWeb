@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS queue_mutex (
+  lock_id TINYINT PRIMARY KEY
+) ENGINE=InnoDB;

@@ -16,10 +16,16 @@ test('真实统一 API：认证、授权、CSRF、Basic 禁用、Bridge 伪造�
   assert.equal(raw.status, 403);
   const invalid = await fetch(`${apiBase}/api/v1/user/session`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Yukari-Client': '1' }, body: '{invalid' });
   assert.equal(invalid.status, 400); assert.equal((await invalid.json()).error.code, 'INVALID_REQUEST');
-  assert.equal((await fetch(`${phpBase}/api/node_bridge.php?operation=admin-queue`, { method: 'POST', headers: { 'X-Yukari-Role': 'admin', 'X-Yukari-Bridge': 'forged' } })).status, 403);
+  const forgedBridge = await fetch(`${phpBase}/api/node_bridge.php?operation=admin-queue`, { method: 'POST', headers: { 'X-Yukari-Role': 'admin', 'X-Yukari-Bridge': 'forged' } });
+  if (forgedBridge.status === 410) assert.equal((await forgedBridge.json()).error.code, 'LEGACY_FEATURE_DISABLED');
+  else assert.equal(forgedBridge.status, 403);
   await guest.user();
   assert.equal((await guest.call('/admin/queue', 'GET', undefined, { 'X-Yukari-Role': 'admin' })).status, 401);
-  assert.equal((await guest.call('/admin/requests/2147483647', 'DELETE', {})).status, 401);
+  // This is an unauthenticated negative authorization probe; call directly so
+  // the synthetic-write guard does not require a fixture for a request that
+  // must be rejected before any mutation can occur.
+  const unauthenticatedDelete=await fetch(`${apiBase}/api/v1/admin/requests/2147483647`,{method:'DELETE',headers:{'X-Yukari-Client':'1','Content-Type':'application/json'},body:'{}'});
+  assert.equal(unauthenticatedDelete.status,401,await unauthenticatedDelete.clone().text());
   const admin = new TestAgent();
   const login = await admin.call('/admin/session', 'POST', testCredentials());
   assert.equal(login.status, 200);

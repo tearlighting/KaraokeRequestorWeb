@@ -9,6 +9,7 @@ export interface AgentLocalConfig {
   mediaRoot?: string;
   testVideo?: string;
   pathMappings?: Array<{ source: string; target: string }>;
+  everythingUrl?: string;
 }
 
 export interface AgentRuntimeConfig {
@@ -20,15 +21,19 @@ export interface AgentRuntimeConfig {
   testVideo: string;
   pathMappings: Array<{ source: string; target: string }>;
   lockDir: string;
+  logDir: string;
   configPath: string;
+  everythingUrl: string;
+  everythingUsername?: string;
+  everythingPassword?: string;
 }
 
 function parseConfig(value: unknown): AgentLocalConfig {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Player Agent config must be a JSON object');
   const input = value as Record<string, unknown>;
-  const allowed = new Set(['agentId', 'apiUrl', 'mpvPath', 'mediaRoot', 'testVideo', 'pathMappings']);
+  const allowed = new Set(['agentId', 'apiUrl', 'mpvPath', 'mediaRoot', 'testVideo', 'pathMappings', 'everythingUrl']);
   if (Object.keys(input).some(key => !allowed.has(key))) throw new Error('Player Agent config contains an unsupported field');
-  for (const key of ['agentId', 'apiUrl', 'mpvPath', 'mediaRoot', 'testVideo']) {
+  for (const key of ['agentId', 'apiUrl', 'mpvPath', 'mediaRoot', 'testVideo', 'everythingUrl']) {
     if (input[key] !== undefined && typeof input[key] !== 'string') throw new Error(`Player Agent config ${key} must be text`);
   }
   if (typeof input.agentId === 'string' && !/^[A-Za-z0-9_-]{1,50}$/.test(input.agentId)) throw new Error('Player Agent config agentId is invalid');
@@ -63,7 +68,13 @@ export function loadAgentConfig(env: NodeJS.ProcessEnv = process.env): AgentRunt
     mediaRoot: env.PLAYER_MEDIA_ROOT || local.mediaRoot || '',
     testVideo: env.PLAYER_TEST_VIDEO ?? local.testVideo ?? '',
     pathMappings,
-    lockDir: env.YUKARI_PLAYER_AGENT_LOCK_DIR || join(localAppData, 'YukariPlayerAgent'),
+    // Version the lock directory so a stale, ACL-protected lock from an older
+    // release cannot prevent a safe upgrade. Logs stay at their stable path.
+    lockDir: env.YUKARI_PLAYER_AGENT_LOCK_DIR || join(localAppData, 'YukariPlayerAgent', 'runtime-v2'),
+    logDir: join(localAppData, 'YukariPlayerAgent', 'logs'),
     configPath,
+    everythingUrl: env.EVERYTHING_HTTP_URL || local.everythingUrl || 'http://127.0.0.1:81/',
+    everythingUsername: env.EVERYTHING_HTTP_USERNAME,
+    everythingPassword: env.EVERYTHING_HTTP_PASSWORD,
   };
 }

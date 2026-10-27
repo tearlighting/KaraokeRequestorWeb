@@ -47,6 +47,9 @@ if (!$node_verified && ($config_ini['useeasyauth'] ?? 0) == 1) {
 }
 
 $operation = $_GET['operation'] ?? '';
+if ($operation === 'settings-save' && getenv('YUKARI_MYSQL_MODE') === '1' && !defined('YUKARI_NODE_VERIFIED')) {
+    admin_fail('Settings writes must use the authenticated Fastify API in MySQL mode', 410);
+}
 if (!is_string($operation)) admin_fail('管理操作必须为字符串', 400);
 if (in_array($operation, ['delete', 'move'], true)) require __DIR__ . '/_queue_write_owner.php';
 $methods = ['session' => 'GET', 'queue' => 'GET', 'status' => 'GET', 'settings' => 'GET',

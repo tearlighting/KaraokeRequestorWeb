@@ -1,9 +1,9 @@
-import { test } from 'node:test';
+﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { MediaPathResolver } from '../src/media-path.js';
+import { MediaPathResolver } from '../../media-agent/src/media-path.js';
 
 test('media paths remain inside the configured real directory, including symlinks', () => {
   const root = mkdtempSync(join(tmpdir(), 'yukari-media-'));

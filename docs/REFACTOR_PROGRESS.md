@@ -1,30 +1,30 @@
-# 渐进式重构进度
+﻿# 貂占ｿ帛ｼ城㍾譫・ｿ帛ｺｦ
 
-当前阶段：Phase 6 已将普通/管理预约队列读取迁到 Node-native SQLite，并让 Legacy swipe 队列页通过受限签名票据复用新读取。GET settings 仍为 Node-native；预约、调序、删除和设置保存继续 PHP 单写。目录、权限与验证以 Phase 6 及兼容性矩阵为准，Phase 1～5 为历史记录。
+蠖灘燕髦ｶ谿ｵ・啀hase 6 蟾ｲ蟆・勸騾・邂｡逅・｢・ｺｦ髦溷・隸ｻ蜿冶ｿ∝芦 Node-native SQLite・悟ｹｶ隶ｩ Legacy swipe 髦溷・鬘ｵ騾夊ｿ・女髯千ｭｾ蜷咲･ｨ謐ｮ螟咲畑譁ｰ隸ｻ蜿悶・ET settings 莉堺ｸｺ Node-native・幃｢・ｺｦ縲∬ｰ・ｺ上∝唖髯､蜥瑚ｮｾ鄂ｮ菫晏ｭ倡ｻｧ扈ｭ PHP 蜊募・縲ら岼蠖輔∵揀髯蝉ｸ朱ｪ瑚ｯ∽ｻ･ Phase 6 蜿雁・螳ｹ諤ｧ遏ｩ髦ｵ荳ｺ蜃・ｼ訓hase 1・・ 荳ｺ蜴・彰隶ｰ蠖輔・
 
-## Phase 1 记录
+## Phase 1 隶ｰ蠖・
 
-日期：2026-10-19（Asia/Tokyo）。本阶段已建立独立用户端并运行真实浏览器到原 PHP 的预约链路；真实歌曲搜索命中和播放仍受外部组件缺失阻碍。
+譌･譛滂ｼ・026-10-19・・sia/Tokyo・峨よ悽髦ｶ谿ｵ蟾ｲ蟒ｺ遶狗峡遶狗畑謌ｷ遶ｯ蟷ｶ霑占｡檎悄螳樊ｵ剰ｧ亥勣蛻ｰ蜴・PHP 逧・｢・ｺｦ體ｾ霍ｯ・帷悄螳樊ｭ梧峇謳懃ｴ｢蜻ｽ荳ｭ蜥梧眺謾ｾ莉榊女螟夜Κ扈・ｻｶ郛ｺ螟ｱ髦ｻ遒阪・
 
-## 访问与启动
+## 隶ｿ髣ｮ荳主星蜉ｨ
 
-- 新用户端：http://127.0.0.1:5173/ （本次已启动 Vite）
-- 原 PHP：http://localhost:8080/ （原 `docker-web-1` 保持 healthy）
-- 原搜索：http://localhost:8080/search.php
-- 原队列：http://localhost:8080/requestlist_top.php
-- 原管理设置：http://localhost:8080/init.php （需要现有管理员认证）
+- 譁ｰ逕ｨ謌ｷ遶ｯ・喇ttp://127.0.0.1:5173/ ・域悽谺｡蟾ｲ蜷ｯ蜉ｨ Vite・・
+- 蜴・PHP・喇ttp://localhost:8080/ ・亥次 `docker-web-1` 菫晄戟 healthy・・
+- 蜴滓頗邏｢・喇ttp://localhost:8080/search.php
+- 蜴滄弌蛻暦ｼ喇ttp://localhost:8080/requestlist_top.php
+- 蜴溽ｮ｡逅・ｮｾ鄂ｮ・喇ttp://localhost:8080/init.php ・磯怙隕∫鴫譛臥ｮ｡逅・遭隶､隸・ｼ・
 
-重启用户端：在 `apps/user-web` 执行 `npm.cmd ci`、`npm.cmd run dev`。Node 要求 >=22.12，当前验证为 24.18.0。非 Windows 可使用 npm。未新增 Node 或 Laravel 业务服务，Node 仅运行 Vite 开发/构建工具。
+驥榊星逕ｨ謌ｷ遶ｯ・壼惠 `apps/user-web` 謇ｧ陦・`npm.cmd ci`縲～npm.cmd run dev`縲・ode 隕∵ｱ・>=22.12・悟ｽ灘燕鬪瑚ｯ∽ｸｺ 24.18.0縲る撼 Windows 蜿ｯ菴ｿ逕ｨ npm縲よ悴譁ｰ蠅・Node 謌・Laravel 荳壼苅譛榊苅・君ode 莉・ｿ占｡・Vite 蠑蜿・譫・ｻｺ蟾･蜈ｷ縲・
 
-## 原始状态与修改范围
+## 蜴溷ｧ狗憾諤∽ｸ惹ｿｮ謾ｹ闌・峩
 
-开始时 Git 已有未提交修改：`README.md`、`commonfunc.php`、`exec.php`、`ini.ini`、`kara_config.php`；未跟踪项包括 `docker/`、`List.sqlite3`、`NUL` 和一个名称包含反斜杠映射字符的 List.sqlite3 文件。以上均未编辑、重置或删除。Git 所有权检查通过命令级 `-c safe.directory=...` 读取，未修改全局 Git 配置。
+蠑蟋区慮 Git 蟾ｲ譛画悴謠蝉ｺ､菫ｮ謾ｹ・啻README.md`縲～commonfunc.php`縲～exec.php`縲～ini.ini`縲～kara_config.php`・帶悴霍溯ｸｪ鬘ｹ蛹・峡 `docker/`縲～List.sqlite3`縲～NUL` 蜥御ｸ荳ｪ蜷咲ｧｰ蛹・性蜿肴万譚譏蟆・ｭ礼ｬｦ逧・List.sqlite3 譁・ｻｶ縲ゆｻ･荳雁插譛ｪ郛冶ｾ代・㍾鄂ｮ謌門唖髯､縲・it 謇譛画揀譽譟･騾夊ｿ・多莉､郤ｧ `-c safe.directory=...` 隸ｻ蜿厄ｼ梧悴菫ｮ謾ｹ蜈ｨ螻 Git 驟咲ｽｮ縲・
 
-本次只新增 `apps/user-web/` 和本文件。没有修改原版 PHP 代码、已有数据库结构、Docker Compose、admin 页面或播放程序；没有提交或 push。
+譛ｬ谺｡蜿ｪ譁ｰ蠅・`apps/user-web/` 蜥梧悽譁・ｻｶ縲よｲ｡譛我ｿｮ謾ｹ蜴溽沿 PHP 莉｣遐√∝ｷｲ譛画焚謐ｮ蠎鍋ｻ捺桷縲．ocker Compose縲∥dmin 鬘ｵ髱｢謌匁眺謾ｾ遞句ｺ擾ｼ帶ｲ｡譛画署莠､謌・push縲・
 
-当前 Compose 将项目目录绑定挂载到 `/var/www/html`、8080 映射到 Apache 80。原首页 `index.php` → `requestlist_top.php` → `requestlist_swipe.php`；原搜索 `search.php` → `search_bs5.php`。新版文件名搜索是在 PHP 中访问 Everything；不是所有搜索都由浏览器直接请求 JSON。Lister 文件列表页在服务端请求 `search_listerdb_filelist_json.php`。确认预约表单最终 POST 到 `exec.php`。
+蠖灘燕 Compose 蟆・｡ｹ逶ｮ逶ｮ蠖慕ｻ大ｮ壽撃霓ｽ蛻ｰ `/var/www/html`縲・080 譏蟆・芦 Apache 80縲ょ次鬥夜｡ｵ `index.php` 竊・`requestlist_top.php` 竊・`requestlist_swipe.php`・帛次謳懃ｴ｢ `search.php` 竊・`search_bs5.php`縲よ眠迚域枚莉ｶ蜷肴頗邏｢譏ｯ蝨ｨ PHP 荳ｭ隶ｿ髣ｮ Everything・帑ｸ肴弍謇譛画頗邏｢驛ｽ逕ｱ豬剰ｧ亥勣逶ｴ謗･隸ｷ豎・JSON縲・ister 譁・ｻｶ蛻苓｡ｨ鬘ｵ蝨ｨ譛榊苅遶ｯ隸ｷ豎・`search_listerdb_filelist_json.php`縲ら｡ｮ隶､鬚・ｺｦ陦ｨ蜊墓怙扈・POST 蛻ｰ `exec.php`縲・
 
-## 新用户端结构
+## 譁ｰ逕ｨ謌ｷ遶ｯ扈捺桷
 
 ```text
 apps/user-web/
@@ -32,501 +32,501 @@ apps/user-web/
     App.tsx
     lib/php.ts
     features/
-      search/           # 两种真实搜索接口与结果选择
-      reservations/     # 原 exec.php 表单提交，歌曲/小休止
-      queue/            # 服务端顺序、状态与播放信息
-  tests/live-php.spec.ts # 真实 Edge + PHP，测试后清理预约
-  vite.config.ts        # 固定路径/方法白名单的开发代理
-  package-lock.json     # 精确依赖版本
+      search/           # 荳､遘咲悄螳樊頗邏｢謗･蜿｣荳守ｻ捺棡騾画叫
+      reservations/     # 蜴・exec.php 陦ｨ蜊墓署莠､・梧ｭ梧峇/蟆丈ｼ第ｭ｢
+      queue/            # 譛榊苅遶ｯ鬘ｺ蠎上∫憾諤∽ｸ取眺謾ｾ菫｡諱ｯ
+  tests/live-php.spec.ts # 逵溷ｮ・Edge + PHP・梧ｵ玖ｯ募錘貂・炊鬚・ｺｦ
+  vite.config.ts        # 蝗ｺ螳夊ｷｯ蠕・譁ｹ豕慕區蜷榊黒逧・ｼ蜿台ｻ｣逅・
+  package-lock.json     # 邊ｾ遑ｮ萓晁ｵ也沿譛ｬ
 ```
 
-使用 React 19.3.1、TypeScript 7.0.2、Vite 8.3.4、Tailwind 4.3.3。没有路由框架、全局状态库或额外业务后端。搜索、确认预约和队列在同一响应式页面完成。
+菴ｿ逕ｨ React 19.3.1縲ゝypeScript 7.0.2縲〃ite 8.3.4縲ゝailwind 4.3.3縲よｲ｡譛芽ｷｯ逕ｱ譯・楔縲∝・螻迥ｶ諤∝ｺ捺・鬚晏､紋ｸ壼苅蜷守ｫｯ縲よ頗邏｢縲∫｡ｮ隶､鬚・ｺｦ蜥碁弌蛻怜惠蜷御ｸ蜩榊ｺ泌ｼ城｡ｵ髱｢螳梧・縲・
 
-## 真实 PHP 接口契约
+## 逵溷ｮ・PHP 謗･蜿｣螂醍ｺｦ
 
-以下 PHP URL 为现有接口，浏览器调用时统一加 `/php` 前缀，由 Vite 去掉前缀后转发到 Docker。原接口仍可按原 URL 访问。原 `/api/` 通用参数读取器接受 GET/POST，本阶段只为读取接口放行 GET。
+莉･荳・PHP URL 荳ｺ邇ｰ譛画磁蜿｣・梧ｵ剰ｧ亥勣隹・畑譌ｶ扈滉ｸ蜉 `/php` 蜑咲ｼ・檎罰 Vite 蜴ｻ謗牙燕郛蜷手ｽｬ蜿大芦 Docker縲ょ次謗･蜿｣莉榊庄謖牙次 URL 隶ｿ髣ｮ縲ょ次 `/api/` 騾夂畑蜿よ焚隸ｻ蜿門勣謗･蜿・GET/POST・梧悽髦ｶ谿ｵ蜿ｪ荳ｺ隸ｻ蜿匁磁蜿｣謾ｾ陦・GET縲・
 
-| PHP URL | 新 UI 使用的方法和参数 | 原始响应 | 权限与依赖 |
+| PHP URL | 譁ｰ UI 菴ｿ逕ｨ逧・婿豕募柱蜿よ焚 | 蜴溷ｧ句桃蠎・| 譚・剞荳惹ｾ晁ｵ・|
 | --- | --- | --- | --- |
-| `/api/capabilities.php` | GET，无参数 | `{ok:true,data:{features,player,request,server}}` | `_common.php` EasyAuth；检查 Everything 81 端口与配置的 Lister 文件是否存在，文件存在不保证 schema 有效 |
-| `/api/search.php` | GET，必需 `keyword`；原接口另支持 `order`、`path` | `{ok:true,data:{keyword,total,count,items:[{name,path,fullpath,size,priority,worker}]}}` | EasyAuth；调用原 `searchlocalfilename()`，依赖 Everything HTTP。上游不可用时可能仍返回成功的空数组 |
-| `/api/lister_index.php` | GET，`mode=songs&anyword=关键词&flat=1`；原端点还支持其他 mode/筛选，本代理不放行其他 mode | `{ok:true,data:{total,files_total,items:[{song_name,song_artist,...,files:[{found_path,found_file_size,...}]}]}}` | EasyAuth；`listerDBPATH` 或默认 `list\\List.sqlite3`，需要有效 t_found 及相应元数据列；原 PHP 内部实现模糊搜索和年龄过滤 |
-| `/exec.php` | POST，URL encoded；始终提交 `filename,singer,freesinger,comment,kind,fullpath`；带 `X-Requested-With: XMLHttpRequest` | 前后可能有空白的 `{"newid":整数}`，没有 `{ok,data}` 包装；非 XHR 返回 HTML | 该文件本身未调用 EasyAuth/ConfigAuth，无管理员条件；复用现有插入事务、reqorder/自动排序、历史与更新通知。依赖 request.db 可写，不验证实际文件存在 |
-| `/api/requests.php` | GET；当前 UI 无参数读取全列表。原端点支持 `limit,offset`，0/省略 limit 表示全量 | `{ok:true,data:{items,total,has_more,remaining_count,remaining_seconds}}` | EasyAuth；共用 `build_requestlist_data()`，SQLite。实际代码包含 fullpath，尽管该文件头注释写“不包含”，契约以运行代码为准 |
-| `/api/nowplaying.php` | GET，无参数 | 未播放 `{ok:true,data:{playing:false}}`；有状态时返回 `playing:true` 及 playingtitle、playingsinger、status、player 等 | EasyAuth；读取原 PlayerProgress 数据，不由 React 推测播放状态 |
+| `/api/capabilities.php` | GET・梧裏蜿よ焚 | `{ok:true,data:{features,player,request,server}}` | `_common.php` EasyAuth・帶｣譟･ Everything 81 遶ｯ蜿｣荳朱・鄂ｮ逧・Lister 譁・ｻｶ譏ｯ蜷ｦ蟄伜惠・梧枚莉ｶ蟄伜惠荳堺ｿ晁ｯ・schema 譛画譜 |
+| `/api/search.php` | GET・悟ｿ・怙 `keyword`・帛次謗･蜿｣蜿ｦ謾ｯ謖・`order`縲～path` | `{ok:true,data:{keyword,total,count,items:[{name,path,fullpath,size,priority,worker}]}}` | EasyAuth・幄ｰ・畑蜴・`searchlocalfilename()`・御ｾ晁ｵ・Everything HTTP縲ゆｸ頑ｸｸ荳榊庄逕ｨ譌ｶ蜿ｯ閭ｽ莉崎ｿ泌屓謌仙粥逧・ｩｺ謨ｰ扈・|
+| `/api/lister_index.php` | GET・形mode=songs&anyword=蜈ｳ髞ｮ隸・flat=1`・帛次遶ｯ轤ｹ霑俶髪謖∝・莉・mode/遲幃会ｼ梧悽莉｣逅・ｸ肴叛陦悟・莉・mode | `{ok:true,data:{total,files_total,items:[{song_name,song_artist,...,files:[{found_path,found_file_size,...}]}]}}` | EasyAuth・嫣listerDBPATH` 謌夜ｻ倩ｮ､ `list\\List.sqlite3`・碁怙隕∵怏謨・t_found 蜿顔嶌蠎泌・謨ｰ謐ｮ蛻暦ｼ帛次 PHP 蜀・Κ螳樒鴫讓｡邉頑頗邏｢蜥悟ｹｴ鮴・ｿ・ｻ､ |
+| `/exec.php` | POST・袈RL encoded・帛ｧ狗ｻ域署莠､ `filename,singer,freesinger,comment,kind,fullpath`・帛ｸｦ `X-Requested-With: XMLHttpRequest` | 蜑榊錘蜿ｯ閭ｽ譛臥ｩｺ逋ｽ逧・`{"newid":謨ｴ謨ｰ}`・梧ｲ｡譛・`{ok,data}` 蛹・｣・ｼ幃撼 XHR 霑泌屓 HTML | 隸･譁・ｻｶ譛ｬ霄ｫ譛ｪ隹・畑 EasyAuth/ConfigAuth・梧裏邂｡逅・遭譚｡莉ｶ・帛､咲畑邇ｰ譛画薯蜈･莠句苅縲〉eqorder/閾ｪ蜉ｨ謗貞ｺ上∝紙蜿ｲ荳取峩譁ｰ騾夂衍縲ゆｾ晁ｵ・request.db 蜿ｯ蜀呻ｼ御ｸ埼ｪ瑚ｯ∝ｮ樣刔譁・ｻｶ蟄伜惠 |
+| `/api/requests.php` | GET・帛ｽ灘燕 UI 譌蜿よ焚隸ｻ蜿門・蛻苓｡ｨ縲ょ次遶ｯ轤ｹ謾ｯ謖・`limit,offset`・・/逵∫払 limit 陦ｨ遉ｺ蜈ｨ驥・| `{ok:true,data:{items,total,has_more,remaining_count,remaining_seconds}}` | EasyAuth・帛・逕ｨ `build_requestlist_data()`・郡QLite縲ょｮ樣刔莉｣遐∝桁蜷ｫ fullpath・悟ｰｽ邂｡隸･譁・ｻｶ螟ｴ豕ｨ驥雁・窶應ｸ榊桁蜷ｫ窶晢ｼ悟･醍ｺｦ莉･霑占｡御ｻ｣遐∽ｸｺ蜃・|
+| `/api/nowplaying.php` | GET・梧裏蜿よ焚 | 譛ｪ謦ｭ謾ｾ `{ok:true,data:{playing:false}}`・帶怏迥ｶ諤∵慮霑泌屓 `playing:true` 蜿・playingtitle縲｝layingsinger縲《tatus縲｝layer 遲・| EasyAuth・幄ｯｻ蜿門次 PlayerProgress 謨ｰ謐ｮ・御ｸ咲罰 React 謗ｨ豬区眺謾ｾ迥ｶ諤・|
 
-预约 `kind` 本阶段固定为原合法值 `動画`（歌曲）或 `小休止`（休息）。freesinger 提交空字符串；singer 必填为本 UI 的选择，原代码允许为空。原约束是 comment <=512、filename <=2048、singer/freesinger <=256 个字符，非法 kind/超限可直接 die，导致 HTTP 200 + 空响应。新 UI 对空正文、HTML、非法 JSON 或缺少合法 newid 均报错，不显示预约成功，也不自动重试写入。
+鬚・ｺｦ `kind` 譛ｬ髦ｶ谿ｵ蝗ｺ螳壻ｸｺ蜴溷粋豕募ｼ `蜍慕判`・域ｭ梧峇・画・ `蟆丈ｼ第ｭ｢`・井ｼ第・・峨Ｇreesinger 謠蝉ｺ､遨ｺ蟄礼ｬｦ荳ｲ・孕inger 蠢・｡ｫ荳ｺ譛ｬ UI 逧・画叫・悟次莉｣遐∝・隶ｸ荳ｺ遨ｺ縲ょ次郤ｦ譚滓弍 comment <=512縲’ilename <=2048縲《inger/freesinger <=256 荳ｪ蟄礼ｬｦ・碁撼豕・kind/雜・剞蜿ｯ逶ｴ謗･ die・悟ｯｼ閾ｴ HTTP 200 + 遨ｺ蜩榊ｺ斐よ眠 UI 蟇ｹ遨ｺ豁｣譁・？TML縲・撼豕・JSON 謌也ｼｺ蟆大粋豕・newid 蝮・冠髞呻ｼ御ｸ肴仞遉ｺ鬚・ｺｦ謌仙粥・御ｹ滉ｸ崎・蜉ｨ驥崎ｯ募・蜈･縲・
 
-原接口还有升降调、音轨、保密、差替 selectid 等参数，本阶段 UI 不发送这些参数。原接口行为保持原样；Vite 白名单不是原 PHP 的完整权限模型，也不改变原 exec.php 的参数能力。
+蜴滓磁蜿｣霑俶怏蜊・剄隹・・浹霓ｨ縲∽ｿ晏ｯ・∝ｷｮ譖ｿ selectid 遲牙盾謨ｰ・梧悽髦ｶ谿ｵ UI 荳榊書騾∬ｿ吩ｺ帛盾謨ｰ縲ょ次謗･蜿｣陦御ｸｺ菫晄戟蜴滓ｷ・娵ite 逋ｽ蜷榊黒荳肴弍蜴・PHP 逧・ｮ梧紛譚・剞讓｡蝙具ｼ御ｹ滉ｸ肴隼蜿伜次 exec.php 逧・盾謨ｰ閭ｽ蜉帙・
 
-`/api/` 使用 `_common.php` → 原 EasyAuth，启用时按原请求/cookie 规则认证，原实现另有 localhost 例外。本环境 `easyauth=false`；本次未验证开启 EasyAuth 后的登录流程。代理保留用户 Cookie，并重写响应 Cookie Path；只转发 YkariEasyPass、YkariUsername、YkariUserID，不转发 Basic Authorization 或管理设置 Cookie。不注入管理员凭据，也没有开放式 CORS。
+`/api/` 菴ｿ逕ｨ `_common.php` 竊・蜴・EasyAuth・悟星逕ｨ譌ｶ謖牙次隸ｷ豎・cookie 隗・・隶､隸・ｼ悟次螳樒鴫蜿ｦ譛・localhost 萓句､悶よ悽邇ｯ蠅・`easyauth=false`・帶悽谺｡譛ｪ鬪瑚ｯ∝ｼ蜷ｯ EasyAuth 蜷守噪逋ｻ蠖墓ｵ∫ｨ九ゆｻ｣逅・ｿ晉蕗逕ｨ謌ｷ Cookie・悟ｹｶ驥榊・蜩榊ｺ・Cookie Path・帛宵霓ｬ蜿・YkariEasyPass縲〆kariUsername縲〆kariUserID・御ｸ崎ｽｬ蜿・Basic Authorization 謌也ｮ｡逅・ｮｾ鄂ｮ Cookie縲ゆｸ肴ｳｨ蜈･邂｡逅・遭蜃ｭ謐ｮ・御ｹ滓ｲ｡譛牙ｼ謾ｾ蠑・CORS縲・
 
-## 状态与错误处理
+## 迥ｶ諤∽ｸ朱漠隸ｯ螟・炊
 
-- 队列按 `reqorder DESC` 的原 API 顺序渲染，位置使用原 `position`。不在 React 排序、插队或推算新位置。
-- 显示原 `display_name`，保密遮罩由后端负责；不根据完整路径在前端重新生成保密曲名。
-- 预约收到有效 newid 后显示“已保存”，立即重新查询队列；没有乐观插入假队列项。
-- 页面每 5 秒查询队列及播放状态，隐藏页面暂停定时查询，重新显示时刷新。队列和播放状态分别处理错误；刷新失败会提示旧数据。
-- 当前原 SSE 前后端默认值不一致，本阶段使用轮询，没有修改旧逻辑。
-- 非 JSON 的 PHP Fatal error/认证 HTML 直接呈现为接口失败提示，不渲染服务端 HTML，不伪造空列表或成功状态。
-- Vite 仅监听 127.0.0.1:5173；只允许上表路径和对应方法。管理、删除、排序、播放器控制及 Lister rules 等非 songs 模式均不代理。构建预览没有 PHP 代理，正式部署反向代理尚未配置。
+- 髦溷・謖・`reqorder DESC` 逧・次 API 鬘ｺ蠎乗ｸｲ譟難ｼ御ｽ咲ｽｮ菴ｿ逕ｨ蜴・`position`縲ゆｸ榊惠 React 謗貞ｺ上∵薯髦滓・謗ｨ邂玲眠菴咲ｽｮ縲・
+- 譏ｾ遉ｺ蜴・`display_name`・御ｿ晏ｯ・・鄂ｩ逕ｱ蜷守ｫｯ雍溯ｴ｣・帑ｸ肴ｹ謐ｮ螳梧紛霍ｯ蠕・惠蜑咲ｫｯ驥肴眠逕滓・菫晏ｯ・峇蜷阪・
+- 鬚・ｺｦ謾ｶ蛻ｰ譛画譜 newid 蜷取仞遉ｺ窶懷ｷｲ菫晏ｭ倪晢ｼ檎ｫ句叉驥肴眠譟･隸｢髦溷・・帶ｲ｡譛我ｹ占ｧよ薯蜈･蛛・弌蛻鈴｡ｹ縲・
+- 鬘ｵ髱｢豈・5 遘呈衍隸｢髦溷・蜿頑眺謾ｾ迥ｶ諤・ｼ碁嚼阯城｡ｵ髱｢證ょ●螳壽慮譟･隸｢・碁㍾譁ｰ譏ｾ遉ｺ譌ｶ蛻ｷ譁ｰ縲る弌蛻怜柱謦ｭ謾ｾ迥ｶ諤∝・蛻ｫ螟・炊髞呵ｯｯ・帛姐譁ｰ螟ｱ雍･莨壽署遉ｺ譌ｧ謨ｰ謐ｮ縲・
+- 蠖灘燕蜴・SSE 蜑榊錘遶ｯ鮟倩ｮ､蛟ｼ荳堺ｸ閾ｴ・梧悽髦ｶ谿ｵ菴ｿ逕ｨ霓ｮ隸｢・梧ｲ｡譛我ｿｮ謾ｹ譌ｧ騾ｻ霎代・
+- 髱・JSON 逧・PHP Fatal error/隶､隸・HTML 逶ｴ謗･蜻育鴫荳ｺ謗･蜿｣螟ｱ雍･謠千､ｺ・御ｸ肴ｸｲ譟捺恪蜉｡遶ｯ HTML・御ｸ堺ｼｪ騾遨ｺ蛻苓｡ｨ謌匁・蜉溽憾諤√・
+- Vite 莉・尅蜷ｬ 127.0.0.1:5173・帛宵蜈∬ｮｸ荳願｡ｨ霍ｯ蠕・柱蟇ｹ蠎疲婿豕輔らｮ｡逅・∝唖髯､縲∵賜蠎上∵眺謾ｾ蝎ｨ謗ｧ蛻ｶ蜿・Lister rules 遲蛾撼 songs 讓｡蠑丞插荳堺ｻ｣逅・よ桷蟒ｺ鬚・ｧ域ｲ｡譛・PHP 莉｣逅・ｼ梧ｭ｣蠑城Κ鄂ｲ蜿榊髄莉｣逅・ｰ壽悴驟咲ｽｮ縲・
 
-## 执行与验证结果
+## 謇ｧ陦御ｸ朱ｪ瑚ｯ∫ｻ捺棡
 
-1. `npm.cmd run typecheck`：通过。
-2. `npm.cmd run build`：通过，生成独立 `dist/`。依赖安装审计为 0 vulnerabilities；锁文件已生成。
-3. 启动 Vite，HTTP 首页、代理队列和播放状态正常。当前播放接口真实返回 `playing:false`。
-4. `npm.cmd run test:e2e`：真实本机 Edge，3 passed、1 skipped，无 HTTP mock 或浏览器路由拦截。
-   - 代理返回队列与直连 PHP 一致，原 API 的记录顺序/位置保留。
-   - `/php/init.php`、`/php/api/player.php`、`/php/api/request_delete.php`、Lister rules 返回 403；预约 GET 和队列 POST 也返回 403。
-   - 原首页、搜索、队列仍可访问，管理设置仍返回未认证 401。
-   - 390×844 手机视口无横向页面溢出，无 pageerror；真实 Everything 查询返回空结果，Lister HTML Fatal error 显示明确错误。
-   - 真实点击 React“提交休息预约” → Vite → 原 exec.php → 返回 newid → 原队列 API 回读记录，kind=小休止、nowplaying=未再生，位置与后端一致。
-5. E2E 在 finally 中通过原 PHP 删除接口清理自身测试预约，使用独立 UUID 清理对应历史，确认测试前已有预约 ID 仍存在。删除接口不放入产品代理。自增序号、更新通知计数和测试匿名用户等运行痕迹可能保留，避免整库回滚覆盖并发活动。
+1. `npm.cmd run typecheck`・夐夊ｿ・・
+2. `npm.cmd run build`・夐夊ｿ・ｼ檎函謌千峡遶・`dist/`縲ゆｾ晁ｵ門ｮ芽｣・ｮ｡隶｡荳ｺ 0 vulnerabilities・幃煤譁・ｻｶ蟾ｲ逕滓・縲・
+3. 蜷ｯ蜉ｨ Vite・粂TTP 鬥夜｡ｵ縲∽ｻ｣逅・弌蛻怜柱謦ｭ謾ｾ迥ｶ諤∵ｭ｣蟶ｸ縲ょｽ灘燕謦ｭ謾ｾ謗･蜿｣逵溷ｮ櫁ｿ泌屓 `playing:false`縲・
+4. `npm.cmd run test:e2e`・夂悄螳樊悽譛ｺ Edge・・ passed縲・ skipped・梧裏 HTTP mock 謌匁ｵ剰ｧ亥勣霍ｯ逕ｱ諡ｦ謌ｪ縲・
+   - 莉｣逅・ｿ泌屓髦溷・荳守峩霑・PHP 荳閾ｴ・悟次 API 逧・ｮｰ蠖暮｡ｺ蠎・菴咲ｽｮ菫晉蕗縲・
+   - `/php/init.php`縲～/php/api/player.php`縲～/php/api/request_delete.php`縲´ister rules 霑泌屓 403・幃｢・ｺｦ GET 蜥碁弌蛻・POST 荵溯ｿ泌屓 403縲・
+   - 蜴滄ｦ夜｡ｵ縲∵頗邏｢縲・弌蛻嶺ｻ榊庄隶ｿ髣ｮ・檎ｮ｡逅・ｮｾ鄂ｮ莉崎ｿ泌屓譛ｪ隶､隸・401縲・
+   - 390ﾃ・44 謇区惻隗・哨譌讓ｪ蜷鷹｡ｵ髱｢貅｢蜃ｺ・梧裏 pageerror・帷悄螳・Everything 譟･隸｢霑泌屓遨ｺ扈捺棡・鍬ister HTML Fatal error 譏ｾ遉ｺ譏守｡ｮ髞呵ｯｯ縲・
+   - 逵溷ｮ樒せ蜃ｻ React窶懈署莠､莨第・鬚・ｺｦ窶・竊・Vite 竊・蜴・exec.php 竊・霑泌屓 newid 竊・蜴滄弌蛻・API 蝗櫁ｯｻ隶ｰ蠖包ｼ渓ind=蟆丈ｼ第ｭ｢縲］owplaying=譛ｪ蜀咲函・御ｽ咲ｽｮ荳主錘遶ｯ荳閾ｴ縲・
+5. E2E 蝨ｨ finally 荳ｭ騾夊ｿ・次 PHP 蛻髯､謗･蜿｣貂・炊閾ｪ霄ｫ豬玖ｯ暮｢・ｺｦ・御ｽｿ逕ｨ迢ｬ遶・UUID 貂・炊蟇ｹ蠎泌紙蜿ｲ・檎｡ｮ隶､豬玖ｯ募燕蟾ｲ譛蛾｢・ｺｦ ID 莉榊ｭ伜惠縲ょ唖髯､謗･蜿｣荳肴叛蜈･莠ｧ蜩∽ｻ｣逅・り・蠅槫ｺ丞捷縲∵峩譁ｰ騾夂衍隶｡謨ｰ蜥梧ｵ玖ｯ募諺蜷咲畑謌ｷ遲芽ｿ占｡檎藍霑ｹ蜿ｯ閭ｽ菫晉蕗・碁∩蜈肴紛蠎灘屓貊夊ｦ・尠蟷ｶ蜿第ｴｻ蜉ｨ縲・
 
-浏览器截图在被忽略的 `apps/user-web/test-results/` 中，包括手机页面和提交后的队列截图。`node_modules/`、`dist/`、截图和测试运行产物均未纳入 Git。
+豬剰ｧ亥勣謌ｪ蝗ｾ蝨ｨ陲ｫ蠢ｽ逡･逧・`apps/user-web/test-results/` 荳ｭ・悟桁諡ｬ謇区惻鬘ｵ髱｢蜥梧署莠､蜷守噪髦溷・謌ｪ蝗ｾ縲Ａnode_modules/`縲～dist/`縲∵穐蝗ｾ蜥梧ｵ玖ｯ戊ｿ占｡御ｺｧ迚ｩ蝮・悴郤ｳ蜈･ Git縲・
 
-**未验证为通过：真实歌曲命中 → 选择文件 → 歌曲预约的完整链路。** 两种曲库当前均不可用，不能把小休止预约或空搜索当作这条链路通过。该链路代码已接入真实接口，并提供 `E2E_SONG_KEYWORD`、`E2E_SEARCH_BACKEND` 可选 E2E；当前明确跳过，未建假歌曲、未改现有库结构或预约规则。
+**譛ｪ鬪瑚ｯ∽ｸｺ騾夊ｿ・ｼ夂悄螳樊ｭ梧峇蜻ｽ荳ｭ 竊・騾画叫譁・ｻｶ 竊・豁梧峇鬚・ｺｦ逧・ｮ梧紛體ｾ霍ｯ縲・* 荳､遘肴峇蠎灘ｽ灘燕蝮・ｸ榊庄逕ｨ・御ｸ崎・謚雁ｰ丈ｼ第ｭ｢鬚・ｺｦ謌也ｩｺ謳懃ｴ｢蠖謎ｽ懆ｿ呎擅體ｾ霍ｯ騾夊ｿ・りｯ･體ｾ霍ｯ莉｣遐∝ｷｲ謗･蜈･逵溷ｮ樊磁蜿｣・悟ｹｶ謠蝉ｾ・`E2E_SONG_KEYWORD`縲～E2E_SEARCH_BACKEND` 蜿ｯ騾・E2E・帛ｽ灘燕譏守｡ｮ霍ｳ霑・ｼ梧悴蟒ｺ蛛・ｭ梧峇縲∵悴謾ｹ邇ｰ譛牙ｺ鍋ｻ捺桷謌夜｢・ｺｦ隗・・縲・
 
-## 下一阶段阻碍
+## 荳倶ｸ髦ｶ谿ｵ髦ｻ遒・
 
-1. 提供真实 Everything 服务或生成有效 YukaLister 曲库，配置容器可访问的路径；当前 capabilities 为 everything_search=false、lister_search=false。
-2. 当前 Lister songs 请求返回 HTTP 200 + `no such table: t_found` 的 HTML Fatal error；Everything 上游不可用仍可能返回 ok=true、0 条。需要后续明确修复错误契约，不以空结果掩盖连接故障。
-3. 既有 PHP 错误日志未启用；原 SSE 配置默认值不一致仍保留。原播放守护程序还有 locale 与 Windows 组件依赖。
-4. 开启认证环境的用户登录、部署后的受限反向代理/静态托管及更完整的分页尚未验证。本阶段不更改原 PHP 权限和身份规则。
-5. 外部播放器未接入，PotPlayer 未实现；保存预约不等于实际播放。Windows 执行端、媒体路径映射、播放控制、结束检测和失败回写仍需独立阶段处理。
+1. 謠蝉ｾ帷悄螳・Everything 譛榊苅謌也函謌先怏謨・YukaLister 譖ｲ蠎難ｼ碁・鄂ｮ螳ｹ蝎ｨ蜿ｯ隶ｿ髣ｮ逧・ｷｯ蠕・ｼ帛ｽ灘燕 capabilities 荳ｺ everything_search=false縲〕ister_search=false縲・
+2. 蠖灘燕 Lister songs 隸ｷ豎りｿ泌屓 HTTP 200 + `no such table: t_found` 逧・HTML Fatal error・妣verything 荳頑ｸｸ荳榊庄逕ｨ莉榊庄閭ｽ霑泌屓 ok=true縲・ 譚｡縲る怙隕∝錘扈ｭ譏守｡ｮ菫ｮ螟埼漠隸ｯ螂醍ｺｦ・御ｸ堺ｻ･遨ｺ扈捺棡謗ｩ逶冶ｿ樊磁謨・囿縲・
+3. 譌｢譛・PHP 髞呵ｯｯ譌･蠢玲悴蜷ｯ逕ｨ・帛次 SSE 驟咲ｽｮ鮟倩ｮ､蛟ｼ荳堺ｸ閾ｴ莉堺ｿ晉蕗縲ょ次謦ｭ謾ｾ螳域侃遞句ｺ剰ｿ俶怏 locale 荳・Windows 扈・ｻｶ萓晁ｵ悶・
+4. 蠑蜷ｯ隶､隸∫識蠅・噪逕ｨ謌ｷ逋ｻ蠖輔・Κ鄂ｲ蜷守噪蜿鈴剞蜿榊髄莉｣逅・髱呎∵汚邂｡蜿頑峩螳梧紛逧・・鬘ｵ蟆壽悴鬪瑚ｯ√よ悽髦ｶ谿ｵ荳肴峩謾ｹ蜴・PHP 譚・剞蜥瑚ｺｫ莉ｽ隗・・縲・
+5. 螟夜Κ謦ｭ謾ｾ蝎ｨ譛ｪ謗･蜈･・訓otPlayer 譛ｪ螳樒鴫・帑ｿ晏ｭ倬｢・ｺｦ荳咲ｭ我ｺ主ｮ樣刔謦ｭ謾ｾ縲８indows 謇ｧ陦檎ｫｯ縲∝ｪ剃ｽ楢ｷｯ蠕・丐蟆・∵眺謾ｾ謗ｧ蛻ｶ縲∫ｻ捺據譽豬句柱螟ｱ雍･蝗槫・莉埼怙迢ｬ遶矩亳谿ｵ螟・炊縲・
 
-参考本次采用的官方构建方式：[Vite Getting Started](https://vite.dev/guide/)、[Tailwind Vite 集成](https://tailwindcss.com/docs/installation/using-vite)。
+蜿り・悽谺｡驥・畑逧・ｮ俶婿譫・ｻｺ譁ｹ蠑擾ｼ喙Vite Getting Started](https://vite.dev/guide/)縲ーTailwind Vite 髮・・](https://tailwindcss.com/docs/installation/using-vite)縲・
 
-## Phase 2：独立管理端与真实管理操作
+## Phase 2・夂峡遶狗ｮ｡逅・ｫｯ荳守悄螳樒ｮ｡逅・桃菴・
 
-日期：2026-10-19（Asia/Tokyo）。本阶段新增 `apps/admin-web/`、`api/admin.php`、`api/_admin_auth.php`，更新本进度文档。没有覆盖 Phase 1 源码或原有未提交修改，没有删除旧页面、迁移 SQLite schema、重建 Docker 或 push。
+譌･譛滂ｼ・026-10-19・・sia/Tokyo・峨よ悽髦ｶ谿ｵ譁ｰ蠅・`apps/admin-web/`縲～api/admin.php`縲～api/_admin_auth.php`・梧峩譁ｰ譛ｬ霑帛ｺｦ譁・｡｣縲よｲ｡譛芽ｦ・尠 Phase 1 貅千∵・蜴滓怏譛ｪ謠蝉ｺ､菫ｮ謾ｹ・梧ｲ｡譛牙唖髯､譌ｧ鬘ｵ髱｢縲∬ｿ∫ｧｻ SQLite schema縲・㍾蟒ｺ Docker 謌・push縲・
 
-### 原管理功能与权限审计
+### 蜴溽ｮ｡逅・粥閭ｽ荳取揀髯仙ｮ｡隶｡
 
-| 原入口/业务实现 | 权限与实际行为 | 本阶段迁移 |
+| 蜴溷・蜿｣/荳壼苅螳樒鴫 | 譚・剞荳主ｮ樣刔陦御ｸｺ | 譛ｬ髦ｶ谿ｵ霑∫ｧｻ |
 | --- | --- | --- |
-| `init.php`、`ConfigAuth` | Basic 账号必须为 admin，再校验 configpass；存在 localhost 免检和原 master-password 策略；部分 POST 合并配置，调用 writeconfig2ini | 管理登录；三个设置字段的 JSON 读取/保存；密码策略复用，省略 localhost 免检 |
-| `requestlist_swipe.php`、`function_requestlist_json.php` | 队列按 reqorder DESC；管理员是否可见保密曲由服务端 `$user` 决定 | 管理队列读取，服务端在认证后设置真实 admin 身份 |
-| `api/request_delete.php`、`delete.php` | 删除、归一化顺序、通知更新；原 JSON 入口仅 EasyAuth，没有 ConfigAuth | 在新管理入口的认证之后 include 原删除 JSON 代码 |
-| `api/request_move.php`、`function_requestops.php` | up/down/warikomi；原 JSON 入口仅 EasyAuth，函数自带顺序规则及事务 | 在新管理入口认证后 include 原代码，捕捉原响应；不在前端自行调序 |
-| `requestlist_reorder.php` | JSON 全列表顺序提交，未再生记录重排；不是管理员专用验证 | 暂不迁移拖拽/全量重排，优先单条移动 |
-| `api/playstatus.php`、`changeplaystatus.php` | 修改队列状态，原 JSON 入口仅 EasyAuth | 尚未迁移，避免把手动标记状态当作实际播放器反馈 |
-| `api/player.php`、mpcctrl_func/foobar_func | 原统一 API 多数控制命令未检查函数返回值；部分动作会改 DB | 迁移纯播放器 HTTP 控制子集，直接复用原函数并检查 false；不复制命令发送或预约状态规则 |
-| `manage-mpc.php`、autoplayctrl、yklister_exec | CLI 守护、Windows 批处理/进程控制；部分入口具有启动副作用 | 未迁移，不自动启动主机程序 |
-| 上传、备份还原、在线更新、背景/主题、房间配置、优先级等 | 文件写入、外部组件或更广配置范围 | 本阶段未迁移，保留原 UI |
+| `init.php`縲～ConfigAuth` | Basic 雍ｦ蜿ｷ蠢・｡ｻ荳ｺ admin・悟・譬｡鬪・configpass・帛ｭ伜惠 localhost 蜈肴｣蜥悟次 master-password 遲也払・幃Κ蛻・POST 蜷亥ｹｶ驟咲ｽｮ・瑚ｰ・畑 writeconfig2ini | 邂｡逅・匳蠖包ｼ帑ｸ我ｸｪ隶ｾ鄂ｮ蟄玲ｮｵ逧・JSON 隸ｻ蜿・菫晏ｭ假ｼ帛ｯ・∫ｭ也払螟咲畑・檎怐逡･ localhost 蜈肴｣ |
+| `requestlist_swipe.php`縲～function_requestlist_json.php` | 髦溷・謖・reqorder DESC・帷ｮ｡逅・遭譏ｯ蜷ｦ蜿ｯ隗∽ｿ晏ｯ・峇逕ｱ譛榊苅遶ｯ `$user` 蜀ｳ螳・| 邂｡逅・弌蛻苓ｯｻ蜿厄ｼ梧恪蜉｡遶ｯ蝨ｨ隶､隸∝錘隶ｾ鄂ｮ逵溷ｮ・admin 霄ｫ莉ｽ |
+| `api/request_delete.php`縲～delete.php` | 蛻髯､縲∝ｽ剃ｸ蛹夜｡ｺ蠎上・夂衍譖ｴ譁ｰ・帛次 JSON 蜈･蜿｣莉・EasyAuth・梧ｲ｡譛・ConfigAuth | 蝨ｨ譁ｰ邂｡逅・・蜿｣逧・ｮ､隸∽ｹ句錘 include 蜴溷唖髯､ JSON 莉｣遐・|
+| `api/request_move.php`縲～function_requestops.php` | up/down/warikomi・帛次 JSON 蜈･蜿｣莉・EasyAuth・悟・謨ｰ閾ｪ蟶ｦ鬘ｺ蠎剰ｧ・・蜿贋ｺ句苅 | 蝨ｨ譁ｰ邂｡逅・・蜿｣隶､隸∝錘 include 蜴滉ｻ｣遐・ｼ梧黒謐牙次蜩榊ｺ費ｼ帑ｸ榊惠蜑咲ｫｯ閾ｪ陦瑚ｰ・ｺ・|
+| `requestlist_reorder.php` | JSON 蜈ｨ蛻苓｡ｨ鬘ｺ蠎乗署莠､・梧悴蜀咲函隶ｰ蠖暮㍾謗抵ｼ帑ｸ肴弍邂｡逅・遭荳鍋畑鬪瑚ｯ・| 證ゆｸ崎ｿ∫ｧｻ諡匁郷/蜈ｨ驥城㍾謗抵ｼ御ｼ伜・蜊墓擅遘ｻ蜉ｨ |
+| `api/playstatus.php`縲～changeplaystatus.php` | 菫ｮ謾ｹ髦溷・迥ｶ諤・ｼ悟次 JSON 蜈･蜿｣莉・EasyAuth | 蟆壽悴霑∫ｧｻ・碁∩蜈肴滑謇句勘譬・ｮｰ迥ｶ諤∝ｽ謎ｽ懷ｮ樣刔謦ｭ謾ｾ蝎ｨ蜿埼ｦ・|
+| `api/player.php`縲［pcctrl_func/foobar_func | 蜴溽ｻ滉ｸ API 螟壽焚謗ｧ蛻ｶ蜻ｽ莉､譛ｪ譽譟･蜃ｽ謨ｰ霑泌屓蛟ｼ・幃Κ蛻・勘菴應ｼ壽隼 DB | 霑∫ｧｻ郤ｯ謦ｭ謾ｾ蝎ｨ HTTP 謗ｧ蛻ｶ蟄宣寔・檎峩謗･螟咲畑蜴溷・謨ｰ蟷ｶ譽譟･ false・帑ｸ榊､榊宛蜻ｽ莉､蜿鷹∵・鬚・ｺｦ迥ｶ諤∬ｧ・・ |
+| `manage-mpc.php`縲∥utoplayctrl縲【klister_exec | CLI 螳域侃縲仝indows 謇ｹ螟・炊/霑帷ｨ区而蛻ｶ・幃Κ蛻・・蜿｣蜈ｷ譛牙星蜉ｨ蜑ｯ菴懃畑 | 譛ｪ霑∫ｧｻ・御ｸ崎・蜉ｨ蜷ｯ蜉ｨ荳ｻ譛ｺ遞句ｺ・|
+| 荳贋ｼ縲∝､・ｻｽ霑伜次縲∝惠郤ｿ譖ｴ譁ｰ縲∬レ譎ｯ/荳ｻ鬚倥∵袷髣ｴ驟咲ｽｮ縲∽ｼ伜・郤ｧ遲・| 譁・ｻｶ蜀吝・縲∝､夜Κ扈・ｻｶ謌匁峩蟷ｿ驟咲ｽｮ闌・峩 | 譛ｬ髦ｶ谿ｵ譛ｪ霑∫ｧｻ・御ｿ晉蕗蜴・UI |
 
-**权限范围说明：** 新 admin-web 的所有管理写入统一经新 PHP 入口校验，不能通过移除 Vite 白名单绕过。原版历史路由保留原规则，部分旧写接口仍只有 EasyAuth；本阶段没有声称整个旧应用已完成权限加固，也没有将旧写接口直接代理到 admin-web 或 user-web。全面统一旧入口权限需要后续兼容迁移，避免破坏旧用户页面。
+**譚・剞闌・峩隸ｴ譏趣ｼ・* 譁ｰ admin-web 逧・園譛臥ｮ｡逅・・蜈･扈滉ｸ扈乗眠 PHP 蜈･蜿｣譬｡鬪鯉ｼ御ｸ崎・騾夊ｿ・ｧｻ髯､ Vite 逋ｽ蜷榊黒扈戊ｿ・ょ次迚亥紙蜿ｲ霍ｯ逕ｱ菫晉蕗蜴溯ｧ・・・碁Κ蛻・立蜀呎磁蜿｣莉榊宵譛・EasyAuth・帶悽髦ｶ谿ｵ豐｡譛牙｣ｰ遘ｰ謨ｴ荳ｪ譌ｧ蠎皮畑蟾ｲ螳梧・譚・剞蜉蝗ｺ・御ｹ滓ｲ｡譛牙ｰ・立蜀呎磁蜿｣逶ｴ謗･莉｣逅・芦 admin-web 謌・user-web縲ょ・髱｢扈滉ｸ譌ｧ蜈･蜿｣譚・剞髴隕∝錘扈ｭ蜈ｼ螳ｹ霑∫ｧｻ・碁∩蜈咲ｴ蝮乗立逕ｨ謌ｷ鬘ｵ髱｢縲・
 
-### 服务端认证兼容方案
+### 譛榊苅遶ｯ隶､隸∝・螳ｹ譁ｹ譯・
 
-新 `api/admin.php` 每次请求先读取配置，再调用原 `ConfigAuth::check_configpassword()`，同时要求显式 Basic 账号为 admin。认证通过前不加载队列/设置业务代码。不调用存在 localhost 免检的 `check_auth()`，不接受查询参数中的账号、不接受管理 Cookie 代替管理凭据。
+譁ｰ `api/admin.php` 豈乗ｬ｡隸ｷ豎ょ・隸ｻ蜿夜・鄂ｮ・悟・隹・畑蜴・`ConfigAuth::check_configpassword()`・悟酔譌ｶ隕∵ｱよ仞蠑・Basic 雍ｦ蜿ｷ荳ｺ admin縲りｮ､隸・夊ｿ・燕荳榊刈霓ｽ髦溷・/隶ｾ鄂ｮ荳壼苅莉｣遐√ゆｸ崎ｰ・畑蟄伜惠 localhost 蜈肴｣逧・`check_auth()`・御ｸ肴磁蜿玲衍隸｢蜿よ焚荳ｭ逧・ｴｦ蜿ｷ縲∽ｸ肴磁蜿礼ｮ｡逅・Cookie 莉｣譖ｿ邂｡逅・・謐ｮ縲・
 
-原版当前没有 configpass，`ConfigAuth` 的既有策略是缺失/空密码接受 admin。新管理端保留并醒目提示此真实状态；没有禁用密码校验、植入密码或向前端返回配置密码。若原版设置密码，新入口立即按新密码校验。隔离测试使用原认证函数和内存密码证明错误密码在 localhost 下也被拒绝；不将当前空密码环境的测试冒称为真实强密码环境测试。原 master-password 行为也未更改。
+蜴溽沿蠖灘燕豐｡譛・configpass・形ConfigAuth` 逧・里譛臥ｭ也払譏ｯ郛ｺ螟ｱ/遨ｺ蟇・∵磁蜿・admin縲よ眠邂｡逅・ｫｯ菫晉蕗蟷ｶ驢堤岼謠千､ｺ豁､逵溷ｮ樒憾諤・ｼ帶ｲ｡譛臥ｦ∫畑蟇・∵｡鬪後∵､榊・蟇・∵・蜷大燕遶ｯ霑泌屓驟咲ｽｮ蟇・√り凶蜴溽沿隶ｾ鄂ｮ蟇・・ｼ梧眠蜈･蜿｣遶句叉謖画眠蟇・∵｡鬪後る囈遖ｻ豬玖ｯ穂ｽｿ逕ｨ蜴溯ｮ､隸∝・謨ｰ蜥悟・蟄伜ｯ・∬ｯ∵・髞呵ｯｯ蟇・∝惠 localhost 荳倶ｹ溯｢ｫ諡堤ｻ晢ｼ帑ｸ榊ｰ・ｽ灘燕遨ｺ蟇・∫識蠅・噪豬玖ｯ募・遘ｰ荳ｺ逵溷ｮ槫ｼｺ蟇・∫識蠅・ｵ玖ｯ輔ょ次 master-password 陦御ｸｺ荵滓悴譖ｴ謾ｹ縲・
 
-所有请求需 `X-Yukari-Admin: 1`；写操作只接受 POST form-urlencoded。携带 Origin 时必须和当前请求 Host 一致；不配置开放 CORS。Basic Header 手动由 React 内存凭据生成，不进行浏览器 Basic challenge，不将凭据存入 URL、localStorage 或网络 trace。若原 EasyAuth 开启，还要通过原 `check_auth()` 校验访问口令；可在登录表单提供原口令。当前未在实际启用 EasyAuth 的配置下验证，以免影响用户现有设置。
+謇譛芽ｯｷ豎る怙 `X-Yukari-Admin: 1`・帛・謫堺ｽ懷宵謗･蜿・POST form-urlencoded縲よ声蟶ｦ Origin 譌ｶ蠢・｡ｻ蜥悟ｽ灘燕隸ｷ豎・Host 荳閾ｴ・帑ｸ埼・鄂ｮ蠑謾ｾ CORS縲・asic Header 謇句勘逕ｱ React 蜀・ｭ伜・謐ｮ逕滓・・御ｸ崎ｿ幄｡梧ｵ剰ｧ亥勣 Basic challenge・御ｸ榊ｰ・・謐ｮ蟄伜・ URL縲〕ocalStorage 謌也ｽ醍ｻ・trace縲り凶蜴・EasyAuth 蠑蜷ｯ・瑚ｿ倩ｦ・夊ｿ・次 `check_auth()` 譬｡鬪瑚ｮｿ髣ｮ蜿｣莉､・帛庄蝨ｨ逋ｻ蠖戊｡ｨ蜊墓署萓帛次蜿｣莉､縲ょｽ灘燕譛ｪ蝨ｨ螳樣刔蜷ｯ逕ｨ EasyAuth 逧・・鄂ｮ荳矩ｪ瑚ｯ・ｼ御ｻ･蜈榊ｽｱ蜩咲畑謌ｷ邇ｰ譛芽ｮｾ鄂ｮ縲・
 
-Apache 对空 Basic 密码可能不提供 `PHP_AUTH_PW`，新入口将“已有 Basic 用户、未提供密码字段”按空密码交由原密码策略校验，而非直接免检。配置非空密码时仍拒绝空密码。
+Apache 蟇ｹ遨ｺ Basic 蟇・∝庄閭ｽ荳肴署萓・`PHP_AUTH_PW`・梧眠蜈･蜿｣蟆・懷ｷｲ譛・Basic 逕ｨ謌ｷ縲∵悴謠蝉ｾ帛ｯ・∝ｭ玲ｮｵ窶晄潔遨ｺ蟇・∽ｺ､逕ｱ蜴溷ｯ・∫ｭ也払譬｡鬪鯉ｼ瑚碁撼逶ｴ謗･蜈肴｣縲る・鄂ｮ髱樒ｩｺ蟇・∵慮莉肴拠扈晉ｩｺ蟇・√・
 
-### 新 JSON 入口契约
+### 譁ｰ JSON 蜈･蜿｣螂醍ｺｦ
 
-浏览器 URL `/php/api/admin.php?operation=...`，Vite 5174 去掉 `/php` 后转发原 Docker。直连 PHP 使用 `/api/admin.php?operation=...`。所有操作均要求上述管理认证和请求标记。成功 `{ok:true,data:...}`，失败非 2xx + `{ok:false,error}`。
+豬剰ｧ亥勣 URL `/php/api/admin.php?operation=...`・祁ite 5174 蜴ｻ謗・`/php` 蜷手ｽｬ蜿大次 Docker縲ら峩霑・PHP 菴ｿ逕ｨ `/api/admin.php?operation=...`縲よ園譛画桃菴懷插隕∵ｱゆｸ願ｿｰ邂｡逅・ｮ､隸∝柱隸ｷ豎よ・ｮｰ縲よ・蜉・`{ok:true,data:...}`・悟､ｱ雍･髱・2xx + `{ok:false,error}`縲・
 
-| operation | Method / 参数 | 业务复用和响应 |
+| operation | Method / 蜿よ焚 | 荳壼苅螟咲畑蜥悟桃蠎・|
 | --- | --- | --- |
-| session | GET | 原 ConfigAuth，返回 username、password_configured，不返回密码 |
-| queue | GET | include 原 api/requests.php，完整队列和服务端顺序/状态 |
-| delete | POST，id | include 原 api/request_delete.php，原删除、归一化、通知逻辑 |
-| move | POST，id、action=up/down/warikomi | include 原 api/request_move.php，复用 dbup/dbdown/warikomi |
-| status | GET | 原 build_playingstatus_data/getcurrentplayer，另有 PHP/OS、固定 MPC/foobar 地址的只读探测；探测不可达不影响队列管理 |
-| settings | GET | 只返回 playmode、startvolume、requestlistactivereload 和文件 SHA256 revision；不暴露账号、路径或命令配置 |
-| settings-save | POST，上述三项值及 revision | 值范围为 1–5、0–100、0/1；过期 revision 409，无变化不写；合并原始配置后调用原 writeconfig2ini，再回读校验。该原函数也会更新 ini.ini/弹幕房间配置 |
-| player | POST，player=mpc/foobar、action=play/pause/playpause/stop | 调用原 command_mpc 或 foobar_song_play/pause。foobar 的独立 pause/stop 返回 501；连接失败 502。响应成功仅表示接口应答，不代表实际播放 |
+| session | GET | 蜴・ConfigAuth・瑚ｿ泌屓 username縲｝assword_configured・御ｸ崎ｿ泌屓蟇・・|
+| queue | GET | include 蜴・api/requests.php・悟ｮ梧紛髦溷・蜥梧恪蜉｡遶ｯ鬘ｺ蠎・迥ｶ諤・|
+| delete | POST・景d | include 蜴・api/request_delete.php・悟次蛻髯､縲∝ｽ剃ｸ蛹悶・夂衍騾ｻ霎・|
+| move | POST・景d縲∥ction=up/down/warikomi | include 蜴・api/request_move.php・悟､咲畑 dbup/dbdown/warikomi |
+| status | GET | 蜴・build_playingstatus_data/getcurrentplayer・悟嘗譛・PHP/OS縲∝崋螳・MPC/foobar 蝨ｰ蝮逧・宵隸ｻ謗｢豬具ｼ帶爾豬倶ｸ榊庄霎ｾ荳榊ｽｱ蜩埼弌蛻礼ｮ｡逅・|
+| settings | GET | 蜿ｪ霑泌屓 playmode縲《tartvolume縲〉equestlistactivereload 蜥梧枚莉ｶ SHA256 revision・帑ｸ肴垓髴ｲ雍ｦ蜿ｷ縲∬ｷｯ蠕・・蜻ｽ莉､驟咲ｽｮ |
+| settings-save | POST・御ｸ願ｿｰ荳蛾｡ｹ蛟ｼ蜿・revision | 蛟ｼ闌・峩荳ｺ 1窶・縲・窶・00縲・/1・幄ｿ・悄 revision 409・梧裏蜿伜喧荳榊・・帛粋蟷ｶ蜴溷ｧ矩・鄂ｮ蜷手ｰ・畑蜴・writeconfig2ini・悟・蝗櫁ｯｻ譬｡鬪後りｯ･蜴溷・謨ｰ荵滉ｼ壽峩譁ｰ ini.ini/蠑ｹ蟷墓袷髣ｴ驟咲ｽｮ |
+| player | POST・継layer=mpc/foobar縲∥ction=play/pause/playpause/stop | 隹・畑蜴・command_mpc 謌・foobar_song_play/pause縲Ｇoobar 逧・峡遶・pause/stop 霑泌屓 501・幄ｿ樊磁螟ｱ雍･ 502縲ょ桃蠎疲・蜉滉ｻ・｡ｨ遉ｺ謗･蜿｣蠎皮ｭ費ｼ御ｸ堺ｻ｣陦ｨ螳樣刔謦ｭ謾ｾ |
 
-控制子集没有使用原 `api/player.php` 中可能忽略返回值的成功包装，也没有实现新的播放协议。未接 PotPlayer。未开放任意 command、任意 URL、可执行路径、上传、整库清空或批处理启动。
+謗ｧ蛻ｶ蟄宣寔豐｡譛我ｽｿ逕ｨ蜴・`api/player.php` 荳ｭ蜿ｯ閭ｽ蠢ｽ逡･霑泌屓蛟ｼ逧・・蜉溷桁陬・ｼ御ｹ滓ｲ｡譛牙ｮ樒鴫譁ｰ逧・眺謾ｾ蜊剰ｮｮ縲よ悴謗･ PotPlayer縲よ悴蠑謾ｾ莉ｻ諢・command縲∽ｻｻ諢・URL縲∝庄謇ｧ陦瑚ｷｯ蠕・∽ｸ贋ｼ縲∵紛蠎捺ｸ・ｩｺ謌匁音螟・炊蜷ｯ蜉ｨ縲・
 
-### UI 与目录
+### UI 荳守岼蠖・
 
-`apps/admin-web/src/features/{auth,queue,system,settings}`，统一技术栈 React 19.3.1 / TypeScript 7.0.2 / Vite 8.3.4 / Tailwind 4.3.3，精确依赖与锁文件。独立侧栏/手机导航、登录和退出、删除确认、操作失败提示、重新查询队列、设置版本冲突处理。源数据不使用 mock。
+`apps/admin-web/src/features/{auth,queue,system,settings}`・檎ｻ滉ｸ謚譛ｯ譬・React 19.3.1 / TypeScript 7.0.2 / Vite 8.3.4 / Tailwind 4.3.3・檎ｲｾ遑ｮ萓晁ｵ紋ｸ朱煤譁・ｻｶ縲ら峡遶倶ｾｧ譬・謇区惻蟇ｼ闊ｪ縲∫匳蠖募柱騾蜃ｺ縲∝唖髯､遑ｮ隶､縲∵桃菴懷､ｱ雍･謠千､ｺ縲・㍾譁ｰ譟･隸｢髦溷・縲∬ｮｾ鄂ｮ迚域悽蜀ｲ遯∝､・炊縲よｺ先焚謐ｮ荳堺ｽｿ逕ｨ mock縲・
 
-两个应用暂不提取共享包：普通用户 API 不应继承管理凭据，管理请求又有独立错误、认证和写入规则。各自的 `src/lib` 是轻量 API 边界，后续统一 api-server 时可迁移契约；本阶段未新建空服务或为共享而增加运行时依赖。原用户代理未扩大权限。
+荳､荳ｪ蠎皮畑證ゆｸ肴署蜿門・莠ｫ蛹・ｼ壽勸騾夂畑謌ｷ API 荳榊ｺ皮ｻｧ謇ｿ邂｡逅・・謐ｮ・檎ｮ｡逅・ｯｷ豎ょ処譛臥峡遶矩漠隸ｯ縲∬ｮ､隸∝柱蜀吝・隗・・縲ょ推閾ｪ逧・`src/lib` 譏ｯ霓ｻ驥・API 霎ｹ逡鯉ｼ悟錘扈ｭ扈滉ｸ api-server 譌ｶ蜿ｯ霑∫ｧｻ螂醍ｺｦ・帶悽髦ｶ谿ｵ譛ｪ譁ｰ蟒ｺ遨ｺ譛榊苅謌紋ｸｺ蜈ｱ莠ｫ閠悟｢槫刈霑占｡梧慮萓晁ｵ悶ょ次逕ｨ謌ｷ莉｣逅・悴謇ｩ螟ｧ譚・剞縲・
 
-### 验证结果
+### 鬪瑚ｯ∫ｻ捺棡
 
-- PHP `api/admin.php`、`api/_admin_auth.php` 语法检查通过。
-- 容器内 `apps/admin-web/tests/php/admin-auth-check.php`：正确凭据、错误密码、普通账号、缺密码、缺账号五项通过。只用内存配置，没有更改实际密码。
-- admin-web typecheck、build 通过；真实 PHP + Edge E2E 三项通过。
-- 直接请求 PHP 绕过 Vite，验证所有新读写操作无管理凭据均返回 401；普通账号、只有旧管理 Cookie 被拒绝。认证后缺请求标记/跨站请求返回 403；写操作 GET 返回 405。
-- user-web 即使附带有效管理凭据，也无法代理新管理路径（403）。admin-web 只代理新认证入口，不能直接代理旧删除路径。
-- 已认证队列读取、状态读取、设置读取通过；原始配置 SHA256 在无变化保存和过期版本拒绝后保持相同，没有为测试改动配置。
-- 浏览器真实登录后，创建两条独立 UUID/专用歌手的小休止预约，只在它们相邻时调整它们的顺序，再通过管理 UI 删除，最终清理全部测试预约和对应历史；原队列记录完整比较保持相同。拒绝路径使用不存在 ID，即使权限代码回归也不会删原用户记录。
-- 测试在活动播放器或非连续现有 reqorder 时会跳过写入部分，避免干扰现场；本次条件允许，实际执行通过，没有 skip。
-- 浏览器在 390×844 下无横向溢出、无 pageerror。访问系统页点击播放，当前 MPC 不可达，界面显示明确失败而非成功；没有启动外部播放器。
-- user-web 回归：typecheck/build 通过，原三项 E2E 通过，歌曲命中测试仍因没有真实曲库明确跳过。原首页/搜索/队列 HTTP 访问保持正常，管理页保持原认证，Docker 保持 healthy。
+- PHP `api/admin.php`縲～api/_admin_auth.php` 隸ｭ豕墓｣譟･騾夊ｿ・・
+- 螳ｹ蝎ｨ蜀・`apps/admin-web/tests/php/admin-auth-check.php`・壽ｭ｣遑ｮ蜃ｭ謐ｮ縲・漠隸ｯ蟇・√∵勸騾夊ｴｦ蜿ｷ縲∫ｼｺ蟇・√∫ｼｺ雍ｦ蜿ｷ莠秘｡ｹ騾夊ｿ・ょ宵逕ｨ蜀・ｭ倬・鄂ｮ・梧ｲ｡譛画峩謾ｹ螳樣刔蟇・√・
+- admin-web typecheck縲｜uild 騾夊ｿ・ｼ帷悄螳・PHP + Edge E2E 荳蛾｡ｹ騾夊ｿ・・
+- 逶ｴ謗･隸ｷ豎・PHP 扈戊ｿ・Vite・碁ｪ瑚ｯ∵園譛画眠隸ｻ蜀呎桃菴懈裏邂｡逅・・謐ｮ蝮・ｿ泌屓 401・帶勸騾夊ｴｦ蜿ｷ縲∝宵譛画立邂｡逅・Cookie 陲ｫ諡堤ｻ昴りｮ､隸∝錘郛ｺ隸ｷ豎よ・ｮｰ/霍ｨ遶呵ｯｷ豎りｿ泌屓 403・帛・謫堺ｽ・GET 霑泌屓 405縲・
+- user-web 蜊ｳ菴ｿ髯・ｸｦ譛画譜邂｡逅・・謐ｮ・御ｹ滓裏豕穂ｻ｣逅・眠邂｡逅・ｷｯ蠕・ｼ・03・峨Ｂdmin-web 蜿ｪ莉｣逅・眠隶､隸∝・蜿｣・御ｸ崎・逶ｴ謗･莉｣逅・立蛻髯､霍ｯ蠕・・
+- 蟾ｲ隶､隸・弌蛻苓ｯｻ蜿悶∫憾諤∬ｯｻ蜿悶∬ｮｾ鄂ｮ隸ｻ蜿夜夊ｿ・ｼ帛次蟋矩・鄂ｮ SHA256 蝨ｨ譌蜿伜喧菫晏ｭ伜柱霑・悄迚域悽諡堤ｻ晏錘菫晄戟逶ｸ蜷鯉ｼ梧ｲ｡譛我ｸｺ豬玖ｯ墓隼蜉ｨ驟咲ｽｮ縲・
+- 豬剰ｧ亥勣逵溷ｮ樒匳蠖募錘・悟・蟒ｺ荳､譚｡迢ｬ遶・UUID/荳鍋畑豁梧焔逧・ｰ丈ｼ第ｭ｢鬚・ｺｦ・悟宵蝨ｨ螳・ｻｬ逶ｸ驍ｻ譌ｶ隹・紛螳・ｻｬ逧・｡ｺ蠎擾ｼ悟・騾夊ｿ・ｮ｡逅・UI 蛻髯､・梧怙扈域ｸ・炊蜈ｨ驛ｨ豬玖ｯ暮｢・ｺｦ蜥悟ｯｹ蠎泌紙蜿ｲ・帛次髦溷・隶ｰ蠖募ｮ梧紛豈碑ｾ・ｿ晄戟逶ｸ蜷後よ拠扈晁ｷｯ蠕・ｽｿ逕ｨ荳榊ｭ伜惠 ID・悟叉菴ｿ譚・剞莉｣遐∝屓蠖剃ｹ滉ｸ堺ｼ壼唖蜴溽畑謌ｷ隶ｰ蠖輔・
+- 豬玖ｯ募惠豢ｻ蜉ｨ謦ｭ謾ｾ蝎ｨ謌夜撼霑樒ｻｭ邇ｰ譛・reqorder 譌ｶ莨夊ｷｳ霑・・蜈･驛ｨ蛻・ｼ碁∩蜈榊ｹｲ謇ｰ邇ｰ蝨ｺ・帶悽谺｡譚｡莉ｶ蜈∬ｮｸ・悟ｮ樣刔謇ｧ陦碁夊ｿ・ｼ梧ｲ｡譛・skip縲・
+- 豬剰ｧ亥勣蝨ｨ 390ﾃ・44 荳区裏讓ｪ蜷第ｺ｢蜃ｺ縲∵裏 pageerror縲りｮｿ髣ｮ邉ｻ扈滄｡ｵ轤ｹ蜃ｻ謦ｭ謾ｾ・悟ｽ灘燕 MPC 荳榊庄霎ｾ・檎阜髱｢譏ｾ遉ｺ譏守｡ｮ螟ｱ雍･閠碁撼謌仙粥・帶ｲ｡譛牙星蜉ｨ螟夜Κ謦ｭ謾ｾ蝎ｨ縲・
+- user-web 蝗槫ｽ抵ｼ嗾ypecheck/build 騾夊ｿ・ｼ悟次荳蛾｡ｹ E2E 騾夊ｿ・ｼ梧ｭ梧峇蜻ｽ荳ｭ豬玖ｯ穂ｻ榊屏豐｡譛臥悄螳樊峇蠎捺・遑ｮ霍ｳ霑・ょ次鬥夜｡ｵ/謳懃ｴ｢/髦溷・ HTTP 隶ｿ髣ｮ菫晄戟豁｣蟶ｸ・檎ｮ｡逅・｡ｵ菫晄戟蜴溯ｮ､隸・ｼ轡ocker 菫晄戟 healthy縲・
 
-测试预约、对应历史已清理；自增序号、通知计数和专用匿名用户等运行痕迹可能保留，不回滚整个数据库覆盖其他活动。截图保存在被忽略的 admin-web/test-results；不保存含认证信息的 trace。
+豬玖ｯ暮｢・ｺｦ縲∝ｯｹ蠎泌紙蜿ｲ蟾ｲ貂・炊・幄・蠅槫ｺ丞捷縲・夂衍隶｡謨ｰ蜥御ｸ鍋畑蛹ｿ蜷咲畑謌ｷ遲芽ｿ占｡檎藍霑ｹ蜿ｯ閭ｽ菫晉蕗・御ｸ榊屓貊壽紛荳ｪ謨ｰ謐ｮ蠎楢ｦ・尠蜈ｶ莉匁ｴｻ蜉ｨ縲よ穐蝗ｾ菫晏ｭ伜惠陲ｫ蠢ｽ逡･逧・admin-web/test-results・帑ｸ堺ｿ晏ｭ伜性隶､隸∽ｿ｡諱ｯ逧・trace縲・
 
-### 未迁移与下一阶段
+### 譛ｪ霑∫ｧｻ荳惹ｸ倶ｸ髦ｶ谿ｵ
 
-1. 继续按页面迁移保密/升降调等预约详情、批量重排和更完整的现有管理设置；优先共享原业务函数，不重写预约规则。
-2. 设置真实变更的保存路径已实现，但本次只验证无变化保存、输入/版本边界；未为了测试改动现场配置。真实设置变更及原配置写入函数的 ini.ini 副作用需在隔离运行配置下进一步验证。
-3. 可达播放器的控制结果、真实播放反馈和启用 EasyAuth 的双重认证尚未实测；当前验证的是不可达时如实返回失败。默认播放器地址仍是原代码的容器 localhost，未改成 Windows 主机地址。
-4. 历史 PHP 写入口的统一权限加固、配置保存的原子性/跨旧入口并发，以及正式 HTTPS/同源代理部署是后续兼容工作；新管理入口不把 Vite 白名单当作认证。
-5. 原版当前未设管理密码，属于真实权限配置限制，需在原设置中配置。本阶段没有自动设置密码或改变旧密码策略。
-6. Everything/YukaLister 继续复用，曲库不可用不阻碍管理端迁移；不重写搜索、不修数据库。暂不创建 api-server、不引入新业务后端、不接 PotPlayer。
+1. 扈ｧ扈ｭ謖蛾｡ｵ髱｢霑∫ｧｻ菫晏ｯ・蜊・剄隹・ｭ蛾｢・ｺｦ隸ｦ諠・∵音驥城㍾謗貞柱譖ｴ螳梧紛逧・鴫譛臥ｮ｡逅・ｮｾ鄂ｮ・帑ｼ伜・蜈ｱ莠ｫ蜴滉ｸ壼苅蜃ｽ謨ｰ・御ｸ埼㍾蜀咎｢・ｺｦ隗・・縲・
+2. 隶ｾ鄂ｮ逵溷ｮ槫序譖ｴ逧・ｿ晏ｭ倩ｷｯ蠕・ｷｲ螳樒鴫・御ｽ・悽谺｡蜿ｪ鬪瑚ｯ∵裏蜿伜喧菫晏ｭ倥∬ｾ灘・/迚域悽霎ｹ逡鯉ｼ帶悴荳ｺ莠・ｵ玖ｯ墓隼蜉ｨ邇ｰ蝨ｺ驟咲ｽｮ縲ら悄螳櫁ｮｾ鄂ｮ蜿俶峩蜿雁次驟咲ｽｮ蜀吝・蜃ｽ謨ｰ逧・ini.ini 蜑ｯ菴懃畑髴蝨ｨ髫皮ｦｻ霑占｡碁・鄂ｮ荳玖ｿ帑ｸ豁･鬪瑚ｯ√・
+3. 蜿ｯ霎ｾ謦ｭ謾ｾ蝎ｨ逧・而蛻ｶ扈捺棡縲∫悄螳樊眺謾ｾ蜿埼ｦ亥柱蜷ｯ逕ｨ EasyAuth 逧・曙驥崎ｮ､隸∝ｰ壽悴螳樊ｵ具ｼ帛ｽ灘燕鬪瑚ｯ∫噪譏ｯ荳榊庄霎ｾ譌ｶ螯ょｮ櫁ｿ泌屓螟ｱ雍･縲るｻ倩ｮ､謦ｭ謾ｾ蝎ｨ蝨ｰ蝮莉肴弍蜴滉ｻ｣遐∫噪螳ｹ蝎ｨ localhost・梧悴謾ｹ謌・Windows 荳ｻ譛ｺ蝨ｰ蝮縲・
+4. 蜴・彰 PHP 蜀吝・蜿｣逧・ｻ滉ｸ譚・剞蜉蝗ｺ縲・・鄂ｮ菫晏ｭ倡噪蜴溷ｭ先ｧ/霍ｨ譌ｧ蜈･蜿｣蟷ｶ蜿托ｼ御ｻ･蜿頑ｭ｣蠑・HTTPS/蜷梧ｺ蝉ｻ｣逅・Κ鄂ｲ譏ｯ蜷守ｻｭ蜈ｼ螳ｹ蟾･菴懶ｼ帶眠邂｡逅・・蜿｣荳肴滑 Vite 逋ｽ蜷榊黒蠖謎ｽ懆ｮ､隸√・
+5. 蜴溽沿蠖灘燕譛ｪ隶ｾ邂｡逅・ｯ・・ｼ悟ｱ樔ｺ守悄螳樊揀髯宣・鄂ｮ髯仙宛・碁怙蝨ｨ蜴溯ｮｾ鄂ｮ荳ｭ驟咲ｽｮ縲よ悽髦ｶ谿ｵ豐｡譛芽・蜉ｨ隶ｾ鄂ｮ蟇・∵・謾ｹ蜿俶立蟇・∫ｭ也払縲・
+6. Everything/YukaLister 扈ｧ扈ｭ螟咲畑・梧峇蠎謎ｸ榊庄逕ｨ荳埼仆遒咲ｮ｡逅・ｫｯ霑∫ｧｻ・帑ｸ埼㍾蜀呎頗邏｢縲∽ｸ堺ｿｮ謨ｰ謐ｮ蠎薙よ嘯荳榊・蟒ｺ api-server縲∽ｸ榊ｼ募・譁ｰ荳壼苅蜷守ｫｯ縲∽ｸ肴磁 PotPlayer縲・
 
-## Phase 3：统一 Node API 边界（已实现）
+## Phase 3・夂ｻ滉ｸ Node API 霎ｹ逡鯉ｼ亥ｷｲ螳樒鴫・・
 
-日期：2026-10-19（Asia/Tokyo）。新增 `apps/api-server`，采用 Fastify 5.12.7 + TypeScript 7.0.2 + Zod 4.6.7，Node 24。Fastify 提供小型 HTTP 服务、生命周期和错误处理；Zod 校验入站参数与关键 Legacy 响应，没有引入 ORM、DI 容器或新的预约业务层。
+譌･譛滂ｼ・026-10-19・・sia/Tokyo・峨よ眠蠅・`apps/api-server`・碁㊦逕ｨ Fastify 5.12.7 + TypeScript 7.0.2 + Zod 4.6.7・君ode 24縲・astify 謠蝉ｾ帛ｰ丞梛 HTTP 譛榊苅縲∫函蜻ｽ蜻ｨ譛溷柱髞呵ｯｯ螟・炊・媚od 譬｡鬪悟・遶吝盾謨ｰ荳主・髞ｮ Legacy 蜩榊ｺ費ｼ梧ｲ｡譛牙ｼ募・ ORM縲．I 螳ｹ蝎ｨ謌匁眠逧・｢・ｺｦ荳壼苅螻ゅ・
 
-### 本阶段审计结论与职责
+### 譛ｬ髦ｶ谿ｵ螳｡隶｡扈楢ｮｺ荳手′雍｣
 
-| 领域 | Node 当前负责 | PHP 继续独占 |
+| 鬚・沺 | Node 蠖灘燕雍溯ｴ｣ | PHP 扈ｧ扈ｭ迢ｬ蜊 |
 | --- | --- | --- |
-| 会话/权限 | 会话生成、有效期、角色校验、退出撤销、登录限速、Origin/CSRF 检查 | 原 ConfigAuth/EasyAuth 实际密码验证、认证配置版本证明 |
-| 队列/播放/能力 | 统一只读路由、Legacy 调用、Zod 响应校验 | 原队列组装、保密遮罩、播放状态/元数据、能力探测 |
-| 搜索 | 选择固定 Legacy 搜索入口、参数校验、错误规范化；Everything 不可达明确 503 | Everything/YukaLister 检索、排序、年龄过滤等全部规则 |
-| 预约 | 严格白名单输入、单次转发、201 与 id 契约 | exec.php 的 INSERT/事务、reqorder、自动排序、历史、更新通知 |
-| 删除/调序 | 管理会话检查、路径参数与操作校验、单次转发 | 原 request_delete/request_move 和 dbup/dbdown/warikomi |
-| 设置 | 管理鉴权、输入校验、统一版本冲突错误 | 原设置适配器和 writeconfig2ini 的配置/ini.ini 写入 |
-| 播放器 | 管理鉴权、控制子集校验、保留错误 | 原 MPC/foobar 控制函数及实际应答判断 |
+| 莨夊ｯ・譚・剞 | 莨夊ｯ晉函謌舌∵怏謨域悄縲∬ｧ定牡譬｡鬪後・蜃ｺ謦､髞縲∫匳蠖暮剞騾溘＾rigin/CSRF 譽譟･ | 蜴・ConfigAuth/EasyAuth 螳樣刔蟇・・ｪ瑚ｯ√∬ｮ､隸・・鄂ｮ迚域悽隸∵・ |
+| 髦溷・/謦ｭ謾ｾ/閭ｽ蜉・| 扈滉ｸ蜿ｪ隸ｻ霍ｯ逕ｱ縲´egacy 隹・畑縲〇od 蜩榊ｺ疲｡鬪・| 蜴滄弌蛻礼ｻ・｣・∽ｿ晏ｯ・・鄂ｩ縲∵眺謾ｾ迥ｶ諤・蜈・焚謐ｮ縲∬・蜉帶爾豬・|
+| 謳懃ｴ｢ | 騾画叫蝗ｺ螳・Legacy 謳懃ｴ｢蜈･蜿｣縲∝盾謨ｰ譬｡鬪後・漠隸ｯ隗・激蛹厄ｼ妣verything 荳榊庄霎ｾ譏守｡ｮ 503 | Everything/YukaLister 譽邏｢縲∵賜蠎上∝ｹｴ鮴・ｿ・ｻ､遲牙・驛ｨ隗・・ |
+| 鬚・ｺｦ | 荳･譬ｼ逋ｽ蜷榊黒霎灘・縲∝黒谺｡霓ｬ蜿代・01 荳・id 螂醍ｺｦ | exec.php 逧・INSERT/莠句苅縲〉eqorder縲∬・蜉ｨ謗貞ｺ上∝紙蜿ｲ縲∵峩譁ｰ騾夂衍 |
+| 蛻髯､/隹・ｺ・| 邂｡逅・ｼ夊ｯ晄｣譟･縲∬ｷｯ蠕・盾謨ｰ荳取桃菴懈｡鬪後∝黒谺｡霓ｬ蜿・| 蜴・request_delete/request_move 蜥・dbup/dbdown/warikomi |
+| 隶ｾ鄂ｮ | 邂｡逅・俺譚・∬ｾ灘・譬｡鬪後∫ｻ滉ｸ迚域悽蜀ｲ遯・漠隸ｯ | 蜴溯ｮｾ鄂ｮ騾る・蝎ｨ蜥・writeconfig2ini 逧・・鄂ｮ/ini.ini 蜀吝・ |
+| 謦ｭ謾ｾ蝎ｨ | 邂｡逅・俺譚・∵而蛻ｶ蟄宣寔譬｡鬪後∽ｿ晉蕗髞呵ｯｯ | 蜴・MPC/foobar 謗ｧ蛻ｶ蜃ｽ謨ｰ蜿雁ｮ樣刔蠎皮ｭ泌愛譁ｭ |
 
-没有 Node SQLite 驱动，没有把数据库挂载给 Node，也没有直接读取 SQLite。旧 GET 路径的初始化/补元数据可能隐含写入，因此本阶段全部通过 PHP，避免引入 WAL、只读快照和锁一致性问题。PHP 仍是唯一数据写入方；Node 不镜像预约、不开第二事务、不自动重试写操作。
+豐｡譛・Node SQLite 鬩ｱ蜉ｨ・梧ｲ｡譛画滑謨ｰ謐ｮ蠎捺撃霓ｽ扈・Node・御ｹ滓ｲ｡譛臥峩謗･隸ｻ蜿・SQLite縲よ立 GET 霍ｯ蠕・噪蛻晏ｧ句喧/陦･蜈・焚謐ｮ蜿ｯ閭ｽ髫仙性蜀吝・・悟屏豁､譛ｬ髦ｶ谿ｵ蜈ｨ驛ｨ騾夊ｿ・PHP・碁∩蜈榊ｼ募・ WAL縲∝宵隸ｻ蠢ｫ辣ｧ蜥碁煤荳閾ｴ諤ｧ髣ｮ鬚倥１HP 莉肴弍蜚ｯ荳謨ｰ謐ｮ蜀吝・譁ｹ・娟ode 荳埼復蜒城｢・ｺｦ縲∽ｸ榊ｼ隨ｬ莠御ｺ句苅縲∽ｸ崎・蜉ｨ驥崎ｯ募・謫堺ｽ懊・
 
-### 统一接口与契约
+### 扈滉ｸ謗･蜿｣荳主･醍ｺｦ
 
-所有新前端请求统一前缀 `/api/v1`；共享类型、错误类及浏览器请求函数在 `packages/contracts/src/index.ts`。生产依赖不包含测试凭据工具；`packages/test-support` 只供真实测试复用。
+謇譛画眠蜑咲ｫｯ隸ｷ豎らｻ滉ｸ蜑咲ｼ `/api/v1`・帛・莠ｫ邀ｻ蝙九・漠隸ｯ邀ｻ蜿頑ｵ剰ｧ亥勣隸ｷ豎ょ・謨ｰ蝨ｨ `packages/contracts/src/index.ts`縲ら函莠ｧ萓晁ｵ紋ｸ榊桁蜷ｫ豬玖ｯ募・謐ｮ蟾･蜈ｷ・嫣packages/test-support` 蜿ｪ萓帷悄螳樊ｵ玖ｯ募､咲畑縲・
 
-| 路由 | Method / 输入 | 会话 |
+| 霍ｯ逕ｱ | Method / 霎灘・ | 莨夊ｯ・|
 | --- | --- | --- |
-| /user/session | POST，`{easypass?}` | 验证原访问口令（若启用）并创建普通会话 |
-| /admin/session | POST，`{username:'admin',password:非空,easyPass?}` | 验证原非空管理密码，创建管理会话 |
-| /admin/session | GET / DELETE | 验证 / 撤销当前管理会话 |
-| /capabilities、/queue、/playback | GET | user |
-| /search | GET，backend=everything/lister、keyword | user |
-| /requests | POST，filename/fullpath/singer/comment/kind，secret 可选 | user |
-| /admin/queue、/admin/status | GET | admin |
+| /user/session | POST・形{easypass?}` | 鬪瑚ｯ∝次隶ｿ髣ｮ蜿｣莉､・郁凶蜷ｯ逕ｨ・牙ｹｶ蛻帛ｻｺ譎ｮ騾壻ｼ夊ｯ・|
+| /admin/session | POST・形{username:'admin',password:髱樒ｩｺ,easyPass?}` | 鬪瑚ｯ∝次髱樒ｩｺ邂｡逅・ｯ・・ｼ悟・蟒ｺ邂｡逅・ｼ夊ｯ・|
+| /admin/session | GET / DELETE | 鬪瑚ｯ・/ 謦､髞蠖灘燕邂｡逅・ｼ夊ｯ・|
+| /capabilities縲・queue縲・playback | GET | user |
+| /search | GET・恵ackend=everything/lister縲〔eyword | user |
+| /requests | POST・掲ilename/fullpath/singer/comment/kind・茎ecret 蜿ｯ騾・| user |
+| /admin/queue縲・admin/status | GET | admin |
 | /admin/requests/:id | DELETE | admin |
-| /admin/requests/:id/move | POST，action=up/down/warikomi | admin |
-| /settings | GET / PUT（原三个字段 + revision） | admin |
-| /playback/control | POST，player/action | admin |
+| /admin/requests/:id/move | POST・径ction=up/down/warikomi | admin |
+| /settings | GET / PUT・亥次荳我ｸｪ蟄玲ｮｵ + revision・・| admin |
+| /playback/control | POST・継layer/action | admin |
 
-成功统一 `{ok:true,data}`；失败统一 `{ok:false,error:{code,message,requestId?,legacyStatus?,legacyReason?}}`。预约返回 `201` 与 `data.id`。旧非 2xx、HTML、空响应及不符合字段契约均作为错误处理，保留原原因；不将缺库错误包装成空数组。实际只读和写入入口由 Adapter 固定，客户端不能指定任意 PHP URL、命令或待 include 文件。
+謌仙粥扈滉ｸ `{ok:true,data}`・帛､ｱ雍･扈滉ｸ `{ok:false,error:{code,message,requestId?,legacyStatus?,legacyReason?}}`縲る｢・ｺｦ霑泌屓 `201` 荳・`data.id`縲よ立髱・2xx縲？TML縲∫ｩｺ蜩榊ｺ泌所荳咲ｬｦ蜷亥ｭ玲ｮｵ螂醍ｺｦ蝮・ｽ應ｸｺ髞呵ｯｯ螟・炊・御ｿ晉蕗蜴溷次蝗・帑ｸ榊ｰ・ｼｺ蠎馴漠隸ｯ蛹・｣・・遨ｺ謨ｰ扈・ょｮ樣刔蜿ｪ隸ｻ蜥悟・蜈･蜈･蜿｣逕ｱ Adapter 蝗ｺ螳夲ｼ悟ｮ｢謌ｷ遶ｯ荳崎・謖・ｮ壻ｻｻ諢・PHP URL縲∝多莉､謌門ｾ・include 譁・ｻｶ縲・
 
-### 认证语义变化与信任边界（经用户确认）
+### 隶､隸∬ｯｭ荵牙序蛹紋ｸ惹ｿ｡莉ｻ霎ｹ逡鯉ｼ育ｻ冗畑謌ｷ遑ｮ隶､・・
 
-用户选择沿用原 PHP 管理密码，并自行在原设置中保存了非空密码。初次确认时配置尚未实际保存，新 API 返回 503；再次保存后实际登录验证通过。代理没有替用户设置、重置或把密码复制到新配置文件。
+逕ｨ謌ｷ騾画叫豐ｿ逕ｨ蜴・PHP 邂｡逅・ｯ・・ｼ悟ｹｶ閾ｪ陦悟惠蜴溯ｮｾ鄂ｮ荳ｭ菫晏ｭ倅ｺ・撼遨ｺ蟇・√ょ・谺｡遑ｮ隶､譌ｶ驟咲ｽｮ蟆壽悴螳樣刔菫晏ｭ假ｼ梧眠 API 霑泌屓 503・帛・谺｡菫晏ｭ伜錘螳樣刔逋ｻ蠖暮ｪ瑚ｯ・夊ｿ・ゆｻ｣逅・ｲ｡譛画崛逕ｨ謌ｷ隶ｾ鄂ｮ縲・㍾鄂ｮ謌匁滑蟇・∝､榊宛蛻ｰ譁ｰ驟咲ｽｮ譁・ｻｶ縲・
 
-新 API 明确拒绝原配置缺失、空字符串和 PHP 原策略视为空值的 `0`；不因 localhost 放行。密码仅在登录请求中短暂传递给原验证函数，不使用 Basic、不进入日志、会话、localStorage 或新的持久化存储。原 ConfigAuth 的其余验证规则（含历史 master-password）仍由 PHP 拥有，未在 Node 重写；若要废除这些旧规则需单独迁移决定。
+譁ｰ API 譏守｡ｮ諡堤ｻ晏次驟咲ｽｮ郛ｺ螟ｱ縲∫ｩｺ蟄礼ｬｦ荳ｲ蜥・PHP 蜴溽ｭ也払隗・ｸｺ遨ｺ蛟ｼ逧・`0`・帑ｸ榊屏 localhost 謾ｾ陦後ょｯ・∽ｻ・惠逋ｻ蠖戊ｯｷ豎ゆｸｭ遏ｭ證ゆｼ騾堤ｻ吝次鬪瑚ｯ∝・謨ｰ・御ｸ堺ｽｿ逕ｨ Basic縲∽ｸ崎ｿ帛・譌･蠢励∽ｼ夊ｯ昴〕ocalStorage 謌匁眠逧・戟荵・喧蟄伜お縲ょ次 ConfigAuth 逧・・菴咎ｪ瑚ｯ∬ｧ・・・亥性蜴・彰 master-password・我ｻ咲罰 PHP 諡･譛会ｼ梧悴蝨ｨ Node 驥榊・・幄凶隕∝ｺ滄勁霑吩ｺ帶立隗・・髴蜊慕峡霑∫ｧｻ蜀ｳ螳壹・
 
-Node 只保存随机 token 的哈希、角色、UUID、有效期和 HMAC 配置绑定证明。浏览器使用 HttpOnly、SameSite=Strict、Path=/api/v1 Cookie。管理会话一小时、普通会话十二小时，退出删除服务端 token，Node 重启清空会话。证明绑定管理密码、UUID 及访问口令策略；PHP 每次管理操作重新计算比较，密码或策略变化拒绝旧会话。Node 未缓存密码以便后续 Basic 转发。
+Node 蜿ｪ菫晏ｭ倬囂譛ｺ token 逧・嶋蟶後∬ｧ定牡縲ゞUID縲∵怏謨域悄蜥・HMAC 驟咲ｽｮ扈大ｮ夊ｯ∵・縲よｵ剰ｧ亥勣菴ｿ逕ｨ HttpOnly縲ヾameSite=Strict縲￣ath=/api/v1 Cookie縲らｮ｡逅・ｼ夊ｯ昜ｸ蟆乗慮縲∵勸騾壻ｼ夊ｯ晏香莠悟ｰ乗慮・碁蜃ｺ蛻髯､譛榊苅遶ｯ token・君ode 驥榊星貂・ｩｺ莨夊ｯ昴りｯ∵・扈大ｮ夂ｮ｡逅・ｯ・√ゞUID 蜿願ｮｿ髣ｮ蜿｣莉､遲也払・娜HP 豈乗ｬ｡邂｡逅・桃菴憺㍾譁ｰ隶｡邂玲ｯ碑ｾ・ｼ悟ｯ・∵・遲也払蜿伜喧諡堤ｻ晄立莨夊ｯ昴・ode 譛ｪ郛灘ｭ伜ｯ・∽ｻ･萓ｿ蜷守ｻｭ Basic 霓ｬ蜿代・
 
-内部 `api/node_bridge.php` 必须验证 Compose 私有 volume 中的随机服务凭据，再检查角色及配置证明；未经校验的 HTTP 角色头不能设置 PHP 的 `YUKARI_NODE_VERIFIED` 常量。`api/admin.php` 和 `_common.php` 只对这个受信 PHP include 上下文接受已验证身份。原浏览器 Basic/旧 Cookie 不透传，不能靠把 `admin` 名称或角色头传给 PHP 获得权限。
+蜀・Κ `api/node_bridge.php` 蠢・｡ｻ鬪瑚ｯ・Compose 遘∵怏 volume 荳ｭ逧・囂譛ｺ譛榊苅蜃ｭ謐ｮ・悟・譽譟･隗定牡蜿企・鄂ｮ隸∵・・帶悴扈乗｡鬪檎噪 HTTP 隗定牡螟ｴ荳崎・隶ｾ鄂ｮ PHP 逧・`YUKARI_NODE_VERIFIED` 蟶ｸ驥上Ａapi/admin.php` 蜥・`_common.php` 蜿ｪ蟇ｹ霑吩ｸｪ蜿嶺ｿ｡ PHP include 荳贋ｸ区枚謗･蜿怜ｷｲ鬪瑚ｯ∬ｺｫ莉ｽ縲ょ次豬剰ｧ亥勣 Basic/譌ｧ Cookie 荳埼丈ｼ・御ｸ崎・髱謚・`admin` 蜷咲ｧｰ謌冶ｧ定牡螟ｴ莨扈・PHP 闔ｷ蠕玲揀髯舌・
 
-每个用户的 Legacy User-Agent 使用 Node 分配的独立 UUID，PHP Cookie 也只使用该 UUID，防止多个用户经同一 Node IP 导致保密预约 owner 判定串号。用户端路由始终使用 user 会话，不因浏览器同时拥有管理 Cookie 就提升角色。管理路由检查 admin 会话，并拒绝 user-web Origin；两端 Vite 仅作为额外路径过滤。
+豈丈ｸｪ逕ｨ謌ｷ逧・Legacy User-Agent 菴ｿ逕ｨ Node 蛻・・逧・峡遶・UUID・訓HP Cookie 荵溷宵菴ｿ逕ｨ隸･ UUID・碁亟豁｢螟壻ｸｪ逕ｨ謌ｷ扈丞酔荳 Node IP 蟇ｼ閾ｴ菫晏ｯ・｢・ｺｦ owner 蛻､螳壻ｸｲ蜿ｷ縲ら畑謌ｷ遶ｯ霍ｯ逕ｱ蟋狗ｻ井ｽｿ逕ｨ user 莨夊ｯ晢ｼ御ｸ榊屏豬剰ｧ亥勣蜷梧慮諡･譛臥ｮ｡逅・Cookie 蟆ｱ謠仙合隗定牡縲らｮ｡逅・ｷｯ逕ｱ譽譟･ admin 莨夊ｯ晢ｼ悟ｹｶ諡堤ｻ・user-web Origin・帑ｸ､遶ｯ Vite 莉・ｽ應ｸｺ鬚晏､冶ｷｯ蠕・ｿ・ｻ､縲・
 
-写入要求 JSON 和 `X-Yukari-Client: 1`；检查 Origin，不配置开放 CORS。登录请求有限速。测试 trace 关闭，服务端关闭请求/body 日志，Bridge 凭据和证明不返回浏览器。当前是本机 HTTP 开发模式，正式环境需 HTTPS/Secure Cookie；单实例内存会话不适合直接横向扩展。
+蜀吝・隕∵ｱ・JSON 蜥・`X-Yukari-Client: 1`・帶｣譟･ Origin・御ｸ埼・鄂ｮ蠑謾ｾ CORS縲ら匳蠖戊ｯｷ豎よ怏髯宣溘よｵ玖ｯ・trace 蜈ｳ髣ｭ・梧恪蜉｡遶ｯ蜈ｳ髣ｭ隸ｷ豎・body 譌･蠢暦ｼ沓ridge 蜃ｭ謐ｮ蜥瑚ｯ∵・荳崎ｿ泌屓豬剰ｧ亥勣縲ょｽ灘燕譏ｯ譛ｬ譛ｺ HTTP 蠑蜿第ｨ｡蠑擾ｼ梧ｭ｣蠑冗識蠅・怙 HTTPS/Secure Cookie・帛黒螳樔ｾ句・蟄倅ｼ夊ｯ昜ｸ埼ょ粋逶ｴ謗･讓ｪ蜷第黄螻輔・
 
-### Docker 与目录
+### Docker 荳守岼蠖・
 
-一键启动：仓库根目录 `docker compose -f docker/compose.yaml up --build -d`。Compose 包含一次性 Bridge 凭据初始化、原 PHP 和 Node API。凭据 volume 只被这两个后端只读挂载；Node 容器以 node 用户运行，没有数据库挂载。
+荳髞ｮ蜷ｯ蜉ｨ・壻ｻ灘ｺ捺ｹ逶ｮ蠖・`docker compose -f docker/compose.yaml up --build -d`縲・ompose 蛹・性荳谺｡諤ｧ Bridge 蜃ｭ謐ｮ蛻晏ｧ句喧縲∝次 PHP 蜥・Node API縲ょ・謐ｮ volume 蜿ｪ陲ｫ霑吩ｸ､荳ｪ蜷守ｫｯ蜿ｪ隸ｻ謖りｽｽ・娟ode 螳ｹ蝎ｨ莉･ node 逕ｨ謌ｷ霑占｡鯉ｼ梧ｲ｡譛画焚謐ｮ蠎捺撃霓ｽ縲・
 
-- user-web：http://127.0.0.1:5173/（独立 Vite）
-- admin-web：http://127.0.0.1:5174/（独立 Vite）
-- Node：http://127.0.0.1:3000/health
-- 原 PHP：http://127.0.0.1:8080/
+- user-web・喇ttp://127.0.0.1:5173/・育峡遶・Vite・・
+- admin-web・喇ttp://127.0.0.1:5174/・育峡遶・Vite・・
+- Node・喇ttp://127.0.0.1:3000/health
+- 蜴・PHP・喇ttp://127.0.0.1:8080/
 
-PHP 与 API 只发布到 127.0.0.1，避免把历史弱权限写入口暴露给非可信网络。Apache 禁止直接下载 INI、数据库、开发源目录，旧 PHP 页面仍可访问。没有执行删除数据库、清卷或 push。原工作区已有修改以及用户本次保存的非空管理密码均保留，未替用户重置凭据。
+PHP 荳・API 蜿ｪ蜿大ｸ・芦 127.0.0.1・碁∩蜈肴滑蜴・彰蠑ｱ譚・剞蜀吝・蜿｣證ｴ髴ｲ扈咎撼蜿ｯ菫｡鄂醍ｻ懊・pache 遖∵ｭ｢逶ｴ謗･荳玖ｽｽ INI縲∵焚謐ｮ蠎薙∝ｼ蜿第ｺ千岼蠖包ｼ梧立 PHP 鬘ｵ髱｢莉榊庄隶ｿ髣ｮ縲よｲ｡譛画鴬陦悟唖髯､謨ｰ謐ｮ蠎薙∵ｸ・差謌・push縲ょ次蟾･菴懷玄蟾ｲ譛我ｿｮ謾ｹ莉･蜿顔畑謌ｷ譛ｬ谺｡菫晏ｭ倡噪髱樒ｩｺ邂｡逅・ｯ・∝插菫晉蕗・梧悴譖ｿ逕ｨ謌ｷ驥咲ｽｮ蜃ｭ謐ｮ縲・
 
-新增核心文件：`apps/api-server/src/{app,legacy,sessions,errors,main}.ts`、`api/node_bridge.php`、`api/_node_auth.php`、共享契约/测试工具、Node Dockerfile、Bridge 初始化脚本及 Apache 私有文件规则。修改两端 API Client/Vite/E2E 以及 PHP 的最小受信入口检查，业务规则仍在旧函数中。
+譁ｰ蠅樊ｸ蠢・枚莉ｶ・啻apps/api-server/src/{app,legacy,sessions,errors,main}.ts`縲～api/node_bridge.php`縲～api/_node_auth.php`縲∝・莠ｫ螂醍ｺｦ/豬玖ｯ募ｷ･蜈ｷ縲¨ode Dockerfile縲。ridge 蛻晏ｧ句喧閼壽悽蜿・Apache 遘∵怏譁・ｻｶ隗・・縲ゆｿｮ謾ｹ荳､遶ｯ API Client/Vite/E2E 莉･蜿・PHP 逧・怙蟆丞女菫｡蜈･蜿｣譽譟･・御ｸ壼苅隗・・莉榊惠譌ｧ蜃ｽ謨ｰ荳ｭ縲・
 
-### 验证结果
+### 鬪瑚ｯ∫ｻ捺棡
 
-- 三个项目 typecheck/build 全部通过；Compose 实际构建启动成功，PHP 和 Node 均 healthy。
-- API Server 真实集成测试：3 项通过，0 跳过。覆盖非空原密码认证、空密码拒绝、未登录/普通用户越权拒绝、Basic 拒绝、跨站和缺请求标记拒绝、Bridge 伪造拒绝、无效 JSON 400、退出撤销、只读接口及原错误原因。
-- PHP 内存认证不变量测试：13 项通过，覆盖缺失/空/0 密码拒绝、正确/错误身份、localhost 不免检、密码/UUID/访问策略改变时证明失效。未改真实配置来测试撤销。
-- 实际预约测试：每个 Node POST 仅新增一条原 PHP 记录；使用原合法的小休止/保密选项验证会话隔离，陌生会话看不到真实标题，伪造旧 Cookie/角色头不能解除遮罩；管理调序与删除结果由服务端回读确认。
-- user-web 完整真实 Edge E2E：3 通过、1 跳过（真实曲库命中），预约链为 React → Node → PHP → Node 队列回读。
-- admin-web 完整真实 Edge E2E：3 全部通过，覆盖 UI 登录、专用测试记录调序/删除、设置无变化保存、播放器不可达提示和退出后的 401。
-- 写测试先检查无活动播放器、原顺序连续；只在相邻测试记录间移动，最后删除测试预约/历史，并比较完整原队列相同。计数/自增序号及专用匿名用户可能保留，不整库回滚并发数据。
-- 设置无变化保存及过期 revision 409 的最终测试确认 config.ini SHA256 不变。联调初次发现 Phase 2 布尔值比较问题，曾误触发原序列化重写；已按读取时的有效整数统一比较和回读校验，没有人为改设置值，修复后不再重写无变化配置。
+- 荳我ｸｪ鬘ｹ逶ｮ typecheck/build 蜈ｨ驛ｨ騾夊ｿ・ｼ佞ompose 螳樣刔譫・ｻｺ蜷ｯ蜉ｨ謌仙粥・訓HP 蜥・Node 蝮・healthy縲・
+- API Server 逵溷ｮ樣寔謌先ｵ玖ｯ包ｼ・ 鬘ｹ騾夊ｿ・ｼ・ 霍ｳ霑・りｦ・尠髱樒ｩｺ蜴溷ｯ・∬ｮ､隸√∫ｩｺ蟇・∵拠扈昴∵悴逋ｻ蠖・譎ｮ騾夂畑謌ｷ雜頑揀諡堤ｻ昴。asic 諡堤ｻ昴∬ｷｨ遶吝柱郛ｺ隸ｷ豎よ・ｮｰ諡堤ｻ昴。ridge 莨ｪ騾諡堤ｻ昴∵裏謨・JSON 400縲・蜃ｺ謦､髞縲∝宵隸ｻ謗･蜿｣蜿雁次髞呵ｯｯ蜴溷屏縲・
+- PHP 蜀・ｭ倩ｮ､隸∽ｸ榊序驥乗ｵ玖ｯ包ｼ・3 鬘ｹ騾夊ｿ・ｼ瑚ｦ・尠郛ｺ螟ｱ/遨ｺ/0 蟇・∵拠扈昴∵ｭ｣遑ｮ/髞呵ｯｯ霄ｫ莉ｽ縲〕ocalhost 荳榊・譽縲∝ｯ・・UUID/隶ｿ髣ｮ遲也払謾ｹ蜿俶慮隸∵・螟ｱ謨医よ悴謾ｹ逵溷ｮ樣・鄂ｮ譚･豬玖ｯ墓彫髞縲・
+- 螳樣刔鬚・ｺｦ豬玖ｯ包ｼ壽ｯ丈ｸｪ Node POST 莉・眠蠅樔ｸ譚｡蜴・PHP 隶ｰ蠖包ｼ帑ｽｿ逕ｨ蜴溷粋豕慕噪蟆丈ｼ第ｭ｢/菫晏ｯ・蛾｡ｹ鬪瑚ｯ∽ｼ夊ｯ晞囈遖ｻ・碁剏逕滉ｼ夊ｯ晉恚荳榊芦逵溷ｮ樊・｢假ｼ御ｼｪ騾譌ｧ Cookie/隗定牡螟ｴ荳崎・隗｣髯､驕ｮ鄂ｩ・帷ｮ｡逅・ｰ・ｺ丈ｸ主唖髯､扈捺棡逕ｱ譛榊苅遶ｯ蝗櫁ｯｻ遑ｮ隶､縲・
+- user-web 螳梧紛逵溷ｮ・Edge E2E・・ 騾夊ｿ・・ 霍ｳ霑・ｼ育悄螳樊峇蠎灘多荳ｭ・会ｼ碁｢・ｺｦ體ｾ荳ｺ React 竊・Node 竊・PHP 竊・Node 髦溷・蝗櫁ｯｻ縲・
+- admin-web 螳梧紛逵溷ｮ・Edge E2E・・ 蜈ｨ驛ｨ騾夊ｿ・ｼ瑚ｦ・尠 UI 逋ｻ蠖輔∽ｸ鍋畑豬玖ｯ戊ｮｰ蠖戊ｰ・ｺ・蛻髯､縲∬ｮｾ鄂ｮ譌蜿伜喧菫晏ｭ倥∵眺謾ｾ蝎ｨ荳榊庄霎ｾ謠千､ｺ蜥碁蜃ｺ蜷守噪 401縲・
+- 蜀呎ｵ玖ｯ募・譽譟･譌豢ｻ蜉ｨ謦ｭ謾ｾ蝎ｨ縲∝次鬘ｺ蠎剰ｿ樒ｻｭ・帛宵蝨ｨ逶ｸ驍ｻ豬玖ｯ戊ｮｰ蠖暮龍遘ｻ蜉ｨ・梧怙蜷主唖髯､豬玖ｯ暮｢・ｺｦ/蜴・彰・悟ｹｶ豈碑ｾ・ｮ梧紛蜴滄弌蛻礼嶌蜷後りｮ｡謨ｰ/閾ｪ蠅槫ｺ丞捷蜿贋ｸ鍋畑蛹ｿ蜷咲畑謌ｷ蜿ｯ閭ｽ菫晉蕗・御ｸ肴紛蠎灘屓貊壼ｹｶ蜿第焚謐ｮ縲・
+- 隶ｾ鄂ｮ譌蜿伜喧菫晏ｭ伜所霑・悄 revision 409 逧・怙扈域ｵ玖ｯ慕｡ｮ隶､ config.ini SHA256 荳榊序縲り＃隹・・谺｡蜿醍鴫 Phase 2 蟶・ｰ泌ｼ豈碑ｾ・琉鬚假ｼ梧崟隸ｯ隗ｦ蜿大次蠎丞・蛹夜㍾蜀呻ｼ帛ｷｲ謖芽ｯｻ蜿匁慮逧・怏謨域紛謨ｰ扈滉ｸ豈碑ｾ・柱蝗櫁ｯｻ譬｡鬪鯉ｼ梧ｲ｡譛我ｺｺ荳ｺ謾ｹ隶ｾ鄂ｮ蛟ｼ・御ｿｮ螟榊錘荳榊・驥榊・譌蜿伜喧驟咲ｽｮ縲・
 
-### 保留的问题与后续迁移
+### 菫晉蕗逧・琉鬚倅ｸ主錘扈ｭ霑∫ｧｻ
 
-1. 原曲库仍不可用；新 API 保留错误并不阻塞本阶段。原 exec.php 可能先提交预约，再因附加曲库元数据查询失败；本次确认了这种“可能已入库但返回错误”的旧行为。Node 提示结果未知、不重试、不补写。后续需单独处理 Legacy 部分提交和跨请求幂等性，不借本阶段修库或重写业务。
-2. 真实媒体播放、可达播放器执行结果、实际设置值变化保存及启用 EasyAuth 的现场双重认证尚未完整实测；没有为验收更改曲库、播放器、实际设置或 SQLite schema。
-3. 历史 PHP 路由保留原访问规则，只限制在本机；新 Node 权限边界不能被解释为所有旧路由都已统一加固。后续按兼容策略逐步收敛旧写入口。
-4. 生产 HTTPS、持久共享会话、跨实例限速、原配置写入原子性和 Legacy 错误事务边界仍待独立阶段。当前 Node 会话重启失效是明确的开发期行为。
-5. 后续先迁移更多只读契约和管理详情，再评估可安全迁移的业务模块；预约/调序/设置写入仍由 PHP 独占。未实现新搜索引擎、Laravel、PotPlayer 或第二套数据库。
+1. 蜴滓峇蠎謎ｻ堺ｸ榊庄逕ｨ・帶眠 API 菫晉蕗髞呵ｯｯ蟷ｶ荳埼仆蝪樊悽髦ｶ谿ｵ縲ょ次 exec.php 蜿ｯ閭ｽ蜈域署莠､鬚・ｺｦ・悟・蝗髯・刈譖ｲ蠎灘・謨ｰ謐ｮ譟･隸｢螟ｱ雍･・帶悽谺｡遑ｮ隶､莠・ｿ咏ｧ坂懷庄閭ｽ蟾ｲ蜈･蠎謎ｽ・ｿ泌屓髞呵ｯｯ窶晉噪譌ｧ陦御ｸｺ縲・ode 謠千､ｺ扈捺棡譛ｪ遏･縲∽ｸ埼㍾隸輔∽ｸ崎｡･蜀吶ょ錘扈ｭ髴蜊慕峡螟・炊 Legacy 驛ｨ蛻・署莠､蜥瑚ｷｨ隸ｷ豎ょｹらｭ画ｧ・御ｸ榊滓悽髦ｶ谿ｵ菫ｮ蠎捺・驥榊・荳壼苅縲・
+2. 逵溷ｮ槫ｪ剃ｽ捺眺謾ｾ縲∝庄霎ｾ謦ｭ謾ｾ蝎ｨ謇ｧ陦檎ｻ捺棡縲∝ｮ樣刔隶ｾ鄂ｮ蛟ｼ蜿伜喧菫晏ｭ伜所蜷ｯ逕ｨ EasyAuth 逧・鴫蝨ｺ蜿碁㍾隶､隸∝ｰ壽悴螳梧紛螳樊ｵ具ｼ帶ｲ｡譛我ｸｺ鬪梧噺譖ｴ謾ｹ譖ｲ蠎薙∵眺謾ｾ蝎ｨ縲∝ｮ樣刔隶ｾ鄂ｮ謌・SQLite schema縲・
+3. 蜴・彰 PHP 霍ｯ逕ｱ菫晉蕗蜴溯ｮｿ髣ｮ隗・・・悟宵髯仙宛蝨ｨ譛ｬ譛ｺ・帶眠 Node 譚・剞霎ｹ逡御ｸ崎・陲ｫ隗｣驥贋ｸｺ謇譛画立霍ｯ逕ｱ驛ｽ蟾ｲ扈滉ｸ蜉蝗ｺ縲ょ錘扈ｭ謖牙・螳ｹ遲也払騾先ｭ･謾ｶ謨帶立蜀吝・蜿｣縲・
+4. 逕滉ｺｧ HTTPS縲∵戟荵・・莠ｫ莨夊ｯ昴∬ｷｨ螳樔ｾ矩剞騾溘∝次驟咲ｽｮ蜀吝・蜴溷ｭ先ｧ蜥・Legacy 髞呵ｯｯ莠句苅霎ｹ逡御ｻ榊ｾ・峡遶矩亳谿ｵ縲ょｽ灘燕 Node 莨夊ｯ晞㍾蜷ｯ螟ｱ謨域弍譏守｡ｮ逧・ｼ蜿第悄陦御ｸｺ縲・
+5. 蜷守ｻｭ蜈郁ｿ∫ｧｻ譖ｴ螟壼宵隸ｻ螂醍ｺｦ蜥檎ｮ｡逅・ｯｦ諠・ｼ悟・隸・ｼｰ蜿ｯ螳牙・霑∫ｧｻ逧・ｸ壼苅讓｡蝮暦ｼ幃｢・ｺｦ/隹・ｺ・隶ｾ鄂ｮ蜀吝・莉咲罰 PHP 迢ｬ蜊縲よ悴螳樒鴫譁ｰ謳懃ｴ｢蠑墓梼縲´aravel縲￣otPlayer 謌也ｬｬ莠悟･玲焚謐ｮ蠎薙・
 
-框架依据：[Fastify 官方验证文档](https://fastify.dev/docs/latest/Reference/Validation-and-Serialization/)、[Zod 官方文档](https://zod.dev/)。运行、领域路由和认证细节另见 [API Server README](../apps/api-server/README.md)。
+譯・楔萓晄紺・喙Fastify 螳俶婿鬪瑚ｯ∵枚譯｣](https://fastify.dev/docs/latest/Reference/Validation-and-Serialization/)縲ーZod 螳俶婿譁・｡｣](https://zod.dev/)縲りｿ占｡後・｢・沺霍ｯ逕ｱ蜥瑚ｮ､隸∫ｻ・鰍蜿ｦ隗・[API Server README](../apps/api-server/README.md)縲・
 
 
-## Phase 4：Legacy 目录整理与有限兼容适配
+## Phase 4・哭egacy 逶ｮ蠖墓紛逅・ｸ取怏髯仙・螳ｹ騾る・
 
-日期：2026-10-20（Asia/Tokyo）。本阶段在 develop 直接执行源码移动、Docker 重建、真实 HTTP 及 Edge 回归。完整入口契约、权限、副作用及路径审计见 [LEGACY_COMPATIBILITY.md](LEGACY_COMPATIBILITY.md)。没有 commit/push，没有操作 master/refactor/web。
+譌･譛滂ｼ・026-10-20・・sia/Tokyo・峨よ悽髦ｶ谿ｵ蝨ｨ develop 逶ｴ謗･謇ｧ陦梧ｺ千∫ｧｻ蜉ｨ縲．ocker 驥榊ｻｺ縲∫悄螳・HTTP 蜿・Edge 蝗槫ｽ偵ょｮ梧紛蜈･蜿｣螂醍ｺｦ縲∵揀髯舌∝憶菴懃畑蜿願ｷｯ蠕・ｮ｡隶｡隗・[LEGACY_COMPATIBILITY.md](LEGACY_COMPATIBILITY.md)縲よｲ｡譛・commit/push・梧ｲ｡譛画桃菴・master/refactor/web縲・
 
-### 目录与数据保留
+### 逶ｮ蠖穂ｸ取焚謐ｮ菫晉蕗
 
-原 PHP 页面、API、旧 JS/CSS、字体图片、PHP modules、CMS、v2、播放器附属文件及打包脚本共 652 个已跟踪文件通过 `git mv` 迁到 `legacy/php/`。apps、packages、docs、docker、项目级 Git 配置及项目说明留在根目录。迁移前唯一未提交改动为 ini.ini，迁移后原内容仍为未暂存的运行修改。
+蜴・PHP 鬘ｵ髱｢縲、PI縲∵立 JS/CSS縲∝ｭ嶺ｽ灘崟迚・￣HP modules縲，MS縲」2縲∵眺謾ｾ蝎ｨ髯・ｱ樊枚莉ｶ蜿頑遠蛹・・譛ｬ蜈ｱ 652 荳ｪ蟾ｲ霍溯ｸｪ譁・ｻｶ騾夊ｿ・`git mv` 霑∝芦 `legacy/php/`縲Ｂpps縲｝ackages縲‥ocs縲‥ocker縲・｡ｹ逶ｮ郤ｧ Git 驟咲ｽｮ蜿企｡ｹ逶ｮ隸ｴ譏守蕗蝨ｨ譬ｹ逶ｮ蠖輔りｿ∫ｧｻ蜑榊髪荳譛ｪ謠蝉ｺ､謾ｹ蜉ｨ荳ｺ ini.ini・瑚ｿ∫ｧｻ蜷主次蜀・ｮｹ莉堺ｸｺ譛ｪ證ょｭ倡噪霑占｡御ｿｮ謾ｹ縲・
 
-停止 PHP/Node 后将本机配置、SQLite、缓存和日志随应用原样移动；661 个文件迁移前后逐一校验 SHA256 一致，未清卷、重建库或变更密码。测试结束后再次确认 config.ini、原 ini.ini、listerdb_config.ini 字节未变。忽略规则已覆盖新位置；git mv 暂存区仅含 R100 重命名，没有暂存真实 config.ini、数据库、日志或 Bridge 凭据。根目录异常 NUL 未动，两个原空曲库文件保留而未尝试修复。
+蛛懈ｭ｢ PHP/Node 蜷主ｰ・悽譛ｺ驟咲ｽｮ縲ヾQLite縲∫ｼ灘ｭ伜柱譌･蠢鈴囂蠎皮畑蜴滓ｷ遘ｻ蜉ｨ・・61 荳ｪ譁・ｻｶ霑∫ｧｻ蜑榊錘騾蝉ｸ譬｡鬪・SHA256 荳閾ｴ・梧悴貂・差縲・㍾蟒ｺ蠎捺・蜿俶峩蟇・√よｵ玖ｯ慕ｻ捺據蜷主・谺｡遑ｮ隶､ config.ini縲∝次 ini.ini縲〕isterdb_config.ini 蟄苓鰍譛ｪ蜿倥ょｿｽ逡･隗・・蟾ｲ隕・尠譁ｰ菴咲ｽｮ・嬌it mv 證ょｭ伜玄莉・性 R100 驥榊多蜷搾ｼ梧ｲ｡譛画嘯蟄倡悄螳・config.ini縲∵焚謐ｮ蠎薙∵律蠢玲・ Bridge 蜃ｭ謐ｮ縲よｹ逶ｮ蠖募ｼょｸｸ NUL 譛ｪ蜉ｨ・御ｸ､荳ｪ蜴溽ｩｺ譖ｲ蠎捺枚莉ｶ菫晉蕗閠梧悴蟆晁ｯ穂ｿｮ螟阪・
 
-Compose 将 `legacy/php/` 读写挂载到原 Apache DocumentRoot `/var/www/html`，仓库额外只读挂载到非公开 `/workspace` 供 PHP CLI 测试。原 `/search.php`、`/exec.php`、`/api/...` 无前缀变化，Bridge 固定 URL 不变，Node 没有数据库挂载。__DIR__/chdir/相对 include 与库文件的目录关系保留；TS/PHP 测试更新配置和认证源码路径，Inno Setup 的项目说明/许可证引用更新为上层路径。
+Compose 蟆・`legacy/php/` 隸ｻ蜀呎撃霓ｽ蛻ｰ蜴・Apache DocumentRoot `/var/www/html`・御ｻ灘ｺ馴｢晏､門宵隸ｻ謖りｽｽ蛻ｰ髱槫・蠑 `/workspace` 萓・PHP CLI 豬玖ｯ輔ょ次 `/search.php`縲～/exec.php`縲～/api/...` 譌蜑咲ｼ蜿伜喧・沓ridge 蝗ｺ螳・URL 荳榊序・君ode 豐｡譛画焚謐ｮ蠎捺撃霓ｽ縲・_DIR__/chdir/逶ｸ蟇ｹ include 荳主ｺ捺枚莉ｶ逧・岼蠖募・邉ｻ菫晉蕗・婬S/PHP 豬玖ｯ墓峩譁ｰ驟咲ｽｮ蜥瑚ｮ､隸∵ｺ千∬ｷｯ蠕・ｼ栗nno Setup 逧・｡ｹ逶ｮ隸ｴ譏・隶ｸ蜿ｯ隸∝ｼ慕畑譖ｴ譁ｰ荳ｺ荳雁ｱりｷｯ蠕・・
 
-旧 Git/ZIP 更新器假定单体工作区，可能覆盖新目录或 reset；在 monorepo 下明确拒绝更新、Git 初始化及 GC，显示部署说明。没有执行任何更新/恢复。旧 Windows BAT、XAMPP/nginx、绝对媒体路径依赖仍保留，未宣称 Linux Docker 可执行这些功能。
+譌ｧ Git/ZIP 譖ｴ譁ｰ蝎ｨ蛛・ｮ壼黒菴灘ｷ･菴懷玄・悟庄閭ｽ隕・尠譁ｰ逶ｮ蠖墓・ reset・帛惠 monorepo 荳区・遑ｮ諡堤ｻ晄峩譁ｰ縲；it 蛻晏ｧ句喧蜿・GC・梧仞遉ｺ驛ｨ鄂ｲ隸ｴ譏弱よｲ｡譛画鴬陦御ｻｻ菴墓峩譁ｰ/諱｢螟阪よ立 Windows BAT縲々AMPP/nginx縲∫ｻ晏ｯｹ蟐剃ｽ楢ｷｯ蠕・ｾ晁ｵ紋ｻ堺ｿ晉蕗・梧悴螳｣遘ｰ Linux Docker 蜿ｯ謇ｧ陦瑚ｿ吩ｺ帛粥閭ｽ縲・
 
-### 实际 Owner 与适配范围
+### 螳樣刔 Owner 荳朱る・闌・峩
 
-| 模块 | 实际 Owner | 旧页状态 |
+| 讓｡蝮・| 螳樣刔 Owner | 譌ｧ鬘ｵ迥ｶ諤・|
 | --- | --- | --- |
-| 健康 `/api/v1/meta/health` | Node-native，无 PHP 调用/用户数据/写入 | 已通过旧页 JS 同源请求，显示连接或不可达 |
-| 会话生成、存储、角色/CSRF 校验、撤销 | Node-native；原密码/EasyAuth 验证仍由 PHP | 旧 Basic/EasyAuth 保持独立，未自动映射 Node 登录 |
-| 搜索、预约、队列、删除、调序 | PHP 独占，Node 仅统一边界 | 旧 UI 仍直连原 PHP；没有 PHP → Node → PHP |
-| 设置、播放器、元数据、用户历史/收藏、备份、导入导出等 | PHP | 保留，未改业务规则；未接 PotPlayer |
+| 蛛･蠎ｷ `/api/v1/meta/health` | Node-native・梧裏 PHP 隹・畑/逕ｨ謌ｷ謨ｰ謐ｮ/蜀吝・ | 蟾ｲ騾夊ｿ・立鬘ｵ JS 蜷梧ｺ占ｯｷ豎ゑｼ梧仞遉ｺ霑樊磁謌紋ｸ榊庄霎ｾ |
+| 莨夊ｯ晉函謌舌∝ｭ伜お縲∬ｧ定牡/CSRF 譬｡鬪後∵彫髞 | Node-native・帛次蟇・・EasyAuth 鬪瑚ｯ∽ｻ咲罰 PHP | 譌ｧ Basic/EasyAuth 菫晄戟迢ｬ遶具ｼ梧悴閾ｪ蜉ｨ譏蟆・Node 逋ｻ蠖・|
+| 謳懃ｴ｢縲・｢・ｺｦ縲・弌蛻励∝唖髯､縲∬ｰ・ｺ・| PHP 迢ｬ蜊・君ode 莉・ｻ滉ｸ霎ｹ逡・| 譌ｧ UI 莉咲峩霑槫次 PHP・帶ｲ｡譛・PHP 竊・Node 竊・PHP |
+| 隶ｾ鄂ｮ縲∵眺謾ｾ蝎ｨ縲∝・謨ｰ謐ｮ縲∫畑謌ｷ蜴・彰/謾ｶ阯上∝､・ｻｽ縲∝ｯｼ蜈･蟇ｼ蜃ｺ遲・| PHP | 菫晉蕗・梧悴謾ｹ荳壼苅隗・・・帶悴謗･ PotPlayer |
 
-**Node-native 领域业务覆盖仍为 0**。React 已使用统一 API 不代表 PHP 业务已经迁移。当前没有适合无损切换的 Node-native 领域业务，因此仅接入真实原生健康状态，没有伪造业务迁移进度。
+**Node-native 鬚・沺荳壼苅隕・尠莉堺ｸｺ 0**縲３eact 蟾ｲ菴ｿ逕ｨ扈滉ｸ API 荳堺ｻ｣陦ｨ PHP 荳壼苅蟾ｲ扈剰ｿ∫ｧｻ縲ょｽ灘燕豐｡譛蛾ょ粋譌謐溷・謐｢逧・Node-native 鬚・沺荳壼苅・悟屏豁､莉・磁蜈･逵溷ｮ槫次逕溷▼蠎ｷ迥ｶ諤・ｼ梧ｲ｡譛我ｼｪ騾荳壼苅霑∫ｧｻ霑帛ｺｦ縲・
 
-Apache 仅代理精确健康路径到固定 api-server，连接/总超时为 2/5 秒；剥离旧 Basic/Cookie，其他 `/api/v1` 在旧端口返回 403。旧 JS 请求 credentials:omit，不创建或复用 Node 身份。Fastify admin Origin 白名单不扩宽、管理会话和 Bridge 证明校验不变。INI、数据库及 WAL/SHM/journal、日志、PPK/PEM/KEY 下载禁止。
+Apache 莉・ｻ｣逅・ｲｾ遑ｮ蛛･蠎ｷ霍ｯ蠕・芦蝗ｺ螳・api-server・瑚ｿ樊磁/諤ｻ雜・慮荳ｺ 2/5 遘抵ｼ帛翁遖ｻ譌ｧ Basic/Cookie・悟・莉・`/api/v1` 蝨ｨ譌ｧ遶ｯ蜿｣霑泌屓 403縲よ立 JS 隸ｷ豎・credentials:omit・御ｸ榊・蟒ｺ謌門､咲畑 Node 霄ｫ莉ｽ縲・astify admin Origin 逋ｽ蜷榊黒荳肴黄螳ｽ縲∫ｮ｡逅・ｼ夊ｯ晏柱 Bridge 隸∵・譬｡鬪御ｸ榊序縲・NI縲∵焚謐ｮ蠎灘所 WAL/SHM/journal縲∵律蠢励￣PK/PEM/KEY 荳玖ｽｽ遖∵ｭ｢縲・
 
-### 验证结果
+### 鬪瑚ｯ∫ｻ捺棡
 
-- API Server、user-web、admin-web 的 typecheck/build 通过，Compose 实际重建启动成功，两个后端健康。
-- PHP 300 文件全量语法通过；修复原 file_uploader.php 的 `<? php` 拼写错误。13 项 Node 证明/认证不变量与 5 项旧管理认证检查通过，均为内存测试。
-- API 真实集成 4 项通过：原 URL、健康新旧响应一致、代理非白名单拒绝、私有文件拒绝、Node 管理认证/CSRF/角色伪造拒绝、原 Basic 管理队列读取、无双写及队列清理后完全一致；无变化设置保存不重写配置。
-- user-web 真实 Edge 5 通过、1 跳过：新增旧页 JS/CSS/字体等本地资源无失败、无浏览器脚本错误；实际健康请求成功；断线提示测试只中止网络、不伪造成功。原 React 预约链仍到达 Node/PHP，最后清理测试记录。
-- admin-web 真实 Edge 3 通过：UI 登录、测试队列调序/删除、设置无变化保存、播放器不可达及退出权限回归。
-- 原 init.php 已登录 GET 本身可能调用旧配置序列化器，故不为了“只读验收”访问它而改写用户配置；使用原 admin.php 的 Basic 认证只读队列验证旧管理链。
+- API Server縲「ser-web縲∥dmin-web 逧・typecheck/build 騾夊ｿ・ｼ靴ompose 螳樣刔驥榊ｻｺ蜷ｯ蜉ｨ謌仙粥・御ｸ､荳ｪ蜷守ｫｯ蛛･蠎ｷ縲・
+- PHP 300 譁・ｻｶ蜈ｨ驥剰ｯｭ豕暮夊ｿ・ｼ帑ｿｮ螟榊次 file_uploader.php 逧・`<? php` 諡ｼ蜀咎漠隸ｯ縲・3 鬘ｹ Node 隸∵・/隶､隸∽ｸ榊序驥丈ｸ・5 鬘ｹ譌ｧ邂｡逅・ｮ､隸∵｣譟･騾夊ｿ・ｼ悟插荳ｺ蜀・ｭ俶ｵ玖ｯ輔・
+- API 逵溷ｮ樣寔謌・4 鬘ｹ騾夊ｿ・ｼ壼次 URL縲∝▼蠎ｷ譁ｰ譌ｧ蜩榊ｺ比ｸ閾ｴ縲∽ｻ｣逅・撼逋ｽ蜷榊黒諡堤ｻ昴∫ｧ∵怏譁・ｻｶ諡堤ｻ昴¨ode 邂｡逅・ｮ､隸・CSRF/隗定牡莨ｪ騾諡堤ｻ昴∝次 Basic 邂｡逅・弌蛻苓ｯｻ蜿悶∵裏蜿悟・蜿企弌蛻玲ｸ・炊蜷主ｮ悟・荳閾ｴ・帶裏蜿伜喧隶ｾ鄂ｮ菫晏ｭ倅ｸ埼㍾蜀咎・鄂ｮ縲・
+- user-web 逵溷ｮ・Edge 5 騾夊ｿ・・ 霍ｳ霑・ｼ壽眠蠅樊立鬘ｵ JS/CSS/蟄嶺ｽ鍋ｭ画悽蝨ｰ襍・ｺ先裏螟ｱ雍･縲∵裏豬剰ｧ亥勣閼壽悽髞呵ｯｯ・帛ｮ樣刔蛛･蠎ｷ隸ｷ豎よ・蜉滂ｼ帶妙郤ｿ謠千､ｺ豬玖ｯ募宵荳ｭ豁｢鄂醍ｻ懊∽ｸ堺ｼｪ騾謌仙粥縲ょ次 React 鬚・ｺｦ體ｾ莉榊芦霎ｾ Node/PHP・梧怙蜷取ｸ・炊豬玖ｯ戊ｮｰ蠖輔・
+- admin-web 逵溷ｮ・Edge 3 騾夊ｿ・ｼ啅I 逋ｻ蠖輔∵ｵ玖ｯ暮弌蛻苓ｰ・ｺ・蛻髯､縲∬ｮｾ鄂ｮ譌蜿伜喧菫晏ｭ倥∵眺謾ｾ蝎ｨ荳榊庄霎ｾ蜿企蜃ｺ譚・剞蝗槫ｽ偵・
+- 蜴・init.php 蟾ｲ逋ｻ蠖・GET 譛ｬ霄ｫ蜿ｯ閭ｽ隹・畑譌ｧ驟咲ｽｮ蠎丞・蛹門勣・梧腐荳堺ｸｺ莠・懷宵隸ｻ鬪梧噺窶晁ｮｿ髣ｮ螳・梧隼蜀咏畑謌ｷ驟咲ｽｮ・帑ｽｿ逕ｨ蜴・admin.php 逧・Basic 隶､隸∝宵隸ｻ髦溷・鬪瑚ｯ∵立邂｡逅・得縲・
 
-访问地址保持：用户端 5173、管理端 5174、Node 3000、旧 PHP 8080，均为 127.0.0.1。启动命令与测试命令见兼容性文档及各应用 README。
+隶ｿ髣ｮ蝨ｰ蝮菫晄戟・夂畑謌ｷ遶ｯ 5173縲∫ｮ｡逅・ｫｯ 5174縲¨ode 3000縲∵立 PHP 8080・悟插荳ｺ 127.0.0.1縲ょ星蜉ｨ蜻ｽ莉､荳取ｵ玖ｯ募多莉､隗∝・螳ｹ諤ｧ譁・｡｣蜿雁推蠎皮畑 README縲・
 
-### 保留问题与下一阶段
+### 菫晉蕗髣ｮ鬚倅ｸ惹ｸ倶ｸ髦ｶ谿ｵ
 
-真实歌曲命中、实际播放、Windows 安装器、OAuth/Drive/DDNS、备份恢复、实际设置值变更未实测。原库缺表、预约可能先提交再在附加元数据查询失败、旧 SSE 配置不一致等历史问题不借本阶段改写。旧 PHP 历史宽松权限仍仅本机暴露；健康适配不等于已加固所有旧写入口。
+逵溷ｮ樊ｭ梧峇蜻ｽ荳ｭ縲∝ｮ樣刔謦ｭ謾ｾ縲仝indows 螳芽｣・勣縲＾Auth/Drive/DDNS縲∝､・ｻｽ諱｢螟阪∝ｮ樣刔隶ｾ鄂ｮ蛟ｼ蜿俶峩譛ｪ螳樊ｵ九ょ次蠎鍋ｼｺ陦ｨ縲・｢・ｺｦ蜿ｯ閭ｽ蜈域署莠､蜀榊惠髯・刈蜈・焚謐ｮ譟･隸｢螟ｱ雍･縲∵立 SSE 驟咲ｽｮ荳堺ｸ閾ｴ遲牙紙蜿ｲ髣ｮ鬚倅ｸ榊滓悽髦ｶ谿ｵ謾ｹ蜀吶よ立 PHP 蜴・彰螳ｽ譚ｾ譚・剞莉堺ｻ・悽譛ｺ證ｴ髴ｲ・帛▼蠎ｷ騾る・荳咲ｭ我ｺ主ｷｲ蜉蝗ｺ謇譛画立蜀吝・蜿｣縲・
 
-历史已跟踪的 INI 与 pfwd 附带 PPK 保持原内容；HTTP 已禁止私钥下载，但历史密钥用途/轮换需要另行确认，不删除历史或擅自重置。后续先选择真正独立的只读领域模块及新旧行为对照，再讨论数据 Owner 迁移；预约、删除、调序和设置继续单写 PHP。生产 HTTPS、共享会话、幂等/部分提交和旧写入口收敛仍为后续工作。
+蜴・彰蟾ｲ霍溯ｸｪ逧・INI 荳・pfwd 髯・ｸｦ PPK 菫晄戟蜴溷・螳ｹ・姨TTP 蟾ｲ遖∵ｭ｢遘・徴荳玖ｽｽ・御ｽ・紙蜿ｲ蟇・徴逕ｨ騾・霓ｮ謐｢髴隕∝嘗陦檎｡ｮ隶､・御ｸ榊唖髯､蜴・彰謌匁套閾ｪ驥咲ｽｮ縲ょ錘扈ｭ蜈磯画叫逵滓ｭ｣迢ｬ遶狗噪蜿ｪ隸ｻ鬚・沺讓｡蝮怜所譁ｰ譌ｧ陦御ｸｺ蟇ｹ辣ｧ・悟・隶ｨ隶ｺ謨ｰ謐ｮ Owner 霑∫ｧｻ・幃｢・ｺｦ縲∝唖髯､縲∬ｰ・ｺ丞柱隶ｾ鄂ｮ扈ｧ扈ｭ蜊募・ PHP縲ら函莠ｧ HTTPS縲∝・莠ｫ莨夊ｯ昴∝ｹらｭ・驛ｨ蛻・署莠､蜥梧立蜀吝・蜿｣謾ｶ謨帑ｻ堺ｸｺ蜷守ｻｭ蟾･菴懊・
 
 
-## Phase 5：首项 Node-native 设置读取与 AGENTS.md
+## Phase 5・夐ｦ夜｡ｹ Node-native 隶ｾ鄂ｮ隸ｻ蜿紋ｸ・AGENTS.md
 
-日期：2026-10-20（Asia/Tokyo）。保留全部 Phase 4 暂存/未暂存内容，在 develop 增量实现；没有 commit/push、重置、修改实际密码或真实 schema。新增根目录 [AGENTS.md](../AGENTS.md) 约束 TypeScript 优先、单一写 Owner、契约/权限、测试、秘密文件和 upstream 对照，链接详细文档而不复制报告。
+譌･譛滂ｼ・026-10-20・・sia/Tokyo・峨ゆｿ晉蕗蜈ｨ驛ｨ Phase 4 證ょｭ・譛ｪ證ょｭ伜・螳ｹ・悟惠 develop 蠅樣㍼螳樒鴫・帶ｲ｡譛・commit/push縲・㍾鄂ｮ縲∽ｿｮ謾ｹ螳樣刔蟇・∵・逵溷ｮ・schema縲よ眠蠅樊ｹ逶ｮ蠖・[AGENTS.md](../AGENTS.md) 郤ｦ譚・TypeScript 莨伜・縲∝黒荳蜀・Owner縲∝･醍ｺｦ/譚・剞縲∵ｵ玖ｯ輔∫ｧ伜ｯ・枚莉ｶ蜥・upstream 蟇ｹ辣ｧ・碁得謗･隸ｦ扈・枚譯｣閠御ｸ榊､榊宛謚･蜻翫・
 
-### 审计选择与实现
+### 螳｡隶｡騾画叫荳主ｮ樒鴫
 
-队列有 owner 保密和多 SQL 顺序，状态有 Windows/player 依赖。原管理 settings GET 会经过公共启动器 initdb/updatedb，不能直接当作无副作用读取。选择只迁移统一 API 的三个设置读取，保持 `/api/v1/settings` 契约、默认值、范围、revision 和 React 调用地址不变。
+髦溷・譛・owner 菫晏ｯ・柱螟・SQL 鬘ｺ蠎擾ｼ檎憾諤∵怏 Windows/player 萓晁ｵ悶ょ次邂｡逅・settings GET 莨夂ｻ剰ｿ・・蜈ｱ蜷ｯ蜉ｨ蝎ｨ initdb/updatedb・御ｸ崎・逶ｴ謗･蠖謎ｽ懈裏蜑ｯ菴懃畑隸ｻ蜿悶る画叫蜿ｪ霑∫ｧｻ扈滉ｸ API 逧・ｸ我ｸｪ隶ｾ鄂ｮ隸ｻ蜿厄ｼ御ｿ晄戟 `/api/v1/settings` 螂醍ｺｦ縲・ｻ倩ｮ､蛟ｼ縲∬激蝗ｴ縲〉evision 蜥・React 隹・畑蝨ｰ蝮荳榊序縲・
 
-新增 `apps/api-server/src/settings.ts`：SettingsRepository 只读现有配置单文件，SettingsService 独立执行 INI 白名单投影、PHP 常见标量转换与 Zod 输出校验。GET 不调用 admin-settings、不 include 原 PHP 业务；没有 SQLite 依赖、WAL 或数据库 mount。原 PHP session 在加载 commonfunc 前返回当前 config_revision，Node 前后验证管理证明和版本，维持密码/策略变更后的撤销语义。
+譁ｰ蠅・`apps/api-server/src/settings.ts`・售ettingsRepository 蜿ｪ隸ｻ邇ｰ譛蛾・鄂ｮ蜊墓枚莉ｶ・郡ettingsService 迢ｬ遶区鴬陦・INI 逋ｽ蜷榊黒謚募ｽｱ縲￣HP 蟶ｸ隗∵・㍼霓ｬ謐｢荳・Zod 霎灘・譬｡鬪後・ET 荳崎ｰ・畑 admin-settings縲∽ｸ・include 蜴・PHP 荳壼苅・帶ｲ｡譛・SQLite 萓晁ｵ悶仝AL 謌匁焚謐ｮ蠎・mount縲ょ次 PHP session 蝨ｨ蜉霓ｽ commonfunc 蜑崎ｿ泌屓蠖灘燕 config_revision・君ode 蜑榊錘鬪瑚ｯ∫ｮ｡逅・ｯ∵・蜥檎沿譛ｬ・檎ｻｴ謖∝ｯ・・遲也払蜿俶峩蜷守噪謦､髞隸ｭ荵峨・
 
-| 范围 | 当前 Owner |
+| 闌・峩 | 蠖灘燕 Owner |
 | --- | --- |
-| GET /api/v1/settings（三项读取） | **Node-native**；17 组隔离输入与原 PHP 投影对照 |
-| PUT /api/v1/settings | **PHP 唯一写入方**；原 writer、revision 冲突与 serializer 不变 |
-| 会话/授权 | Node 会话，PHP 验证原凭据/证明；没有重写认证模型 |
-| 队列/搜索/预约/删除/调序/播放器/其他设置 | PHP 原业务，Node 仅边界 |
+| GET /api/v1/settings・井ｸ蛾｡ｹ隸ｻ蜿厄ｼ・| **Node-native**・・7 扈・囈遖ｻ霎灘・荳主次 PHP 謚募ｽｱ蟇ｹ辣ｧ |
+| PUT /api/v1/settings | **PHP 蜚ｯ荳蜀吝・譁ｹ**・帛次 writer縲〉evision 蜀ｲ遯∽ｸ・serializer 荳榊序 |
+| 莨夊ｯ・謗域揀 | Node 莨夊ｯ晢ｼ訓HP 鬪瑚ｯ∝次蜃ｭ謐ｮ/隸∵・・帶ｲ｡譛蛾㍾蜀呵ｮ､隸∵ｨ｡蝙・|
+| 髦溷・/謳懃ｴ｢/鬚・ｺｦ/蛻髯､/隹・ｺ・謦ｭ謾ｾ蝎ｨ/蜈ｶ莉冶ｮｾ鄂ｮ | PHP 蜴滉ｸ壼苅・君ode 莉・ｾｹ逡・|
 
-按当前 7 类领域 GET 路由计数，1/7（约 14.3%）Node-native；排除 health/会话，不代表整个应用业务迁移比例。五类业务写路由仍 0/5 Node-native。详细分母、接口、副作用和限制见 [兼容性矩阵](LEGACY_COMPATIBILITY.md#phase-5node-native-管理设置读取)。
+謖牙ｽ灘燕 7 邀ｻ鬚・沺 GET 霍ｯ逕ｱ隶｡謨ｰ・・/7・育ｺｦ 14.3%・丑ode-native・帶賜髯､ health/莨夊ｯ晢ｼ御ｸ堺ｻ｣陦ｨ謨ｴ荳ｪ蠎皮畑荳壼苅霑∫ｧｻ豈比ｾ九ゆｺ皮ｱｻ荳壼苅蜀呵ｷｯ逕ｱ莉・0/5 Node-native縲りｯｦ扈・・豈阪∵磁蜿｣縲∝憶菴懃畑蜥碁剞蛻ｶ隗・[蜈ｼ螳ｹ諤ｧ遏ｩ髦ｵ](LEGACY_COMPATIBILITY.md#phase-5node-native-邂｡逅・ｮｾ鄂ｮ隸ｻ蜿・縲・
 
-管理端现有 GET 自动进入新实现，真实 Edge 验证 node-settings-read 响应标记；保存仍经 PHP。user-web 不应访问管理设置，Vite/服务端拒绝保持。旧 PHP 设置页面不切换：Basic/EasyAuth 与 Node 身份独立，不新增旧页登录映射或 8080 admin Origin；旧端口只代理公开健康状态，无 PHP→Node→PHP 回环。
+邂｡逅・ｫｯ邇ｰ譛・GET 閾ｪ蜉ｨ霑帛・譁ｰ螳樒鴫・檎悄螳・Edge 鬪瑚ｯ・node-settings-read 蜩榊ｺ疲・ｮｰ・帑ｿ晏ｭ倅ｻ咲ｻ・PHP縲Ｖser-web 荳榊ｺ碑ｮｿ髣ｮ邂｡逅・ｮｾ鄂ｮ・祁ite/譛榊苅遶ｯ諡堤ｻ昜ｿ晄戟縲よ立 PHP 隶ｾ鄂ｮ鬘ｵ髱｢荳榊・謐｢・咤asic/EasyAuth 荳・Node 霄ｫ莉ｽ迢ｬ遶具ｼ御ｸ肴眠蠅樊立鬘ｵ逋ｻ蠖墓丐蟆・・ 8080 admin Origin・帶立遶ｯ蜿｣蜿ｪ莉｣逅・・蠑蛛･蠎ｷ迥ｶ諤・ｼ梧裏 PHP竊誰ode竊単HP 蝗樒識縲・
 
-### 测试结果
+### 豬玖ｯ慕ｻ捺棡
 
-- 三个应用 typecheck/build 通过，Compose 实际重建启动并 healthy。
-- Legacy PHP 全量 300 文件语法通过；13 项 Node 证明/认证不变量 + 5 项旧管理认证检查通过；新增 CLI oracle 语法通过。
-- API 测试 8 项全部通过（原有 4 + 设置专项 4）。17 组隔离配置覆盖默认/空值/布尔/引用数值/CRLF/注释/重复项/章节/字段顺序/范围错误；新增不支持语法拒绝。PHP oracle 执行原源码投影、不手写参考逻辑、不加载数据库；真实配置快照只经 stdin 处理，输出不含秘密。
-- 隔离授权门不提供 PHP 设置业务仍能读取真实测试文件，且只调用 admin-auth/admin-session；验证撤销、前后版本变化、文件缺失、版本不匹配、白名单不泄露秘密和不写文件。授权替身仅用于隔离测试，真实 API/Edge 仍使用原 PHP 登录。
-- user-web Edge 5 通过、1 跳过（曲库命中未配置）；admin-web Edge 3 通过，覆盖真实登录、Node-native GET、PHP 无变化保存、测试预约调序/删除、播放器失败及退出。
-- 写测试清理后原队列相同，config.ini 和原用户 ini.ini 内容保持；没有重建或回滚真实数据库。
+- 荳我ｸｪ蠎皮畑 typecheck/build 騾夊ｿ・ｼ靴ompose 螳樣刔驥榊ｻｺ蜷ｯ蜉ｨ蟷ｶ healthy縲・
+- Legacy PHP 蜈ｨ驥・300 譁・ｻｶ隸ｭ豕暮夊ｿ・ｼ・3 鬘ｹ Node 隸∵・/隶､隸∽ｸ榊序驥・+ 5 鬘ｹ譌ｧ邂｡逅・ｮ､隸∵｣譟･騾夊ｿ・ｼ帶眠蠅・CLI oracle 隸ｭ豕暮夊ｿ・・
+- API 豬玖ｯ・8 鬘ｹ蜈ｨ驛ｨ騾夊ｿ・ｼ亥次譛・4 + 隶ｾ鄂ｮ荳馴｡ｹ 4・峨・7 扈・囈遖ｻ驟咲ｽｮ隕・尠鮟倩ｮ､/遨ｺ蛟ｼ/蟶・ｰ・蠑慕畑謨ｰ蛟ｼ/CRLF/豕ｨ驥・驥榊､埼｡ｹ/遶闃・蟄玲ｮｵ鬘ｺ蠎・闌・峩髞呵ｯｯ・帶眠蠅樔ｸ肴髪謖∬ｯｭ豕墓拠扈昴１HP oracle 謇ｧ陦悟次貅千∵兜蠖ｱ縲∽ｸ肴焔蜀吝盾閠・ｻ霎代∽ｸ榊刈霓ｽ謨ｰ謐ｮ蠎難ｼ帷悄螳樣・鄂ｮ蠢ｫ辣ｧ蜿ｪ扈・stdin 螟・炊・瑚ｾ灘・荳榊性遘伜ｯ・・
+- 髫皮ｦｻ謗域揀髣ｨ荳肴署萓・PHP 隶ｾ鄂ｮ荳壼苅莉崎・隸ｻ蜿也悄螳樊ｵ玖ｯ墓枚莉ｶ・御ｸ泌宵隹・畑 admin-auth/admin-session・幃ｪ瑚ｯ∵彫髞縲∝燕蜷守沿譛ｬ蜿伜喧縲∵枚莉ｶ郛ｺ螟ｱ縲∫沿譛ｬ荳榊源驟阪∫區蜷榊黒荳肴ｳ・愆遘伜ｯ・柱荳榊・譁・ｻｶ縲よ肢譚・崛霄ｫ莉・畑莠朱囈遖ｻ豬玖ｯ包ｼ檎悄螳・API/Edge 莉堺ｽｿ逕ｨ蜴・PHP 逋ｻ蠖輔・
+- user-web Edge 5 騾夊ｿ・・ 霍ｳ霑・ｼ域峇蠎灘多荳ｭ譛ｪ驟咲ｽｮ・会ｼ嫗dmin-web Edge 3 騾夊ｿ・ｼ瑚ｦ・尠逵溷ｮ樒匳蠖輔¨ode-native GET縲￣HP 譌蜿伜喧菫晏ｭ倥∵ｵ玖ｯ暮｢・ｺｦ隹・ｺ・蛻髯､縲∵眺謾ｾ蝎ｨ螟ｱ雍･蜿企蜃ｺ縲・
+- 蜀呎ｵ玖ｯ墓ｸ・炊蜷主次髦溷・逶ｸ蜷鯉ｼ慶onfig.ini 蜥悟次逕ｨ謌ｷ ini.ini 蜀・ｮｹ菫晄戟・帶ｲ｡譛蛾㍾蟒ｺ謌門屓貊夂悄螳樊焚謐ｮ蠎薙・
 
-### 安全与兼容边界
+### 螳牙・荳主・螳ｹ霎ｹ逡・
 
-Node 新增对完整现有 config.ini 的只读单文件权限，用于精确 revision；原始 Buffer 仅请求内处理，不解析/记录其他秘密，不复制到新配置或镜像。该路径不得静态暴露。常规 serializer 单行标量等价；目标数组、常量、环境插值、特殊转义/多行等明确 503，不回退 PHP 或伪装成功。
+Node 譁ｰ蠅槫ｯｹ螳梧紛邇ｰ譛・config.ini 逧・宵隸ｻ蜊墓枚莉ｶ譚・剞・檎畑莠守ｲｾ遑ｮ revision・帛次蟋・Buffer 莉・ｯｷ豎ょ・螟・炊・御ｸ崎ｧ｣譫・隶ｰ蠖募・莉也ｧ伜ｯ・ｼ御ｸ榊､榊宛蛻ｰ譁ｰ驟咲ｽｮ謌夜復蜒上りｯ･霍ｯ蠕・ｸ榊ｾ鈴撕諤∵垓髴ｲ縲ょｸｸ隗・serializer 蜊戊｡梧・㍼遲我ｻｷ・帷岼譬・焚扈・∝ｸｸ驥上∫識蠅・薯蛟ｼ縲∫音谿願ｽｬ荵・螟夊｡檎ｭ画・遑ｮ 503・御ｸ榊屓騾 PHP 謌紋ｼｪ陬・・蜉溘・
 
-原 PHP writer 没有锁/原子性。版本前后检查可拒绝观察到的并发变化和单文件 bind 失效，但不能消除两次都读到同一暂停写入中间态的窗口；原子配置发布留待后续。手工重命名替换 config.ini 后需重建 api-server 挂载（会话随重启失效）。全新无 config.ini 工作区先启动 web、经原设置保存配置，再完整 Compose 启动；已有当前配置仍一条命令启动。未自动创建配置或更改密码。
+蜴・PHP writer 豐｡譛蛾煤/蜴溷ｭ先ｧ縲ら沿譛ｬ蜑榊錘譽譟･蜿ｯ諡堤ｻ晁ｧょｯ溷芦逧・ｹｶ蜿大序蛹門柱蜊墓枚莉ｶ bind 螟ｱ謨茨ｼ御ｽ・ｸ崎・豸磯勁荳､谺｡驛ｽ隸ｻ蛻ｰ蜷御ｸ證ょ●蜀吝・荳ｭ髣ｴ諤∫噪遯怜哨・帛次蟄宣・鄂ｮ蜿大ｸ・蕗蠕・錘扈ｭ縲よ焔蟾･驥榊多蜷肴崛謐｢ config.ini 蜷朱怙驥榊ｻｺ api-server 謖りｽｽ・井ｼ夊ｯ晞囂驥榊星螟ｱ謨茨ｼ峨ょ・譁ｰ譌 config.ini 蟾･菴懷玄蜈亥星蜉ｨ web縲∫ｻ丞次隶ｾ鄂ｮ菫晏ｭ倬・鄂ｮ・悟・螳梧紛 Compose 蜷ｯ蜉ｨ・帛ｷｲ譛牙ｽ灘燕驟咲ｽｮ莉堺ｸ譚｡蜻ｽ莉､蜷ｯ蜉ｨ縲よ悴閾ｪ蜉ｨ蛻帛ｻｺ驟咲ｽｮ謌匁峩謾ｹ蟇・√・
 
-访问保持：http://127.0.0.1:5173/（用户）、5174（管理）、3000/health（Node）、8080（Legacy）。下一阶段先处理配置原子发布/只读快照边界，再评估新的只读模块；搜索算法、真实曲库修复、PotPlayer、数据库 schema 和写业务迁移均未实施。
+隶ｿ髣ｮ菫晄戟・喇ttp://127.0.0.1:5173/・育畑謌ｷ・峨・174・育ｮ｡逅・ｼ峨・000/health・・ode・峨・080・・egacy・峨ゆｸ倶ｸ髦ｶ谿ｵ蜈亥､・炊驟咲ｽｮ蜴溷ｭ仙書蟶・蜿ｪ隸ｻ蠢ｫ辣ｧ霎ｹ逡鯉ｼ悟・隸・ｼｰ譁ｰ逧・宵隸ｻ讓｡蝮暦ｼ帶頗邏｢邂玲ｳ輔∫悄螳樊峇蠎謎ｿｮ螟阪￣otPlayer縲∵焚謐ｮ蠎・schema 蜥悟・荳壼苅霑∫ｧｻ蝮・悴螳樊命縲・
 
 
-## Phase 6：Node-native 队列读取与 Legacy 实际接入
+## Phase 6・哢ode-native 髦溷・隸ｻ蜿紋ｸ・Legacy 螳樣刔謗･蜈･
 
-日期：2026-10-20（Asia/Tokyo）。已完成实际部署和真实回归，没有 commit/push。原工作区和暂存区保留；没有新建第二套生产队列、改变实际密码或迁移 Schema。
+譌･譛滂ｼ・026-10-20・・sia/Tokyo・峨ょｷｲ螳梧・螳樣刔驛ｨ鄂ｲ蜥檎悄螳槫屓蠖抵ｼ梧ｲ｡譛・commit/push縲ょ次蟾･菴懷玄蜥梧嘯蟄伜玄菫晉蕗・帶ｲ｡譛画眠蟒ｺ隨ｬ莠悟･礼函莠ｧ髦溷・縲∵隼蜿伜ｮ樣刔蟇・∵・霑∫ｧｻ Schema縲・
 
-### Node-native 与业务 Owner
+### Node-native 荳惹ｸ壼苅 Owner
 
-新增 QueueRepository/QueueService，直接查询原 SQLite；Node 24 内置 SQLite readOnly、query_only、250ms 锁超时，统计与全量排序记录在同一个 BEGIN/COMMIT 快照中读取，每次关闭连接、不缓存队列。PHP Bridge 的 queue-context 只验证当前原会话证明并提供路径/保密文案/真实身份上下文，不加载 commonfunc、不执行队列 SQL。
+譁ｰ蠅・QueueRepository/QueueService・檎峩謗･譟･隸｢蜴・SQLite・娟ode 24 蜀・ｽｮ SQLite readOnly縲〈uery_only縲・50ms 髞∬ｶ・慮・檎ｻ溯ｮ｡荳主・驥乗賜蠎剰ｮｰ蠖募惠蜷御ｸ荳ｪ BEGIN/COMMIT 蠢ｫ辣ｧ荳ｭ隸ｻ蜿厄ｼ梧ｯ乗ｬ｡蜈ｳ髣ｭ霑樊磁縲∽ｸ咲ｼ灘ｭ倬弌蛻励１HP Bridge 逧・queue-context 蜿ｪ鬪瑚ｯ∝ｽ灘燕蜴滉ｼ夊ｯ晁ｯ∵・蟷ｶ謠蝉ｾ幄ｷｯ蠕・菫晏ｯ・枚譯・逵溷ｮ櫁ｺｫ莉ｽ荳贋ｸ区枚・御ｸ榊刈霓ｽ commonfunc縲∽ｸ肴鴬陦碁弌蛻・SQL縲・
 
-保持 reqorder DESC、position、limit=0 的历史 offset 行为、未再生/1 统计和 PHP empty('0') 回退。所有者判定完整保留 IP+UA，以及反转全量 DESC 队列后最早匹配身份的 singer 同名规则；不错误地从 UUID Cookie 或最近一首推断。保密数据差异在服务端生成。新 React API 保持原八字段契约，Legacy 专用契约补充在 packages/contracts。
+菫晄戟 reqorder DESC縲｝osition縲〕imit=0 逧・紙蜿ｲ offset 陦御ｸｺ縲∵悴蜀咲函/1 扈溯ｮ｡蜥・PHP empty('0') 蝗樣縲よ園譛芽・愛螳壼ｮ梧紛菫晉蕗 IP+UA・御ｻ･蜿雁渚霓ｬ蜈ｨ驥・DESC 髦溷・蜷取怙譌ｩ蛹ｹ驟崎ｺｫ莉ｽ逧・singer 蜷悟錐隗・・・帑ｸ埼漠隸ｯ蝨ｰ莉・UUID Cookie 謌匁怙霑台ｸ鬥匁耳譁ｭ縲ゆｿ晏ｯ・焚謐ｮ蟾ｮ蠑ょ惠譛榊苅遶ｯ逕滓・縲よ眠 React API 菫晄戟蜴溷・蟄玲ｮｵ螂醍ｺｦ・鍬egacy 荳鍋畑螂醍ｺｦ陦･蜈・惠 packages/contracts縲・
 
-| 模块 | 当前 Owner |
+| 讓｡蝮・| 蠖灘燕 Owner |
 | --- | --- |
-| GET /api/v1/queue、/api/v1/admin/queue | **Node-native**；PHP 仅授权/配置上下文 |
-| GET /api/v1/legacy/queue | **Node-native**；仅短时签名队列票据，返回旧 UI 需要的完整字段 |
-| GET /api/v1/settings | Node-native，保持 Phase 5 范围 |
-| 预约、删除、调序、设置保存、播放控制 | **PHP 唯一写入方**；无双写 |
-| 原 initdb/updatedb、元数据补写、WAL/SHM 生命周期 | PHP 生命周期/写链；Node GET 不暗中初始化或修复 |
+| GET /api/v1/queue縲・api/v1/admin/queue | **Node-native**・娜HP 莉・肢譚・驟咲ｽｮ荳贋ｸ区枚 |
+| GET /api/v1/legacy/queue | **Node-native**・帑ｻ・洒譌ｶ遲ｾ蜷埼弌蛻礼･ｨ謐ｮ・瑚ｿ泌屓譌ｧ UI 髴隕∫噪螳梧紛蟄玲ｮｵ |
+| GET /api/v1/settings | Node-native・御ｿ晄戟 Phase 5 闌・峩 |
+| 鬚・ｺｦ縲∝唖髯､縲∬ｰ・ｺ上∬ｮｾ鄂ｮ菫晏ｭ倥∵眺謾ｾ謗ｧ蛻ｶ | **PHP 蜚ｯ荳蜀吝・譁ｹ**・帶裏蜿悟・ |
+| 蜴・initdb/updatedb縲∝・謨ｰ謐ｮ陦･蜀吶仝AL/SHM 逕溷多蜻ｨ譛・| PHP 逕溷多蜻ｨ譛・蜀咎得・娟ode GET 荳肴囓荳ｭ蛻晏ｧ句喧謌紋ｿｮ螟・|
 
-既有 7 类领域 GET 中 3/7（约 42.9%）Node-native；分母仍为 capabilities、queue、playback、search、admin/queue、admin/status、settings，Legacy 兼容路由不重复计数。业务写路由仍 0/5 Native，不代表整个应用迁移比例。
+譌｢譛・7 邀ｻ鬚・沺 GET 荳ｭ 3/7・育ｺｦ 42.9%・丑ode-native・帛・豈堺ｻ堺ｸｺ capabilities縲〈ueue縲｝layback縲《earch縲∥dmin/queue縲∥dmin/status縲《ettings・鍬egacy 蜈ｼ螳ｹ霍ｯ逕ｱ荳埼㍾螟崎ｮ｡謨ｰ縲ゆｸ壼苅蜀呵ｷｯ逕ｱ莉・0/5 Native・御ｸ堺ｻ｣陦ｨ謨ｴ荳ｪ蠎皮畑霑∫ｧｻ豈比ｾ九・
 
-### 经批准的数据库目录与 WAL
+### 扈乗音蜃・噪謨ｰ謐ｮ蠎鍋岼蠖穂ｸ・WAL
 
-整 legacy/php 挂载曾被自动审批拒绝，因为含无关配置和私钥；没有执行或绕过。用户随后明确批准停服迁移原数据库及旁文件，并只调整真实 config.ini 的 dbname 路径。实际移动 1 个数据库文件至 legacy/php/runtime/queue/request.db（停服后没有遗留旁文件），移动前后 SHA256 一致；除 dbname 外每个配置字节不变。没有复制生产数据库。仅本机 .local 保存哈希清单，不含原配置内容。
+謨ｴ legacy/php 謖りｽｽ譖ｾ陲ｫ閾ｪ蜉ｨ螳｡謇ｹ諡堤ｻ晢ｼ悟屏荳ｺ蜷ｫ譌蜈ｳ驟咲ｽｮ蜥檎ｧ・徴・帶ｲ｡譛画鴬陦梧・扈戊ｿ・ら畑謌ｷ髫丞錘譏守｡ｮ謇ｹ蜃・●譛崎ｿ∫ｧｻ蜴滓焚謐ｮ蠎灘所譌∵枚莉ｶ・悟ｹｶ蜿ｪ隹・紛逵溷ｮ・config.ini 逧・dbname 霍ｯ蠕・ょｮ樣刔遘ｻ蜉ｨ 1 荳ｪ謨ｰ謐ｮ蠎捺枚莉ｶ閾ｳ legacy/php/runtime/queue/request.db・亥●譛榊錘豐｡譛蛾＠逡呎浴譁・ｻｶ・会ｼ檎ｧｻ蜉ｨ蜑榊錘 SHA256 荳閾ｴ・幃勁 dbname 螟匁ｯ丈ｸｪ驟咲ｽｮ蟄苓鰍荳榊序縲よｲ｡譛牙､榊宛逕滉ｺｧ謨ｰ謐ｮ蠎薙ゆｻ・悽譛ｺ .local 菫晏ｭ伜嶋蟶梧ｸ・黒・御ｸ榊性蜴滄・鄂ｮ蜀・ｮｹ縲・
 
-Node 仅只读挂载专用 runtime/queue，保留 Phase 5 已有配置单文件与私有 Bridge volume，没有整 Legacy 目录或私钥挂载。路径 realpath 验证禁止逃逸，Apache 禁止 HTTP 访问整个 runtime 目录及 DB/WAL/SHM 文件。新的空 Docker 环境才使用专用目录默认值；有旧 request.db 时保留原路径，启动脚本不会擅自搬库。非 Docker Legacy 默认仍是 request.db。备份路径按原编码约定解码，避免子目录路径经设置页编码后无法识别。
+Node 莉・宵隸ｻ謖りｽｽ荳鍋畑 runtime/queue・御ｿ晉蕗 Phase 5 蟾ｲ譛蛾・鄂ｮ蜊墓枚莉ｶ荳守ｧ∵怏 Bridge volume・梧ｲ｡譛画紛 Legacy 逶ｮ蠖墓・遘・徴謖りｽｽ縲りｷｯ蠕・realpath 鬪瑚ｯ∫ｦ∵ｭ｢騾・ｸ・窟pache 遖∵ｭ｢ HTTP 隶ｿ髣ｮ謨ｴ荳ｪ runtime 逶ｮ蠖募所 DB/WAL/SHM 譁・ｻｶ縲よ眠逧・ｩｺ Docker 邇ｯ蠅・燕菴ｿ逕ｨ荳鍋畑逶ｮ蠖暮ｻ倩ｮ､蛟ｼ・帶怏譌ｧ request.db 譌ｶ菫晉蕗蜴溯ｷｯ蠕・ｼ悟星蜉ｨ閼壽悽荳堺ｼ壽套閾ｪ謳ｬ蠎薙る撼 Docker Legacy 鮟倩ｮ､莉肴弍 request.db縲ょ､・ｻｽ霍ｯ蠕・潔蜴溽ｼ也∫ｺｦ螳夊ｧ｣遐・ｼ碁∩蜈榊ｭ千岼蠖戊ｷｯ蠕・ｻ剰ｮｾ鄂ｮ鬘ｵ郛也∝錘譌豕戊ｯ・悪縲・
 
-现场确认原库已是 WAL。短 PHP 连接结束后会删除旁文件，Node 只读目录无法重新创建，初次联通因此正确失败 503。新增 docker/queue-wal-anchor.php：由 PHP 容器以 www-data 维持 mode=rw（不创建 DB）的已有库连接，只访问 sqlite_schema，不改 Schema/业务数据/journal mode，不持有长期事务或阻碍 checkpoint。SQLite 在 PHP 写挂载上维护 WAL/SHM；Node 不使用 immutable、不忽略 WAL、不复制活跃 DB，也不向只读目录写文件。连接不可用时读取明确失败，不假空成功。
+邇ｰ蝨ｺ遑ｮ隶､蜴溷ｺ灘ｷｲ譏ｯ WAL縲ら洒 PHP 霑樊磁扈捺據蜷惹ｼ壼唖髯､譌∵枚莉ｶ・君ode 蜿ｪ隸ｻ逶ｮ蠖墓裏豕暮㍾譁ｰ蛻帛ｻｺ・悟・谺｡閨秘壼屏豁､豁｣遑ｮ螟ｱ雍･ 503縲よ眠蠅・docker/queue-wal-anchor.php・夂罰 PHP 螳ｹ蝎ｨ莉･ www-data 扈ｴ謖・mode=rw・井ｸ榊・蟒ｺ DB・臥噪蟾ｲ譛牙ｺ楢ｿ樊磁・悟宵隶ｿ髣ｮ sqlite_schema・御ｸ肴隼 Schema/荳壼苅謨ｰ謐ｮ/journal mode・御ｸ肴戟譛蛾柄譛滉ｺ句苅謌夜仆遒・checkpoint縲４QLite 蝨ｨ PHP 蜀呎撃霓ｽ荳顔ｻｴ謚､ WAL/SHM・娟ode 荳堺ｽｿ逕ｨ immutable縲∽ｸ榊ｿｽ逡･ WAL縲∽ｸ榊､榊宛豢ｻ霍・DB・御ｹ滉ｸ榊髄蜿ｪ隸ｻ逶ｮ蠖募・譁・ｻｶ縲りｿ樊磁荳榊庄逕ｨ譌ｶ隸ｻ蜿匁・遑ｮ螟ｱ雍･・御ｸ榊∞遨ｺ謌仙粥縲・
 
-### Legacy 逐步切换与权限
+### Legacy 騾先ｭ･蛻・困荳取揀髯・
 
-requestlist_swipe.php（首页队列目标页）在 YUKARI_NODE_QUEUE=1 下以 JS 调用统一只读 API，所有五处列表加载/刷新均切换。旧预约/删除/排序/评论等写操作仍走原 PHP。其他旧 JSON/XML 页面保留为兼容/行为参考，未全量替换。
+requestlist_swipe.php・磯ｦ夜｡ｵ髦溷・逶ｮ譬・｡ｵ・牙惠 YUKARI_NODE_QUEUE=1 荳倶ｻ･ JS 隹・畑扈滉ｸ蜿ｪ隸ｻ API・梧園譛我ｺ泌､・・陦ｨ蜉霓ｽ/蛻ｷ譁ｰ蝮・・謐｢縲よ立鬚・ｺｦ/蛻髯､/謗貞ｺ・隸・ｮｺ遲牙・謫堺ｽ應ｻ崎ｵｰ蜴・PHP縲ょ・莉匁立 JSON/XML 鬘ｵ髱｢菫晉蕗荳ｺ蜈ｼ螳ｹ/陦御ｸｺ蜿り・ｼ梧悴蜈ｨ驥乗崛謐｢縲・
 
-PHP queue_ticket.php 在同源 JSON/请求标记、Origin/Host 范围内验证原 EasyAuth，管理员必须校验真实非空 Basic 密码，没有名称、角色头或 localhost 免检。签发 30 秒 HMAC、用途/角色/IP/UA/当前配置策略绑定票据，只放在请求内存和自定义头。Node 验签、到期和 UA，再经受信 PHP Bridge 校验当前策略，随后独立读取 SQLite。票据不生成 Node admin Cookie，也不能调用管理写 API。
+PHP queue_ticket.php 蝨ｨ蜷梧ｺ・JSON/隸ｷ豎よ・ｮｰ縲＾rigin/Host 闌・峩蜀・ｪ瑚ｯ∝次 EasyAuth・檎ｮ｡逅・遭蠢・｡ｻ譬｡鬪檎悄螳樣撼遨ｺ Basic 蟇・・ｼ梧ｲ｡譛牙錐遘ｰ縲∬ｧ定牡螟ｴ謌・localhost 蜈肴｣縲らｭｾ蜿・30 遘・HMAC縲∫畑騾・隗定牡/IP/UA/蠖灘燕驟咲ｽｮ遲也払扈大ｮ夂･ｨ謐ｮ・悟宵謾ｾ蝨ｨ隸ｷ豎ょ・蟄伜柱閾ｪ螳壻ｹ牙､ｴ縲・ode 鬪檎ｭｾ縲∝芦譛溷柱 UA・悟・扈丞女菫｡ PHP Bridge 譬｡鬪悟ｽ灘燕遲也払・碁囂蜷守峡遶玖ｯｻ蜿・SQLite縲ら･ｨ謐ｮ荳咲函謌・Node admin Cookie・御ｹ滉ｸ崎・隹・畑邂｡逅・・ API縲・
 
-Apache 只代理精确 health/legacy-queue，清除 Authorization/Cookie，JS 对 Node 使用 credentials:omit。只对专用 Legacy 读取路由配置旧页 Origin，普通管理 Origin 不扩宽。无 PHP → Node 服务端队列调用，无 Node → PHP 队列 SQL → Node 回环。失败明确显示旧页队列错误，不静默绕回 PHP；未开标志的独立 Legacy 部署沿用原读取。
+Apache 蜿ｪ莉｣逅・ｲｾ遑ｮ health/legacy-queue・梧ｸ・勁 Authorization/Cookie・繰S 蟇ｹ Node 菴ｿ逕ｨ credentials:omit縲ょ宵蟇ｹ荳鍋畑 Legacy 隸ｻ蜿冶ｷｯ逕ｱ驟咲ｽｮ譌ｧ鬘ｵ Origin・梧勸騾夂ｮ｡逅・Origin 荳肴黄螳ｽ縲よ裏 PHP 竊・Node 譛榊苅遶ｯ髦溷・隹・畑・梧裏 Node 竊・PHP 髦溷・ SQL 竊・Node 蝗樒識縲ょ､ｱ雍･譏守｡ｮ譏ｾ遉ｺ譌ｧ鬘ｵ髦溷・髞呵ｯｯ・御ｸ埼撕鮟倡ｻ募屓 PHP・帶悴蠑譬・ｿ礼噪迢ｬ遶・Legacy 驛ｨ鄂ｲ豐ｿ逕ｨ蜴溯ｯｻ蜿悶・
 
-### 验证结果
+### 鬪瑚ｯ∫ｻ捺棡
 
-- 三个应用 typecheck/build 全通过；Compose 实际重建启动，PHP/Node healthy，专用数据库 mount 为只读。
-- Legacy PHP 303 文件语法通过，13+5 项原认证检查通过，WAL helper PHP 语法通过。
-- API 14 项通过：真实 PHP builder/helpers 的隔离内存库对照、空队列/排序/分页/同名 owner/管理员/秘密遮罩/异常标量，WAL 提交与未提交可见性，worker 并发快照和独占锁超时，缺失/坏库/缺表/越界/BLOB 失败关闭。隔离授权门不提供 PHP 队列业务仍能完成 Native 查询。
-- 真实票据测试覆盖 PHP 签发 → Node 读取，错误 Basic、角色头伪造、跨站、缺标记、UA 错误、过期/用途/签名篡改、配置策略撤销。实际敏感文件及 runtime HTTP 路径为 403。
-- user-web Edge **6 通过、1 跳过**（真实曲库命中未配置）；新增旧浏览器原 PHP 预约 → Native SQLite 即时显示，本人 songfile 不遮罩、不同 UA 陌生浏览器遮罩元数据，旧页没有调用原 swipe_json。
-- admin-web Edge **3 通过**：管理登录、PHP 调序/删除 → Node 回读、设置无变化保存、播放器不可达与退出。
-- 首次 WAL 故障留下两条专用测试记录，已经原 PHP 管理 API 精确清理；测试清理改为已知 ID 删除，不依赖成功的队列 GET。最终原队列回到唯一原记录 id=3、reqorder=1；历史仅清理本轮测试身份，不整库回滚。计数/匿名用户与自增序号遵循既有测试策略可能保留。
+- 荳我ｸｪ蠎皮畑 typecheck/build 蜈ｨ騾夊ｿ・ｼ佞ompose 螳樣刔驥榊ｻｺ蜷ｯ蜉ｨ・訓HP/Node healthy・御ｸ鍋畑謨ｰ謐ｮ蠎・mount 荳ｺ蜿ｪ隸ｻ縲・
+- Legacy PHP 303 譁・ｻｶ隸ｭ豕暮夊ｿ・ｼ・3+5 鬘ｹ蜴溯ｮ､隸∵｣譟･騾夊ｿ・ｼ係AL helper PHP 隸ｭ豕暮夊ｿ・・
+- API 14 鬘ｹ騾夊ｿ・ｼ夂悄螳・PHP builder/helpers 逧・囈遖ｻ蜀・ｭ伜ｺ灘ｯｹ辣ｧ縲∫ｩｺ髦溷・/謗貞ｺ・蛻・｡ｵ/蜷悟錐 owner/邂｡逅・遭/遘伜ｯ・・鄂ｩ/蠑ょｸｸ譬・㍼・係AL 謠蝉ｺ､荳取悴謠蝉ｺ､蜿ｯ隗∵ｧ・詣orker 蟷ｶ蜿大ｿｫ辣ｧ蜥檎峡蜊髞∬ｶ・慮・檎ｼｺ螟ｱ/蝮丞ｺ・郛ｺ陦ｨ/雜顔阜/BLOB 螟ｱ雍･蜈ｳ髣ｭ縲る囈遖ｻ謗域揀髣ｨ荳肴署萓・PHP 髦溷・荳壼苅莉崎・螳梧・ Native 譟･隸｢縲・
+- 逵溷ｮ樒･ｨ謐ｮ豬玖ｯ戊ｦ・尠 PHP 遲ｾ蜿・竊・Node 隸ｻ蜿厄ｼ碁漠隸ｯ Basic縲∬ｧ定牡螟ｴ莨ｪ騾縲∬ｷｨ遶吶∫ｼｺ譬・ｮｰ縲ゞA 髞呵ｯｯ縲∬ｿ・悄/逕ｨ騾・遲ｾ蜷咲ｯ｡謾ｹ縲・・鄂ｮ遲也払謦､髞縲ょｮ樣刔謨乗─譁・ｻｶ蜿・runtime HTTP 霍ｯ蠕・ｸｺ 403縲・
+- user-web Edge **6 騾夊ｿ・・ 霍ｳ霑・*・育悄螳樊峇蠎灘多荳ｭ譛ｪ驟咲ｽｮ・会ｼ帶眠蠅樊立豬剰ｧ亥勣蜴・PHP 鬚・ｺｦ 竊・Native SQLite 蜊ｳ譌ｶ譏ｾ遉ｺ・梧悽莠ｺ songfile 荳埼・鄂ｩ縲∽ｸ榊酔 UA 髯檎函豬剰ｧ亥勣驕ｮ鄂ｩ蜈・焚謐ｮ・梧立鬘ｵ豐｡譛芽ｰ・畑蜴・swipe_json縲・
+- admin-web Edge **3 騾夊ｿ・*・夂ｮ｡逅・匳蠖輔￣HP 隹・ｺ・蛻髯､ 竊・Node 蝗櫁ｯｻ縲∬ｮｾ鄂ｮ譌蜿伜喧菫晏ｭ倥∵眺謾ｾ蝎ｨ荳榊庄霎ｾ荳朱蜃ｺ縲・
+- 鬥匁ｬ｡ WAL 謨・囿逡吩ｸ倶ｸ､譚｡荳鍋畑豬玖ｯ戊ｮｰ蠖包ｼ悟ｷｲ扈丞次 PHP 邂｡逅・API 邊ｾ遑ｮ貂・炊・帶ｵ玖ｯ墓ｸ・炊謾ｹ荳ｺ蟾ｲ遏･ ID 蛻髯､・御ｸ堺ｾ晁ｵ匁・蜉溽噪髦溷・ GET縲よ怙扈亥次髦溷・蝗槫芦蜚ｯ荳蜴溯ｮｰ蠖・id=3縲〉eqorder=1・帛紙蜿ｲ莉・ｸ・炊譛ｬ霓ｮ豬玖ｯ戊ｺｫ莉ｽ・御ｸ肴紛蠎灘屓貊壹りｮ｡謨ｰ/蛹ｿ蜷咲畑謌ｷ荳手・蠅槫ｺ丞捷驕ｵ蠕ｪ譌｢譛画ｵ玖ｯ慕ｭ也払蜿ｯ閭ｽ菫晉蕗縲・
 
-### 运行与保留限制
+### 霑占｡御ｸ惹ｿ晉蕗髯仙宛
 
-访问：用户端 http://127.0.0.1:5173/，管理端 5174，Node 3000/health，Legacy 8080/requestlist_swipe.php。已有工作区仍 docker compose -f docker/compose.yaml up --build -d 一键启动。新安装先 web 保存配置，再完整启动；已有旧路径数据必须经确认迁移，不能清库或创建替代队列。
+隶ｿ髣ｮ・夂畑謌ｷ遶ｯ http://127.0.0.1:5173/・檎ｮ｡逅・ｫｯ 5174・君ode 3000/health・鍬egacy 8080/requestlist_swipe.php縲ょｷｲ譛牙ｷ･菴懷玄莉・docker compose -f docker/compose.yaml up --build -d 荳髞ｮ蜷ｯ蜉ｨ縲よ眠螳芽｣・・ web 菫晏ｭ倬・鄂ｮ・悟・螳梧紛蜷ｯ蜉ｨ・帛ｷｲ譛画立霍ｯ蠕・焚謐ｮ蠢・｡ｻ扈冗｡ｮ隶､霑∫ｧｻ・御ｸ崎・貂・ｺ捺・蛻帛ｻｺ譖ｿ莉｣髦溷・縲・
 
-SQLite 同步短事务未做大型队列压测。队列 Native 不负责 Schema/元数据准备，缺表应由既有 PHP 生命周期明确处理，不能在 Node 自动迁移真实库。PHP 旧构建器多次查询的并发非一致窗口改为 Node 单快照，这是明确改进；重复 reqorder 仍不发明新顺序。Legacy IP+UA/同名规则的既有限制保留。WAL anchor 是旁文件可用性依赖；若被终止且旁文件清除，队列 503，进程 health 不等同业务 readiness。未扩展 config.ini 原子性研究，未改搜索、播放器、真实数据库模型或写入规则。
+SQLite 蜷梧ｭ･遏ｭ莠句苅譛ｪ蛛壼､ｧ蝙矩弌蛻怜視豬九る弌蛻・Native 荳崎ｴ溯ｴ｣ Schema/蜈・焚謐ｮ蜃・､・ｼ檎ｼｺ陦ｨ蠎皮罰譌｢譛・PHP 逕溷多蜻ｨ譛滓・遑ｮ螟・炊・御ｸ崎・蝨ｨ Node 閾ｪ蜉ｨ霑∫ｧｻ逵溷ｮ槫ｺ薙１HP 譌ｧ譫・ｻｺ蝎ｨ螟壽ｬ｡譟･隸｢逧・ｹｶ蜿鷹撼荳閾ｴ遯怜哨謾ｹ荳ｺ Node 蜊募ｿｫ辣ｧ・瑚ｿ呎弍譏守｡ｮ謾ｹ霑幢ｼ幃㍾螟・reqorder 莉堺ｸ榊書譏取眠鬘ｺ蠎上・egacy IP+UA/蜷悟錐隗・・逧・里譛蛾剞蛻ｶ菫晉蕗縲８AL anchor 譏ｯ譌∵枚莉ｶ蜿ｯ逕ｨ諤ｧ萓晁ｵ厄ｼ幄凶陲ｫ扈域ｭ｢荳疲浴譁・ｻｶ貂・勁・碁弌蛻・503・瑚ｿ帷ｨ・health 荳咲ｭ牙酔荳壼苅 readiness縲よ悴謇ｩ螻・config.ini 蜴溷ｭ先ｧ遐皮ｩｶ・梧悴謾ｹ謳懃ｴ｢縲∵眺謾ｾ蝎ｨ縲∫悄螳樊焚謐ｮ蠎捺ｨ｡蝙区・蜀吝・隗・・縲・
 
 
-## Phase 7：Node-native 管理删除与调序
+## Phase 7・哢ode-native 邂｡逅・唖髯､荳手ｰ・ｺ・
 
-日期：2026-10-20（Asia/Tokyo）。在 develop 增量实施；原 652 项暂存重命名和既有未提交内容保留，没有 commit/push、重置、清卷或真实 Schema/密码变更。详细规则、旧入口关闭范围及可复现测试命令见 [Phase 7 兼容矩阵](LEGACY_COMPATIBILITY.md#phase-7管理员队列写入-owner-切换)。
+譌･譛滂ｼ・026-10-20・・sia/Tokyo・峨ょ惠 develop 蠅樣㍼螳樊命・帛次 652 鬘ｹ證ょｭ倬㍾蜻ｽ蜷榊柱譌｢譛画悴謠蝉ｺ､蜀・ｮｹ菫晉蕗・梧ｲ｡譛・commit/push縲・㍾鄂ｮ縲∵ｸ・差謌也悄螳・Schema/蟇・∝序譖ｴ縲りｯｦ扈・ｧ・・縲∵立蜈･蜿｣蜈ｳ髣ｭ闌・峩蜿雁庄螟咲鴫豬玖ｯ募多莉､隗・[Phase 7 蜈ｼ螳ｹ遏ｩ髦ｵ](LEGACY_COMPATIBILITY.md#phase-7邂｡逅・遭髦溷・蜀吝・-owner-蛻・困)縲・
 
-### 实现与单一 Owner
+### 螳樒鴫荳主黒荳 Owner
 
-新增 `apps/api-server/src/queue-mutations.ts` 的 QueueMutationRepository/Service。DELETE `/api/v1/admin/requests/:id` 与 POST `.../:id/move` 不再调用 PHP admin-delete/admin-move：Node 直接对原专用 SQLite 执行存在性检查、删除或 up/down/warikomi、reqorder 归一化。整个操作使用 BEGIN IMMEDIATE/COMMIT、1 秒 busy_timeout、失败回滚、每次关闭连接，无 ORM、第二套生产队列或自动重试。接口、React 操作和原保密读取保持兼容，响应标记 node-queue-mutation。
+譁ｰ蠅・`apps/api-server/src/queue-mutations.ts` 逧・QueueMutationRepository/Service縲・ELETE `/api/v1/admin/requests/:id` 荳・POST `.../:id/move` 荳榊・隹・畑 PHP admin-delete/admin-move・哢ode 逶ｴ謗･蟇ｹ蜴滉ｸ鍋畑 SQLite 謇ｧ陦悟ｭ伜惠諤ｧ譽譟･縲∝唖髯､謌・up/down/warikomi縲〉eqorder 蠖剃ｸ蛹悶よ紛荳ｪ謫堺ｽ應ｽｿ逕ｨ BEGIN IMMEDIATE/COMMIT縲・ 遘・busy_timeout縲∝､ｱ雍･蝗樊ｻ壹∵ｯ乗ｬ｡蜈ｳ髣ｭ霑樊磁・梧裏 ORM縲∫ｬｬ莠悟･礼函莠ｧ髦溷・謌冶・蜉ｨ驥崎ｯ輔よ磁蜿｣縲ヽeact 謫堺ｽ懷柱蜴滉ｿ晏ｯ・ｯｻ蜿紋ｿ晄戟蜈ｼ螳ｹ・悟桃蠎疲・ｮｰ node-queue-mutation縲・
 
-保留原邻居查询、9999 临时交换值及其碰撞行为、normalize 的 reqorder ASC/id ASC、插队扫描的实际播放标记规则，不把 `1` 擅自当作 `未再生`。明确差异：原多个独立提交窗口改为单事务；异常数据若使插队状态循环，Node 409 回滚而非无限运行。缺失目标 404、不通知；非法输入 400。队列删除不删除历史、不控制播放器。
+菫晉蕗蜴滄そ螻・衍隸｢縲・999 荳ｴ譌ｶ莠､謐｢蛟ｼ蜿雁・遒ｰ謦櫁｡御ｸｺ縲］ormalize 逧・reqorder ASC/id ASC縲∵薯髦滓沖謠冗噪螳樣刔謦ｭ謾ｾ譬・ｮｰ隗・・・御ｸ肴滑 `1` 謫・・蠖謎ｽ・`譛ｪ蜀咲函`縲よ・遑ｮ蟾ｮ蠑ゑｼ壼次螟壻ｸｪ迢ｬ遶区署莠､遯怜哨謾ｹ荳ｺ蜊穂ｺ句苅・帛ｼょｸｸ謨ｰ謐ｮ闍･菴ｿ謠帝弌迥ｶ諤∝ｾｪ邇ｯ・君ode 409 蝗樊ｻ夊碁撼譌髯占ｿ占｡後らｼｺ螟ｱ逶ｮ譬・404縲∽ｸ埼夂衍・幃撼豕戊ｾ灘・ 400縲る弌蛻怜唖髯､荳榊唖髯､蜴・彰縲∽ｸ肴而蛻ｶ謦ｭ謾ｾ蝎ｨ縲・
 
-| 模块 | 当前 Owner |
+| 讓｡蝮・| 蠖灘燕 Owner |
 | --- | --- |
-| 管理删除、单项上下移/插队、其事务内归一化 | **Node-native** |
-| 用户/管理/Legacy 队列读取、三个设置读取 | Node-native，保持 Phase 5/6 范围 |
-| 更新通知计数、SSE | **PHP 独立通知 helper 复用**；不加载 commonfunc 或执行队列 SQL |
-| 创建/替换、自动轮换、元数据/历史、播放标记/生命周期 | PHP，创建事务仍可调整 reqorder；不是第二个管理员调序 Owner |
-| 设置保存、播放控制、搜索 | PHP |
+| 邂｡逅・唖髯､縲∝黒鬘ｹ荳贋ｸ狗ｧｻ/謠帝弌縲∝・莠句苅蜀・ｽ剃ｸ蛹・| **Node-native** |
+| 逕ｨ謌ｷ/邂｡逅・Legacy 髦溷・隸ｻ蜿悶∽ｸ我ｸｪ隶ｾ鄂ｮ隸ｻ蜿・| Node-native・御ｿ晄戟 Phase 5/6 闌・峩 |
+| 譖ｴ譁ｰ騾夂衍隶｡謨ｰ縲ヾSE | **PHP 迢ｬ遶矩夂衍 helper 螟咲畑**・帑ｸ榊刈霓ｽ commonfunc 謌匁鴬陦碁弌蛻・SQL |
+| 蛻帛ｻｺ/譖ｿ謐｢縲∬・蜉ｨ霓ｮ謐｢縲∝・謨ｰ謐ｮ/蜴・彰縲∵眺謾ｾ譬・ｮｰ/逕溷多蜻ｨ譛・| PHP・悟・蟒ｺ莠句苅莉榊庄隹・紛 reqorder・帑ｸ肴弍隨ｬ莠御ｸｪ邂｡逅・遭隹・ｺ・Owner |
+| 隶ｾ鄂ｮ菫晏ｭ倥∵眺謾ｾ謗ｧ蛻ｶ縲∵頗邏｢ | PHP |
 
-五类领域写路由中 2/5 的主队列事务 Native，读仍为 3/7；不代表全应用迁移率，也不声称通知和全部 SQLite 写入已迁出 PHP。管理会话/角色、Origin/CSRF、配置撤销证明检查不变。Node 仅获得 runtime/queue 的 RW 目录，共享 gid 33、setgid 目录与组写权限；配置仍只读，不挂载通知 DB 或整个 Legacy。
+莠皮ｱｻ鬚・沺蜀呵ｷｯ逕ｱ荳ｭ 2/5 逧・ｸｻ髦溷・莠句苅 Native・瑚ｯｻ莉堺ｸｺ 3/7・帑ｸ堺ｻ｣陦ｨ蜈ｨ蠎皮畑霑∫ｧｻ邇・ｼ御ｹ滉ｸ榊｣ｰ遘ｰ騾夂衍蜥悟・驛ｨ SQLite 蜀吝・蟾ｲ霑∝・ PHP縲らｮ｡逅・ｼ夊ｯ・隗定牡縲＾rigin/CSRF縲・・鄂ｮ謦､髞隸∵・譽譟･荳榊序縲・ode 莉・執蠕・runtime/queue 逧・RW 逶ｮ蠖包ｼ悟・莠ｫ gid 33縲《etgid 逶ｮ蠖穂ｸ守ｻ・・譚・剞・幃・鄂ｮ莉榊宵隸ｻ・御ｸ肴撃霓ｽ騾夂衍 DB 謌匁紛荳ｪ Legacy縲・
 
-### 通知与 Legacy 边界
+### 騾夂衍荳・Legacy 霎ｹ逡・
 
-Node 成功提交后通过已认证 queue-notify Bridge 单次调用原 UpdateNotice，保留计数阈值和 SSE 行为，无队列 SQL 回环。通知本来位于提交后且吞错；现失败显式返回 QUEUE_COMMITTED_NOTICE_FAILED，提示队列已提交、不要重试。若连 ROLLBACK 都无法确认，返回 QUEUE_WRITE_UNCERTAIN 而不宣称回滚成功。没有伪造跨两个数据库的原子性。
+Node 謌仙粥謠蝉ｺ､蜷朱夊ｿ・ｷｲ隶､隸・queue-notify Bridge 蜊墓ｬ｡隹・畑蜴・UpdateNotice・御ｿ晉蕗隶｡謨ｰ髦亥ｼ蜥・SSE 陦御ｸｺ・梧裏髦溷・ SQL 蝗樒識縲る夂衍譛ｬ譚･菴堺ｺ取署莠､蜷惹ｸ泌裾髞呻ｼ帷鴫螟ｱ雍･譏ｾ蠑剰ｿ泌屓 QUEUE_COMMITTED_NOTICE_FAILED・梧署遉ｺ髦溷・蟾ｲ謠蝉ｺ､縲∽ｸ崎ｦ・㍾隸輔り凶霑・ROLLBACK 驛ｽ譌豕慕｡ｮ隶､・瑚ｿ泌屓 QUEUE_WRITE_UNCERTAIN 閠御ｸ榊ｮ｣遘ｰ蝗樊ｻ壽・蜉溘よｲ｡譛我ｼｪ騾霍ｨ荳､荳ｪ謨ｰ謐ｮ蠎鍋噪蜴溷ｭ先ｧ縲・
 
-Compose 启用 YUKARI_NODE_QUEUE_MUTATIONS=1：delete.php、公开 request_delete/request_move、admin.php 对应操作、旧批量 reorder、清空/导入、update.php 的 reqorder 和勾选数据库的恢复均在业务启动前关闭（410）；HTTP 测试/race 目录禁止。旧 swipe/表格不会把关闭响应当成功，提示独立管理端登录。旧普通队列、创建和其他尚未迁移操作保留。**拖拽/Undo、批量清空/导入、原 delete.php 状态重置及 DB 恢复本阶段未迁移，当前旧入口不可执行**，并未用 read ticket 或 Basic 隐式创建 Node 写会话。
+Compose 蜷ｯ逕ｨ YUKARI_NODE_QUEUE_MUTATIONS=1・單elete.php縲∝・蠑 request_delete/request_move縲∥dmin.php 蟇ｹ蠎疲桃菴懊∵立謇ｹ驥・reorder縲∵ｸ・ｩｺ/蟇ｼ蜈･縲「pdate.php 逧・reqorder 蜥悟鏡騾画焚謐ｮ蠎鍋噪諱｢螟榊插蝨ｨ荳壼苅蜷ｯ蜉ｨ蜑榊・髣ｭ・・10・会ｼ姨TTP 豬玖ｯ・race 逶ｮ蠖慕ｦ∵ｭ｢縲よ立 swipe/陦ｨ譬ｼ荳堺ｼ壽滑蜈ｳ髣ｭ蜩榊ｺ泌ｽ捺・蜉滂ｼ梧署遉ｺ迢ｬ遶狗ｮ｡逅・ｫｯ逋ｻ蠖輔よ立譎ｮ騾夐弌蛻励∝・蟒ｺ蜥悟・莉門ｰ壽悴霑∫ｧｻ謫堺ｽ應ｿ晉蕗縲・*諡匁郷/Undo縲∵音驥乗ｸ・ｩｺ/蟇ｼ蜈･縲∝次 delete.php 迥ｶ諤・㍾鄂ｮ蜿・DB 諱｢螟肴悽髦ｶ谿ｵ譛ｪ霑∫ｧｻ・悟ｽ灘燕譌ｧ蜈･蜿｣荳榊庄謇ｧ陦・*・悟ｹｶ譛ｪ逕ｨ read ticket 謌・Basic 髫仙ｼ丞・蟒ｺ Node 蜀吩ｼ夊ｯ昴・
 
-### 验证与现场数据
+### 鬪瑚ｯ∽ｸ守鴫蝨ｺ謨ｰ謐ｮ
 
-- 三个应用 typecheck/build 通过；最终 API 镜像构建通过；恢复后的 PHP/Node healthy。
-- Legacy 304 个 PHP 源文件语法通过，6 个 PHP oracle/测试文件通过；既有 13 项 Node 认证不变量及 5 项旧管理认证检查通过。
-- 完整 API 测试 **18/18 通过**。新增真实 PHP helpers/normalize 对照覆盖空队列、不存在 ID、边界、间隔/重复/9999、NULL/文本/小数异常排序、播放标记及历史/完整记录；触发器失败整体回滚、缺失/越界路径、锁超时、通知失败后不重写。
-- 真实隔离部署覆盖 Node 写响应 Owner、通知精确递增、历史不变、无效参数无副作用、同 ID 并发删除只一次成功、旧写入口 410 且队列/通知不变。授权替身不提供 PHP 队列写业务也可完成 Native move；普通身份、伪造角色和撤销后写入被拒绝。
-- 跨运行时用真实 Linux PHP 持有 WAL 写锁，Node 开始竞争后才握手允许延迟提交，验证 Node 确实等待且使用提交后快照。初次把 Windows Node 与 Linux PHP 同时开 WAL 时出现 I/O 错误；已改为与部署一致的两个 Linux 容器，未将它算作通过或忽略。
-- Edge 用户端 **6 通过、1 跳过**（未配置真实曲库），管理端 **3 通过**。包含真实 UI 登录、PHP 创建 → Native SQLite 读取、Node 调序/删除、保密、无变化设置保存、播放器不可达和退出。
-- 所有本轮业务写测试均在 `.local/phase7-test-legacy` 合成部署或内存/临时库完成，不复制生产 DB/INI。测试工具/浏览器启动要求合成 marker，避免误跑现场。首次权限失败只影响合成记录，修复共享组权限后重跑通过。
-- 隔离结束恢复正常 Compose，原队列逻辑内容及真实 config.ini、ini.ini 指纹保持一致；没有对现场队列新增/删除测试记录。恢复后真实 user/admin 认证及 queue/settings GET 均 200，两个 Vite 与旧 search/swipe 页面 200。暂存区仍是原 652 项纯重命名，未暂存运行秘密或测试产物。
+- 荳我ｸｪ蠎皮畑 typecheck/build 騾夊ｿ・ｼ帶怙扈・API 髟懷ワ譫・ｻｺ騾夊ｿ・ｼ帶△螟榊錘逧・PHP/Node healthy縲・
+- Legacy 304 荳ｪ PHP 貅先枚莉ｶ隸ｭ豕暮夊ｿ・ｼ・ 荳ｪ PHP oracle/豬玖ｯ墓枚莉ｶ騾夊ｿ・ｼ帶里譛・13 鬘ｹ Node 隶､隸∽ｸ榊序驥丞所 5 鬘ｹ譌ｧ邂｡逅・ｮ､隸∵｣譟･騾夊ｿ・・
+- 螳梧紛 API 豬玖ｯ・**18/18 騾夊ｿ・*縲よ眠蠅樒悄螳・PHP helpers/normalize 蟇ｹ辣ｧ隕・尠遨ｺ髦溷・縲∽ｸ榊ｭ伜惠 ID縲∬ｾｹ逡後・龍髫・驥榊､・9999縲¨ULL/譁・悽/蟆乗焚蠑ょｸｸ謗貞ｺ上∵眺謾ｾ譬・ｮｰ蜿雁紙蜿ｲ/螳梧紛隶ｰ蠖包ｼ幄ｧｦ蜿大勣螟ｱ雍･謨ｴ菴灘屓貊壹∫ｼｺ螟ｱ/雜顔阜霍ｯ蠕・・煤雜・慮縲・夂衍螟ｱ雍･蜷惹ｸ埼㍾蜀吶・
+- 逵溷ｮ樣囈遖ｻ驛ｨ鄂ｲ隕・尠 Node 蜀吝桃蠎・Owner縲・夂衍邊ｾ遑ｮ騾貞｢槭∝紙蜿ｲ荳榊序縲∵裏謨亥盾謨ｰ譌蜑ｯ菴懃畑縲∝酔 ID 蟷ｶ蜿大唖髯､蜿ｪ荳谺｡謌仙粥縲∵立蜀吝・蜿｣ 410 荳秘弌蛻・騾夂衍荳榊序縲よ肢譚・崛霄ｫ荳肴署萓・PHP 髦溷・蜀吩ｸ壼苅荵溷庄螳梧・ Native move・帶勸騾夊ｺｫ莉ｽ縲∽ｼｪ騾隗定牡蜥梧彫髞蜷主・蜈･陲ｫ諡堤ｻ昴・
+- 霍ｨ霑占｡梧慮逕ｨ逵溷ｮ・Linux PHP 謖∵怏 WAL 蜀咎煤・君ode 蠑蟋狗ｫ樔ｺ牙錘謇肴升謇句・隶ｸ蟒ｶ霑滓署莠､・碁ｪ瑚ｯ・Node 遑ｮ螳樒ｭ牙ｾ・ｸ比ｽｿ逕ｨ謠蝉ｺ､蜷主ｿｫ辣ｧ縲ょ・谺｡謚・Windows Node 荳・Linux PHP 蜷梧慮蠑 WAL 譌ｶ蜃ｺ邇ｰ I/O 髞呵ｯｯ・帛ｷｲ謾ｹ荳ｺ荳朱Κ鄂ｲ荳閾ｴ逧・ｸ､荳ｪ Linux 螳ｹ蝎ｨ・梧悴蟆・ｮ・ｮ嶺ｽ憺夊ｿ・・蠢ｽ逡･縲・
+- Edge 逕ｨ謌ｷ遶ｯ **6 騾夊ｿ・・ 霍ｳ霑・*・域悴驟咲ｽｮ逵溷ｮ樊峇蠎難ｼ会ｼ檎ｮ｡逅・ｫｯ **3 騾夊ｿ・*縲ょ桁蜷ｫ逵溷ｮ・UI 逋ｻ蠖輔￣HP 蛻帛ｻｺ 竊・Native SQLite 隸ｻ蜿悶¨ode 隹・ｺ・蛻髯､縲∽ｿ晏ｯ・∵裏蜿伜喧隶ｾ鄂ｮ菫晏ｭ倥∵眺謾ｾ蝎ｨ荳榊庄霎ｾ蜥碁蜃ｺ縲・
+- 謇譛画悽霓ｮ荳壼苅蜀呎ｵ玖ｯ募插蝨ｨ `.local/phase7-test-legacy` 蜷域・驛ｨ鄂ｲ謌門・蟄・荳ｴ譌ｶ蠎灘ｮ梧・・御ｸ榊､榊宛逕滉ｺｧ DB/INI縲よｵ玖ｯ募ｷ･蜈ｷ/豬剰ｧ亥勣蜷ｯ蜉ｨ隕∵ｱょ粋謌・marker・碁∩蜈崎ｯｯ霍醍鴫蝨ｺ縲るｦ匁ｬ｡譚・剞螟ｱ雍･蜿ｪ蠖ｱ蜩榊粋謌占ｮｰ蠖包ｼ御ｿｮ螟榊・莠ｫ扈・揀髯仙錘驥崎ｷ鷹夊ｿ・・
+- 髫皮ｦｻ扈捺據諱｢螟肴ｭ｣蟶ｸ Compose・悟次髦溷・騾ｻ霎大・螳ｹ蜿顔悄螳・config.ini縲（ni.ini 謖・ｺｹ菫晄戟荳閾ｴ・帶ｲ｡譛牙ｯｹ邇ｰ蝨ｺ髦溷・譁ｰ蠅・蛻髯､豬玖ｯ戊ｮｰ蠖輔よ△螟榊錘逵溷ｮ・user/admin 隶､隸∝所 queue/settings GET 蝮・200・御ｸ､荳ｪ Vite 荳取立 search/swipe 鬘ｵ髱｢ 200縲よ嘯蟄伜玄莉肴弍蜴・652 鬘ｹ郤ｯ驥榊多蜷搾ｼ梧悴證ょｭ倩ｿ占｡檎ｧ伜ｯ・・豬玖ｯ穂ｺｧ迚ｩ縲・
 
-访问保持：http://127.0.0.1:5173/（用户）、http://127.0.0.1:5174/（管理）、http://127.0.0.1:3000/health、http://127.0.0.1:8080/requestlist_swipe.php。正常启动仍 `docker compose -f docker/compose.yaml up --build -d`。隔离测试会暂占相同端口，按兼容文档测试后恢复；不删除 volume。
+隶ｿ髣ｮ菫晄戟・喇ttp://127.0.0.1:5173/・育畑謌ｷ・峨”ttp://127.0.0.1:5174/・育ｮ｡逅・ｼ峨”ttp://127.0.0.1:3000/health縲”ttp://127.0.0.1:8080/requestlist_swipe.php縲よｭ｣蟶ｸ蜷ｯ蜉ｨ莉・`docker compose -f docker/compose.yaml up --build -d`縲る囈遖ｻ豬玖ｯ穂ｼ壽嘯蜊逶ｸ蜷檎ｫｯ蜿｣・梧潔蜈ｼ螳ｹ譁・｡｣豬玖ｯ募錘諱｢螟搾ｼ帑ｸ榊唖髯､ volume縲・
 
-### 下一阶段评估
+### 荳倶ｸ髦ｶ谿ｵ隸・ｼｰ
 
-创建预约比本阶段删/移复杂：输入默认值/替换/自动轮换、身份与历史、Lister 元数据、Cookie、通知均需等价覆盖。exec.php 已在主 INSERT/reqorder/自动轮换 COMMIT 后才执行元数据和历史等步骤，后续异常导致“已入库但返回错误”。下一阶段先在隔离环境对各提交点注入故障，再明确必需原子数据、可选副作用、提交结果查询与幂等策略；不通过重试或双写掩盖部分成功，本阶段未更改其预约规则。
+蛻帛ｻｺ鬚・ｺｦ豈疲悽髦ｶ谿ｵ蛻/遘ｻ螟肴揩・夊ｾ灘・鮟倩ｮ､蛟ｼ/譖ｿ謐｢/閾ｪ蜉ｨ霓ｮ謐｢縲∬ｺｫ莉ｽ荳主紙蜿ｲ縲´ister 蜈・焚謐ｮ縲，ookie縲・夂衍蝮・怙遲我ｻｷ隕・尠縲Ｆxec.php 蟾ｲ蝨ｨ荳ｻ INSERT/reqorder/閾ｪ蜉ｨ霓ｮ謐｢ COMMIT 蜷取燕謇ｧ陦悟・謨ｰ謐ｮ蜥悟紙蜿ｲ遲画ｭ･鬪､・悟錘扈ｭ蠑ょｸｸ蟇ｼ閾ｴ窶懷ｷｲ蜈･蠎謎ｽ・ｿ泌屓髞呵ｯｯ窶昴ゆｸ倶ｸ髦ｶ谿ｵ蜈亥惠髫皮ｦｻ邇ｯ蠅・ｯｹ蜷・署莠､轤ｹ豕ｨ蜈･謨・囿・悟・譏守｡ｮ蠢・怙蜴溷ｭ先焚謐ｮ縲∝庄騾牙憶菴懃畑縲∵署莠､扈捺棡譟･隸｢荳主ｹらｭ臥ｭ也払・帑ｸ埼夊ｿ・㍾隸墓・蜿悟・謗ｩ逶夜Κ蛻・・蜉滂ｼ梧悽髦ｶ谿ｵ譛ｪ譖ｴ謾ｹ蜈ｶ鬚・ｺｦ隗・・縲・
 
-queue-wal-anchor 保留。专用目录现为 RW，可能已允许只读 SQLite 自行创建旁文件，但尚未验证停 anchor 下全部重启/清理/readiness 场景；每次关闭的 Node 管理连接也不等于持久拥有整个 WAL 生命周期。可先做隔离生命周期验证再移除，不因路由 Native 化直接删除。大型队列同步事务性能、部分成功/跨请求幂等、旧批量管理功能迁移仍待后续；未改搜索算法、播放器或真实 Schema。
+queue-wal-anchor 菫晉蕗縲ゆｸ鍋畑逶ｮ蠖慕鴫荳ｺ RW・悟庄閭ｽ蟾ｲ蜈∬ｮｸ蜿ｪ隸ｻ SQLite 閾ｪ陦悟・蟒ｺ譌∵枚莉ｶ・御ｽ・ｰ壽悴鬪瑚ｯ∝● anchor 荳句・驛ｨ驥榊星/貂・炊/readiness 蝨ｺ譎ｯ・帶ｯ乗ｬ｡蜈ｳ髣ｭ逧・Node 邂｡逅・ｿ樊磁荵滉ｸ咲ｭ我ｺ取戟荵・凶譛画紛荳ｪ WAL 逕溷多蜻ｨ譛溘ょ庄蜈亥★髫皮ｦｻ逕溷多蜻ｨ譛滄ｪ瑚ｯ∝・遘ｻ髯､・御ｸ榊屏霍ｯ逕ｱ Native 蛹也峩謗･蛻髯､縲ょ､ｧ蝙矩弌蛻怜酔豁･莠句苅諤ｧ閭ｽ縲・Κ蛻・・蜉・霍ｨ隸ｷ豎ょｹらｭ峨∵立謇ｹ驥冗ｮ｡逅・粥閭ｽ霑∫ｧｻ莉榊ｾ・錘扈ｭ・帶悴謾ｹ謳懃ｴ｢邂玲ｳ輔∵眺謾ｾ蝎ｨ謌也悄螳・Schema縲・
 
-## Phase 8：Node-native 预约创建与替换
+## Phase 8・哢ode-native 鬚・ｺｦ蛻帛ｻｺ荳取崛謐｢
 
-日期：2026-10-20（Asia/Tokyo）。在 Phase 7 工作区增量实施；未 commit/push。经用户明确批准后，仅在原 queue SQLite 添加 `request_submission` 幂等凭据表；不改现有列、密码、队列 Schema 或创建第二数据库。
+譌･譛滂ｼ・026-10-20・・sia/Tokyo・峨ょ惠 Phase 7 蟾･菴懷玄蠅樣㍼螳樊命・帶悴 commit/push縲らｻ冗畑謌ｷ譏守｡ｮ謇ｹ蜃・錘・御ｻ・惠蜴・queue SQLite 豺ｻ蜉 `request_submission` 蟷らｭ牙・謐ｮ陦ｨ・帑ｸ肴隼邇ｰ譛牙・縲∝ｯ・√・弌蛻・Schema 謌門・蟒ｺ隨ｬ莠梧焚謐ｮ蠎薙・
 
-### Owner 与业务等价
+### Owner 荳惹ｸ壼苅遲我ｻｷ
 
-`POST /api/v1/requests` 与生产 Compose 的旧 `POST /exec.php` 兼容入口现由 Node 独占核心预约写入。React 继续使用原统一 API。Legacy 通过 request intent/短时签名上下文转交 Node，保留普通 Cookie 身份、singer/freesinger/comment、kind、小休止、secret、URL、替换/selectid、自动 reqorder、历史和通知语义；PHP 不再执行预约 INSERT。Node 预约、必要元数据、历史、身份更新和幂等结果在一个 `BEGIN IMMEDIATE` 事务提交；队列通知在 commit 后复用 PHP helper。通知失败明确返回“已提交但通知失败”，不自动重复写入。
+`POST /api/v1/requests` 荳守函莠ｧ Compose 逧・立 `POST /exec.php` 蜈ｼ螳ｹ蜈･蜿｣邇ｰ逕ｱ Node 迢ｬ蜊譬ｸ蠢・｢・ｺｦ蜀吝・縲３eact 扈ｧ扈ｭ菴ｿ逕ｨ蜴溽ｻ滉ｸ API縲・egacy 騾夊ｿ・request intent/遏ｭ譌ｶ遲ｾ蜷堺ｸ贋ｸ区枚霓ｬ莠､ Node・御ｿ晉蕗譎ｮ騾・Cookie 霄ｫ莉ｽ縲《inger/freesinger/comment縲〔ind縲∝ｰ丈ｼ第ｭ｢縲《ecret縲ゞRL縲∵崛謐｢/selectid縲∬・蜉ｨ reqorder縲∝紙蜿ｲ蜥碁夂衍隸ｭ荵会ｼ娜HP 荳榊・謇ｧ陦碁｢・ｺｦ INSERT縲・ode 鬚・ｺｦ縲∝ｿ・ｦ∝・謨ｰ謐ｮ縲∝紙蜿ｲ縲∬ｺｫ莉ｽ譖ｴ譁ｰ蜥悟ｹらｭ臥ｻ捺棡蝨ｨ荳荳ｪ `BEGIN IMMEDIATE` 莠句苅謠蝉ｺ､・幃弌蛻鈴夂衍蝨ｨ commit 蜷主､咲畑 PHP helper縲る夂衍螟ｱ雍･譏守｡ｮ霑泌屓窶懷ｷｲ謠蝉ｺ､菴・夂衍螟ｱ雍･窶晢ｼ御ｸ崎・蜉ｨ驥榊､榊・蜈･縲・
 
-替换保留既有记录状态、位置和身份属性。提交凭据只持久化随机 receipt 的哈希、输入哈希、owner、记录 ID、操作、时间及结果；重复相同 receipt 返回原结果，不重复插入/历史/通知，改输入冲突，另一用户不可查询。React 在网络结果未知后复用同一 receipt；不依赖内存 Map。原 PHP `exec.php` 在隔离库中作为行为 oracle；主要差异是历史/必要数据写失败时 Node 整体回滚，消除 PHP 主 INSERT 已提交、后续历史失败而响应错误的部分成功状态。
+譖ｿ謐｢菫晉蕗譌｢譛芽ｮｰ蠖慕憾諤√∽ｽ咲ｽｮ蜥瑚ｺｫ莉ｽ螻樊ｧ縲よ署莠､蜃ｭ謐ｮ蜿ｪ謖∽ｹ・喧髫乗惻 receipt 逧・嶋蟶後∬ｾ灘・蜩亥ｸ後｛wner縲∬ｮｰ蠖・ID縲∵桃菴懊∵慮髣ｴ蜿顔ｻ捺棡・幃㍾螟咲嶌蜷・receipt 霑泌屓蜴溽ｻ捺棡・御ｸ埼㍾螟肴薯蜈･/蜴・彰/騾夂衍・梧隼霎灘・蜀ｲ遯・ｼ悟嘗荳逕ｨ謌ｷ荳榊庄譟･隸｢縲３eact 蝨ｨ鄂醍ｻ懃ｻ捺棡譛ｪ遏･蜷主､咲畑蜷御ｸ receipt・帑ｸ堺ｾ晁ｵ門・蟄・Map縲ょ次 PHP `exec.php` 蝨ｨ髫皮ｦｻ蠎謎ｸｭ菴應ｸｺ陦御ｸｺ oracle・帑ｸｻ隕∝ｷｮ蠑よ弍蜴・彰/蠢・ｦ∵焚謐ｮ蜀吝､ｱ雍･譌ｶ Node 謨ｴ菴灘屓貊夲ｼ梧ｶ磯勁 PHP 荳ｻ INSERT 蟾ｲ謠蝉ｺ､縲∝錘扈ｭ蜴・彰螟ｱ雍･閠悟桃蠎秘漠隸ｯ逧・Κ蛻・・蜉溽憾諤√・
 
-| 模块 | Phase 8 Owner |
+| 讓｡蝮・| Phase 8 Owner |
 | --- | --- |
-| 预约创建/替换、顺序、历史、核心身份字段 | **Node-native**（同一 SQLite 事务） |
-| 持久提交结果与重试去重 | **Node-native**（`request_submission` additive 表） |
-| 预约后 SSE/更新通知 | PHP 通知 helper，仅提交后副作用；不拥有预约写入 |
-| Everything/YukaLister 搜索与只读元数据 | PHP；搜索算法不变 |
-| 管理删除、单项移动/归一化 | Node-native（Phase 7） |
-| 管理批量拖拽/Undo、清空/导入/恢复/旧状态重置 | 批量 Node endpoint 已有隔离 API 测试；Legacy 页面经 exact-path Apache proxy 的 Edge 测试通过；清空/导入/恢复/重置保持关闭 |
-| 设置写入、播放控制、播放器及媒体生命周期 | PHP |
+| 鬚・ｺｦ蛻帛ｻｺ/譖ｿ謐｢縲・｡ｺ蠎上∝紙蜿ｲ縲∵ｸ蠢・ｺｫ莉ｽ蟄玲ｮｵ | **Node-native**・亥酔荳 SQLite 莠句苅・・|
+| 謖∽ｹ・署莠､扈捺棡荳朱㍾隸募悉驥・| **Node-native**・・request_submission` additive 陦ｨ・・|
+| 鬚・ｺｦ蜷・SSE/譖ｴ譁ｰ騾夂衍 | PHP 騾夂衍 helper・御ｻ・署莠､蜷主憶菴懃畑・帑ｸ肴凶譛蛾｢・ｺｦ蜀吝・ |
+| Everything/YukaLister 謳懃ｴ｢荳主宵隸ｻ蜈・焚謐ｮ | PHP・帶頗邏｢邂玲ｳ穂ｸ榊序 |
+| 邂｡逅・唖髯､縲∝黒鬘ｹ遘ｻ蜉ｨ/蠖剃ｸ蛹・| Node-native・・hase 7・・|
+| 邂｡逅・音驥乗許諡ｽ/Undo縲∵ｸ・ｩｺ/蟇ｼ蜈･/諱｢螟・譌ｧ迥ｶ諤・㍾鄂ｮ | 謇ｹ驥・Node endpoint 蟾ｲ譛蛾囈遖ｻ API 豬玖ｯ包ｼ姚egacy 鬘ｵ髱｢扈・exact-path Apache proxy 逧・Edge 豬玖ｯ暮夊ｿ・ｼ帶ｸ・ｩｺ/蟇ｼ蜈･/諱｢螟・驥咲ｽｮ菫晄戟蜈ｳ髣ｭ |
+| 隶ｾ鄂ｮ蜀吝・縲∵眺謾ｾ謗ｧ蛻ｶ縲∵眺謾ｾ蝎ｨ蜿雁ｪ剃ｽ鍋函蜻ｽ蜻ｨ譛・| PHP |
 
-### 迁移、验证与运行状态
+### 霑∫ｧｻ縲・ｪ瑚ｯ∽ｸ手ｿ占｡檎憾諤・
 
-显式 `node dist/migrate.js request.db` 在现有生产数据库运行一次。迁移前后只读摘要都是 `requesttable` 1 条记录、min/max id=3；新表列校验通过。未读取或输出真实标题、密码、INI 内容。正常 Compose 已设置 `YUKARI_NODE_REQUESTS=1`，未配置启动时 schema 迁移。`queue-wal-anchor` 继续保留；本阶段没有完成停用 anchor 的 WAL/重启/readiness 生命周期测试。
+譏ｾ蠑・`node dist/migrate.js request.db` 蝨ｨ邇ｰ譛臥函莠ｧ謨ｰ謐ｮ蠎楢ｿ占｡御ｸ谺｡縲りｿ∫ｧｻ蜑榊錘蜿ｪ隸ｻ鞫倩ｦ・・譏ｯ `requesttable` 1 譚｡隶ｰ蠖輔［in/max id=3・帶眠陦ｨ蛻玲｡鬪碁夊ｿ・よ悴隸ｻ蜿匁・霎灘・逵溷ｮ樊・｢倥∝ｯ・√！NI 蜀・ｮｹ縲よｭ｣蟶ｸ Compose 蟾ｲ隶ｾ鄂ｮ `YUKARI_NODE_REQUESTS=1`・梧悴驟咲ｽｮ蜷ｯ蜉ｨ譌ｶ schema 霑∫ｧｻ縲Ａqueue-wal-anchor` 扈ｧ扈ｭ菫晉蕗・帶悽髦ｶ谿ｵ豐｡譛牙ｮ梧・蛛懃畑 anchor 逧・WAL/驥榊星/readiness 逕溷多蜻ｨ譛滓ｵ玖ｯ輔・
 
-- API 集成套件 **26/26 通过**；包括真实 PHP exec 业务体 oracle、创建/替换、幂等并发、通知不重放、事务故障回滚，以及已有队列/认证/调序回归。
-- API/user-web/admin-web typecheck 与 build 全通过。
-- user-web/Legacy Edge **5 通过、1 跳过**（未设置真实曲库命中条件）；覆盖 React 经 Node 创建、Legacy v2 旧页经 Node 创建、队列回读和 Legacy 管理批量排序测试。admin-web Edge **3/3 通过**，覆盖认证边界和现有管理操作。
-- PHP 原版预约 oracle 用临时数据库且配置快照在测试结束恢复；其他所有业务写回归继续只用带 marker 的合成 fixture。没有对生产队列做写测试。
+- API 髮・・螂嶺ｻｶ **26/26 騾夊ｿ・*・帛桁諡ｬ逵溷ｮ・PHP exec 荳壼苅菴・oracle縲∝・蟒ｺ/譖ｿ謐｢縲∝ｹらｭ牙ｹｶ蜿代・夂衍荳埼㍾謾ｾ縲∽ｺ句苅謨・囿蝗樊ｻ夲ｼ御ｻ･蜿雁ｷｲ譛蛾弌蛻・隶､隸・隹・ｺ丞屓蠖偵・
+- API/user-web/admin-web typecheck 荳・build 蜈ｨ騾夊ｿ・・
+- user-web/Legacy Edge **5 騾夊ｿ・・ 霍ｳ霑・*・域悴隶ｾ鄂ｮ逵溷ｮ樊峇蠎灘多荳ｭ譚｡莉ｶ・会ｼ幄ｦ・尠 React 扈・Node 蛻帛ｻｺ縲´egacy v2 譌ｧ鬘ｵ扈・Node 蛻帛ｻｺ縲・弌蛻怜屓隸ｻ蜥・Legacy 邂｡逅・音驥乗賜蠎乗ｵ玖ｯ輔Ｂdmin-web Edge **3/3 騾夊ｿ・*・瑚ｦ・尠隶､隸∬ｾｹ逡悟柱邇ｰ譛臥ｮ｡逅・桃菴懊・
+- PHP 蜴溽沿鬚・ｺｦ oracle 逕ｨ荳ｴ譌ｶ謨ｰ謐ｮ蠎謎ｸ秘・鄂ｮ蠢ｫ辣ｧ蝨ｨ豬玖ｯ慕ｻ捺據諱｢螟搾ｼ帛・莉匁園譛我ｸ壼苅蜀吝屓蠖堤ｻｧ扈ｭ蜿ｪ逕ｨ蟶ｦ marker 逧・粋謌・fixture縲よｲ｡譛牙ｯｹ逕滉ｺｧ髦溷・蛛壼・豬玖ｯ輔・
 
-访问地址不变：user 5173、admin 5174、Node 3000、Legacy 8080。`docker compose -f docker/compose.yaml up --build -d` 启动已启用 Node 预约 Owner 的服务。
+隶ｿ髣ｮ蝨ｰ蝮荳榊序・嗽ser 5173縲∥dmin 5174縲¨ode 3000縲´egacy 8080縲Ａdocker compose -f docker/compose.yaml up --build -d` 蜷ｯ蜉ｨ蟾ｲ蜷ｯ逕ｨ Node 鬚・ｺｦ Owner 逧・恪蜉｡縲・
 
 
-### Phase 8 尚未完成
+### Phase 8 蟆壽悴螳梧・
 
-真实曲库搜索命中和播放器播放未验证。Legacy 批量排序最初的 regex 代理返回 403，改用单一路径固定 ProxyPass 后 Edge 回归通过；其他 `/api/v1` 路径继续默认拒绝。清空/导入/恢复/状态重置未迁移。SQLite 通知与队列是不同存储，跨库恰好一次通知未保证；预约不会因通知错误回滚/重放。Node 单一写入并不等于可移除 WAL anchor；后续先测试旁文件生命周期及 PHP 与 Node 重启。
+逵溷ｮ樊峇蠎捺頗邏｢蜻ｽ荳ｭ蜥梧眺謾ｾ蝎ｨ謦ｭ謾ｾ譛ｪ鬪瑚ｯ√・egacy 謇ｹ驥乗賜蠎乗怙蛻晉噪 regex 莉｣逅・ｿ泌屓 403・梧隼逕ｨ蜊穂ｸ霍ｯ蠕・崋螳・ProxyPass 蜷・Edge 蝗槫ｽ帝夊ｿ・ｼ帛・莉・`/api/v1` 霍ｯ蠕・ｻｧ扈ｭ鮟倩ｮ､諡堤ｻ昴よｸ・ｩｺ/蟇ｼ蜈･/諱｢螟・迥ｶ諤・㍾鄂ｮ譛ｪ霑∫ｧｻ縲４QLite 騾夂衍荳朱弌蛻玲弍荳榊酔蟄伜お・瑚ｷｨ蠎捺・螂ｽ荳谺｡騾夂衍譛ｪ菫晁ｯ・ｼ幃｢・ｺｦ荳堺ｼ壼屏騾夂衍髞呵ｯｯ蝗樊ｻ・驥肴叛縲・ode 蜊穂ｸ蜀吝・蟷ｶ荳咲ｭ我ｺ主庄遘ｻ髯､ WAL anchor・帛錘扈ｭ蜈域ｵ玖ｯ墓浴譁・ｻｶ逕溷多蜻ｨ譛溷所 PHP 荳・Node 驥榊星縲・
 
-## Phase 9：Windows Player Agent / mpv 测试播放链路
+## Phase 9・啗indows Player Agent / mpv 豬玖ｯ墓眺謾ｾ體ｾ霍ｯ
 
-新增独立 `apps/player-agent`（Node.js + TypeScript），宿主机运行、不在 Docker。Fastify 添加管理员创建本地测试任务/暂停/继续/停止 API、Agent 独立 Bearer 认证轮询/状态回报，以及仅含连接与播放状态的普通用户只读视图。管理页 System 展示 Agent 实况。任务状态持久化在新 `player_agent_state` named volume，原子 JSON 更新；未改 SQLite Schema、预约 Owner、`nowplaying` 或 queue-wal-anchor。
+譁ｰ蠅樒峡遶・`agents/player-agent`・・ode.js + TypeScript・会ｼ悟ｮｿ荳ｻ譛ｺ霑占｡後∽ｸ榊惠 Docker縲・astify 豺ｻ蜉邂｡逅・遭蛻帛ｻｺ譛ｬ蝨ｰ豬玖ｯ穂ｻｻ蜉｡/證ょ●/扈ｧ扈ｭ/蛛懈ｭ｢ API縲、gent 迢ｬ遶・Bearer 隶､隸∬ｽｮ隸｢/迥ｶ諤∝屓謚･・御ｻ･蜿贋ｻ・性霑樊磁荳取眺謾ｾ迥ｶ諤∫噪譎ｮ騾夂畑謌ｷ蜿ｪ隸ｻ隗・崟縲らｮ｡逅・｡ｵ System 螻慕､ｺ Agent 螳槫・縲ゆｻｻ蜉｡迥ｶ諤∵戟荵・喧蝨ｨ譁ｰ `player_agent_state` named volume・悟次蟄・JSON 譖ｴ譁ｰ・帶悴謾ｹ SQLite Schema縲・｢・ｺｦ Owner縲～nowplaying` 謌・queue-wal-anchor縲・
 
-PlayerAdapter 采用 mpv Windows named-pipe JSON IPC，Agent 仅启动固定 `MPV_PATH`、固定参数且 `shell:false`；测试视频路径必须在宿主机配置的媒体根目录下，校验 realpath 并拒绝 traversal/外部 symlink。进程启动不等于播放成功；只有 mpv 报告目标 path、非 idle 且非 paused 后显示 playing；只有真实 `end-file` reason=eof 才 completed。Agent 断线会停止播放器，任务 ID/Agent ID 防重复领取。Agent 使用说明在 [apps/player-agent/README.md](../apps/player-agent/README.md)。
+PlayerAdapter 驥・畑 mpv Windows named-pipe JSON IPC・窟gent 莉・星蜉ｨ蝗ｺ螳・`MPV_PATH`縲∝崋螳壼盾謨ｰ荳・`shell:false`・帶ｵ玖ｯ戊ｧ・｢題ｷｯ蠕・ｿ・｡ｻ蝨ｨ螳ｿ荳ｻ譛ｺ驟咲ｽｮ逧・ｪ剃ｽ捺ｹ逶ｮ蠖穂ｸ具ｼ梧｡鬪・realpath 蟷ｶ諡堤ｻ・traversal/螟夜Κ symlink縲りｿ帷ｨ句星蜉ｨ荳咲ｭ我ｺ取眺謾ｾ謌仙粥・帛宵譛・mpv 謚･蜻顔岼譬・path縲・撼 idle 荳秘撼 paused 蜷取仞遉ｺ playing・帛宵譛臥悄螳・`end-file` reason=eof 謇・completed縲・gent 譁ｭ郤ｿ莨壼●豁｢謦ｭ謾ｾ蝎ｨ・御ｻｻ蜉｡ ID/Agent ID 髦ｲ驥榊､埼｢・叙縲・gent 菴ｿ逕ｨ隸ｴ譏主惠 [agents/player-agent/README.md](../agents/player-agent/README.md)縲・
 
-本机核查结果：PotPlayer-64 bit 26.06.22.0 已安装，CmdLine64.txt 仅确认命令行打开/playlist 参数，不提供已确认的可靠状态/结束 API，因此未实现脆弱按键模拟。winget mpv 位于 `C:\Program Files\MPV Player\mpv.exe`，`--version` 为 `v0.41.0-244-gaf9c81fa1`；由 `MPV_PATH` 指定，不依赖 PATH 或重装。FFmpeg 9.0 在仓库外生成 `D:\project\yukari\test-media\agent-test.mp4`；ffprobe 验证 15.000 秒 H.264 640×360 画面与 AAC 48kHz 音轨。以真实管理员会话经 Fastify 创建两项测试任务：首项的服务端实况依次确认 playing、paused、playing、stop；停止后 Agent 没有重开过期任务。第二项完整播放，Fastify 只在 Agent 收到 mpv `end-file reason=eof` 后记为 completed。任务只写入专用 `player_agent_state` volume，未修改 queue SQLite。早期一次 UI 任务超时失败；修正空闲 mpv `path` 属性处理、为 API 超时错误添加路由上下文，并修复 stop 后同轮旧 assignment 可能重开的竞态后，API→Agent→mpv 闭环通过。桌面画面/声音仍需用户人工确认。
+譛ｬ譛ｺ譬ｸ譟･扈捺棡・啀otPlayer-64 bit 26.06.22.0 蟾ｲ螳芽｣・ｼ靴mdLine64.txt 莉・｡ｮ隶､蜻ｽ莉､陦梧遠蠑/playlist 蜿よ焚・御ｸ肴署萓帛ｷｲ遑ｮ隶､逧・庄髱迥ｶ諤・扈捺據 API・悟屏豁､譛ｪ螳樒鴫閼・ｼｱ謖蛾醗讓｡諡溘Ｘinget mpv 菴堺ｺ・`C:\Program Files\MPV Player\mpv.exe`・形--version` 荳ｺ `v0.41.0-244-gaf9c81fa1`・帷罰 `MPV_PATH` 謖・ｮ夲ｼ御ｸ堺ｾ晁ｵ・PATH 謌夜㍾陬・・Fmpeg 9.0 蝨ｨ莉灘ｺ灘､也函謌・`D:\project\yukari\test-media\agent-test.mp4`・嫻fprobe 鬪瑚ｯ・15.000 遘・H.264 640ﾃ・60 逕ｻ髱｢荳・AAC 48kHz 髻ｳ霓ｨ縲ゆｻ･逵溷ｮ樒ｮ｡逅・遭莨夊ｯ晉ｻ・Fastify 蛻帛ｻｺ荳､鬘ｹ豬玖ｯ穂ｻｻ蜉｡・夐ｦ夜｡ｹ逧・恪蜉｡遶ｯ螳槫・萓晄ｬ｡遑ｮ隶､ playing縲｝aused縲｝laying縲《top・帛●豁｢蜷・Agent 豐｡譛蛾㍾蠑霑・悄莉ｻ蜉｡縲らｬｬ莠碁｡ｹ螳梧紛謦ｭ謾ｾ・熊astify 蜿ｪ蝨ｨ Agent 謾ｶ蛻ｰ mpv `end-file reason=eof` 蜷手ｮｰ荳ｺ completed縲ゆｻｻ蜉｡蜿ｪ蜀吝・荳鍋畑 `player_agent_state` volume・梧悴菫ｮ謾ｹ queue SQLite縲よ掠譛滉ｸ谺｡ UI 莉ｻ蜉｡雜・慮螟ｱ雍･・帑ｿｮ豁｣遨ｺ髣ｲ mpv `path` 螻樊ｧ螟・炊縲∽ｸｺ API 雜・慮髞呵ｯｯ豺ｻ蜉霍ｯ逕ｱ荳贋ｸ区枚・悟ｹｶ菫ｮ螟・stop 蜷主酔霓ｮ譌ｧ assignment 蜿ｯ閭ｽ驥榊ｼ逧・ｫ樊∝錘・窟PI竊但gent竊知pv 髣ｭ邇ｯ騾夊ｿ・よ｡碁擇逕ｻ髱｢/螢ｰ髻ｳ莉埼怙逕ｨ謌ｷ莠ｺ蟾･遑ｮ隶､縲・
 
 Validation: mpv `v0.41.0` is configured by explicit `MPV_PATH`; the user confirmed the generated 15-second color-bar video was visible, and audio was audible. Real task controls verified playing, pause, resume and stop; a separate run completed only after mpv `end-file reason=eof`. Phase 10 additionally exercised real isolated queue rows through mpv and Fastify.
 
-Node 当前新增业务仅为受控测试任务协调；Legacy PHP 继续拥有生产预约播放生命周期与既有 MPC/foobar 实况控制。自动切歌的阻碍包括：实际媒体目录映射、mpv 对卡拉 OK 文件/音轨/字幕的现场验证、旧播放标记及曲目音量/键调/延时/进度通知等副作用等价，以及异常停止与用户手动切歌策略。详见 [Phase 9 兼容矩阵](LEGACY_COMPATIBILITY.md)。
+Node 蠖灘燕譁ｰ蠅樔ｸ壼苅莉・ｸｺ蜿玲而豬玖ｯ穂ｻｻ蜉｡蜊剰ｰ・ｼ姚egacy PHP 扈ｧ扈ｭ諡･譛臥函莠ｧ鬚・ｺｦ謦ｭ謾ｾ逕溷多蜻ｨ譛滉ｸ取里譛・MPC/foobar 螳槫・謗ｧ蛻ｶ縲り・蜉ｨ蛻・ｭ檎噪髦ｻ遒榊桁諡ｬ・壼ｮ樣刔蟐剃ｽ鍋岼蠖墓丐蟆・［pv 蟇ｹ蜊｡諡・OK 譁・ｻｶ/髻ｳ霓ｨ/蟄怜ｹ慕噪邇ｰ蝨ｺ鬪瑚ｯ√∵立謦ｭ謾ｾ譬・ｮｰ蜿頑峇逶ｮ髻ｳ驥・髞ｮ隹・蟒ｶ譌ｶ/霑帛ｺｦ騾夂衍遲牙憶菴懃畑遲我ｻｷ・御ｻ･蜿雁ｼょｸｸ蛛懈ｭ｢荳守畑謌ｷ謇句勘蛻・ｭ檎ｭ也払縲りｯｦ隗・[Phase 9 蜈ｼ螳ｹ遏ｩ髦ｵ](LEGACY_COMPATIBILITY.md)縲・
 
 
 Phase 9 admin proxy follow-up: admin-web Vite had omitted the exact Player Agent endpoints, making the UI report disconnected while Fastify heartbeat was healthy. Added exact GET status and POST test/control routes to the dev allowlist; Fastify admin session, Origin and CSRF checks remain authoritative. A no-cookie request now passes the proxy and receives Fastify 401 rather than Vite 403. Admin build/typecheck pass and an E2E response assertion was added; that E2E has not yet been rerun after the proxy fix.
 
 
-## Phase 10：隔离队列自动播放最小闭环
+## Phase 10・夐囈遖ｻ髦溷・閾ｪ蜉ｨ謦ｭ謾ｾ譛蟆城溜邇ｯ
 
-本阶段遵守单一 Owner：Fastify 是 opt-in 自动播放的唯一队列协调者（Compose 默认关闭）；复用现有 request.db 和 player_agent_state volume，没有新表、Schema 修改或真实数据迁移。持久任务状态权威；SQLite 的 nowplaying 仅作旧 UI 投影。Node 原子领取 reqorder ASC/id ASC 的未播放记录并写“再生開始待ち”，只在 Agent/mpv 报告目标已实际 playing 后投影“再生中”并增加 playtimes；只有 mpv 的真实 EOF 事件投影“再生済”。失败/跳过投影“停止中”。标记更新有事务和 busy timeout。提交/报告重复安全，非 EOF completed 被拒绝。
+譛ｬ髦ｶ谿ｵ驕ｵ螳亥黒荳 Owner・哥astify 譏ｯ opt-in 閾ｪ蜉ｨ謦ｭ謾ｾ逧・髪荳髦溷・蜊剰ｰ・・ｼ・ompose 鮟倩ｮ､蜈ｳ髣ｭ・会ｼ帛､咲畑邇ｰ譛・request.db 蜥・player_agent_state volume・梧ｲ｡譛画眠陦ｨ縲ヾchema 菫ｮ謾ｹ謌也悄螳樊焚謐ｮ霑∫ｧｻ縲よ戟荵・ｻｻ蜉｡迥ｶ諤∵揀螽・ｼ婀QLite 逧・nowplaying 莉・ｽ懈立 UI 謚募ｽｱ縲・ode 蜴溷ｭ宣｢・叙 reqorder ASC/id ASC 逧・悴謦ｭ謾ｾ隶ｰ蠖募ｹｶ蜀吮懷・逕滄幕蟋句ｾ・■窶晢ｼ悟宵蝨ｨ Agent/mpv 謚･蜻顔岼譬・ｷｲ螳樣刔 playing 蜷取兜蠖ｱ窶懷・逕滉ｸｭ窶晏ｹｶ蠅槫刈 playtimes・帛宵譛・mpv 逧・悄螳・EOF 莠倶ｻｶ謚募ｽｱ窶懷・逕滓ｸ遺昴ょ､ｱ雍･/霍ｳ霑・兜蠖ｱ窶懷●豁｢荳ｭ窶昴よ・ｮｰ譖ｴ譁ｰ譛我ｺ句苅蜥・busy timeout縲よ署莠､/謚･蜻企㍾螟榊ｮ牙・・碁撼 EOF completed 陲ｫ諡堤ｻ昴・
 
-自动播放仅支持 playmode=1、本地 kind=视频、常见视频扩展、所有原曲目控制项为零。Agent 用配置的 Windows 媒体根 realpath 校验数据库路径，不允许外部符号链接或任意命令。音轨、调键、音量、延时、循环、小休止、URL/直播、视频别播、评论叠加、capture/progress 等明确不支持，不会被悄悄忽略。遇到不支持项会 fail-closed 并保留 Node owner fence；管理员须显式 Stop autoplay 才释放给旧播放路径。Legacy 播放/状态入口在共享 owner fence 存在时拒绝写入；Node 运行态不转发到 PHP 播放队列，通知只在真实状态变更后调用旧通知 helper。
+閾ｪ蜉ｨ謦ｭ謾ｾ莉・髪謖・playmode=1縲∵悽蝨ｰ kind=隗・｢代∝ｸｸ隗∬ｧ・｢第黄螻輔∵園譛牙次譖ｲ逶ｮ謗ｧ蛻ｶ鬘ｹ荳ｺ髮ｶ縲・gent 逕ｨ驟咲ｽｮ逧・Windows 蟐剃ｽ捺ｹ realpath 譬｡鬪梧焚謐ｮ蠎楢ｷｯ蠕・ｼ御ｸ榊・隶ｸ螟夜Κ隨ｦ蜿ｷ體ｾ謗･謌紋ｻｻ諢丞多莉､縲る浹霓ｨ縲∬ｰ・醗縲・浹驥上∝ｻｶ譌ｶ縲∝ｾｪ邇ｯ縲∝ｰ丈ｼ第ｭ｢縲ゞRL/逶ｴ謦ｭ縲∬ｧ・｢大悪謦ｭ縲∬ｯ・ｮｺ蜿蜉縲…apture/progress 遲画・遑ｮ荳肴髪謖・ｼ御ｸ堺ｼ夊｢ｫ謔・ｄ蠢ｽ逡･縲る∞蛻ｰ荳肴髪謖・｡ｹ莨・fail-closed 蟷ｶ菫晉蕗 Node owner fence・帷ｮ｡逅・遭鬘ｻ譏ｾ蠑・Stop autoplay 謇埼㈱謾ｾ扈呎立謦ｭ謾ｾ霍ｯ蠕・・egacy 謦ｭ謾ｾ/迥ｶ諤∝・蜿｣蝨ｨ蜈ｱ莠ｫ owner fence 蟄伜惠譌ｶ諡堤ｻ晏・蜈･・娟ode 霑占｡梧∽ｸ崎ｽｬ蜿大芦 PHP 謦ｭ謾ｾ髦溷・・碁夂衍蜿ｪ蝨ｨ逵溷ｮ樒憾諤∝序譖ｴ蜷手ｰ・畑譌ｧ騾夂衍 helper縲・
 
-隔离真实实播顺序：三条合成队列记录（reqorder -2/-1/0）均指向项目外 15 秒视频。第一条真实 playing、pause、resume 后管理员 skip，记录变为停止中，Agent 随即领取第二条；第二、第三条都收到真实 mpv EOF 后才变为再生済。服务端状态回读确认三条各自 playtimes=1，跳过项状态正确。其后两条合成基线“小休止”保持未播放；Node 报告不支持并停下，不改写行。管理员 Stop 确认 Agent idle、autoplay false 并释放 owner marker；仅按明确 singer/kind/path 删除三条合成记录。未读取或写入真实用户队列。
+髫皮ｦｻ逵溷ｮ槫ｮ樊眺鬘ｺ蠎擾ｼ壻ｸ画擅蜷域・髦溷・隶ｰ蠖包ｼ・eqorder -2/-1/0・牙插謖・髄鬘ｹ逶ｮ螟・15 遘定ｧ・｢代らｬｬ荳譚｡逵溷ｮ・playing縲｝ause縲〉esume 蜷守ｮ｡逅・遭 skip・瑚ｮｰ蠖募序荳ｺ蛛懈ｭ｢荳ｭ・窟gent 髫丞叉鬚・叙隨ｬ莠梧擅・帷ｬｬ莠後∫ｬｬ荳画擅驛ｽ謾ｶ蛻ｰ逵溷ｮ・mpv EOF 蜷取燕蜿倅ｸｺ蜀咲函貂医よ恪蜉｡遶ｯ迥ｶ諤∝屓隸ｻ遑ｮ隶､荳画擅蜷・・ playtimes=1・瑚ｷｳ霑・｡ｹ迥ｶ諤∵ｭ｣遑ｮ縲ょ・蜷惹ｸ､譚｡蜷域・蝓ｺ郤ｿ窶懷ｰ丈ｼ第ｭ｢窶昜ｿ晄戟譛ｪ謦ｭ謾ｾ・娟ode 謚･蜻贋ｸ肴髪謖∝ｹｶ蛛應ｸ具ｼ御ｸ肴隼蜀呵｡後らｮ｡逅・遭 Stop 遑ｮ隶､ Agent idle縲∥utoplay false 蟷ｶ驥頑叛 owner marker・帑ｻ・潔譏守｡ｮ singer/kind/path 蛻髯､荳画擅蜷域・隶ｰ蠖輔よ悴隸ｻ蜿匁・蜀吝・逵溷ｮ樒畑謌ｷ髦溷・縲・
 
-验证：API + PHP oracle **35/35**；user-web Edge **8 passed / 1 skipped**（真实曲库命中未配置）；admin-web Edge **3/3**；Player Agent **3/3**；API/user/admin/Agent typecheck 与 build 通过。初次并行启动两个浏览器套件导致它们共享合成 DB 的测试行互相可见，已确认仅合成记录、基线未变，随后改为串行重跑并通过；管理 E2E 需 Agent 离线，故回归期间短暂停止空闲 Agent。完整 PHP lint/正常 Compose 健康检查见本阶段最终验证。
+鬪瑚ｯ・ｼ哂PI + PHP oracle **35/35**・孛ser-web Edge **8 passed / 1 skipped**・育悄螳樊峇蠎灘多荳ｭ譛ｪ驟咲ｽｮ・会ｼ嫗dmin-web Edge **3/3**・娜layer Agent **3/3**・妁PI/user/admin/Agent typecheck 荳・build 騾夊ｿ・ょ・谺｡蟷ｶ陦悟星蜉ｨ荳､荳ｪ豬剰ｧ亥勣螂嶺ｻｶ蟇ｼ閾ｴ螳・ｻｬ蜈ｱ莠ｫ蜷域・ DB 逧・ｵ玖ｯ戊｡御ｺ堤嶌蜿ｯ隗・ｼ悟ｷｲ遑ｮ隶､莉・粋謌占ｮｰ蠖輔∝渕郤ｿ譛ｪ蜿假ｼ碁囂蜷取隼荳ｺ荳ｲ陦碁㍾霍大ｹｶ騾夊ｿ・ｼ帷ｮ｡逅・E2E 髴 Agent 遖ｻ郤ｿ・梧腐蝗槫ｽ呈悄髣ｴ遏ｭ證ょ●豁｢遨ｺ髣ｲ Agent縲ょｮ梧紛 PHP lint/豁｣蟶ｸ Compose 蛛･蠎ｷ譽譟･隗∵悽髦ｶ谿ｵ譛扈磯ｪ瑚ｯ√・
 
-目前不启用生产自动播放（docker/compose.yaml 默认 YUKARI_NODE_AUTOPLAY=0）。真实自动切歌证明仅限隔离视频 fixture；不得把旧 PHP Windows manager 与 Node 同时指向同一队列。切换前仍须验证生产媒体映射、现场 queue-owner fence 共享、Legacy Windows 进程停用/围栏、故障恢复和小休止人工流程。队列历史的 songstart/songnext、音轨/调键/音量、评论/进度及其他 karaoke 行为未迁移；PotPlayer 无可靠控制接口。没有自动 commit/push。
+逶ｮ蜑堺ｸ榊星逕ｨ逕滉ｺｧ閾ｪ蜉ｨ謦ｭ謾ｾ・・ocker/compose.yaml 鮟倩ｮ､ YUKARI_NODE_AUTOPLAY=0・峨ら悄螳櫁・蜉ｨ蛻・ｭ瑚ｯ∵・莉・剞髫皮ｦｻ隗・｢・fixture・帑ｸ榊ｾ玲滑譌ｧ PHP Windows manager 荳・Node 蜷梧慮謖・髄蜷御ｸ髦溷・縲ょ・謐｢蜑堺ｻ埼｡ｻ鬪瑚ｯ∫函莠ｧ蟐剃ｽ捺丐蟆・∫鴫蝨ｺ queue-owner fence 蜈ｱ莠ｫ縲´egacy Windows 霑帷ｨ句●逕ｨ/蝗ｴ譬上∵腐髫懈△螟榊柱蟆丈ｼ第ｭ｢莠ｺ蟾･豬∫ｨ九る弌蛻怜紙蜿ｲ逧・songstart/songnext縲・浹霓ｨ/隹・醗/髻ｳ驥上∬ｯ・ｮｺ/霑帛ｺｦ蜿雁・莉・karaoke 陦御ｸｺ譛ｪ霑∫ｧｻ・娜otPlayer 譌蜿ｯ髱謗ｧ蛻ｶ謗･蜿｣縲よｲ｡譛芽・蜉ｨ commit/push縲・
 
-Phase 10 stop-control follow-up: on a second isolated synthetic request, Fastify claimed the real mpv video, observed playing, then an admin Stop caused mpv to report stopped; the request moved to 停止中/playback failed, autoplay disabled, no next task was claimed, and the owner fence was released. The exact synthetic queue row and its one history entry were removed; the two isolated baseline 小休止 rows remained unchanged.
+Phase 10 stop-control follow-up: on a second isolated synthetic request, Fastify claimed the real mpv video, observed playing, then an admin Stop caused mpv to report stopped; the request moved to 蛛懈ｭ｢荳ｭ/playback failed, autoplay disabled, no next task was claimed, and the owner fence was released. The exact synthetic queue row and its one history entry were removed; the two isolated baseline 蟆丈ｼ第ｭ｢ rows remained unchanged.
 
 ## Phase 10 durable SQLite task/history follow-up
 
-日期：2026-10-21（Asia/Tokyo）。正式自动播放任务从 JSON `player_agent_state` 移至同一 `request.db`，新增 `apps/api-server/migrations/002-playback-task.sql`：`playback_task` 保存唯一任务 ID、request ID、状态、Agent、15 秒续租、命令序号、实测播放态、时间和脱敏错误码；`playback_event` 追加领取、开始、暂停/恢复、管理命令、跳过、停止、失败、EOF 与恢复事件。partial unique indexes 阻止同一预约被并行活动任务消费，以及同一时刻有多个正式活动任务。JSON volume 保留、不删除、不负责正式队列任务，只承载 Phase 9 测试任务与 Agent heartbeat。
+譌･譛滂ｼ・026-10-21・・sia/Tokyo・峨よｭ｣蠑剰・蜉ｨ謦ｭ謾ｾ莉ｻ蜉｡莉・JSON `player_agent_state` 遘ｻ閾ｳ蜷御ｸ `request.db`・梧眠蠅・`apps/api-server/migrations/002-playback-task.sql`・啻playback_task` 菫晏ｭ伜髪荳莉ｻ蜉｡ ID縲〉equest ID縲∫憾諤√、gent縲・5 遘堤ｻｭ遘溘∝多莉､蠎丞捷縲∝ｮ樊ｵ区眺謾ｾ諤√∵慮髣ｴ蜥瑚┳謨城漠隸ｯ遐・ｼ嫣playback_event` 霑ｽ蜉鬚・叙縲∝ｼ蟋九∵嘯蛛・諱｢螟阪∫ｮ｡逅・多莉､縲∬ｷｳ霑・∝●豁｢縲∝､ｱ雍･縲・OF 荳取△螟堺ｺ倶ｻｶ縲Ｑartial unique indexes 髦ｻ豁｢蜷御ｸ鬚・ｺｦ陲ｫ蟷ｶ陦梧ｴｻ蜉ｨ莉ｻ蜉｡豸郁ｴｹ・御ｻ･蜿雁酔荳譌ｶ蛻ｻ譛牙､壻ｸｪ豁｣蠑乗ｴｻ蜉ｨ莉ｻ蜉｡縲・SON volume 菫晉蕗縲∽ｸ榊唖髯､縲∽ｸ崎ｴ溯ｴ｣豁｣蠑城弌蛻嶺ｻｻ蜉｡・悟宵謇ｿ霓ｽ Phase 9 豬玖ｯ穂ｻｻ蜉｡荳・Agent heartbeat縲・
 
-Fastify 是唯一正式队列协调者。队列领取、任务插入、事件插入和 `requesttable` 的“再生開始待ち”投影同属 `BEGIN IMMEDIATE`；报告播放、完成/失败及兼容投影也同事务提交。实播确认后才将 `再生中`、`playtimes + 1` 和开始事件一起落库；实际 mpv `end-file reason=eof` 才将任务/事件和 `再生済` 一起提交。重复 EOF/状态报告不重复计数或写重复事件。admin-only `GET /api/v1/admin/playback/history` 返回任务和事件分页，不存放或返回媒体路径/认证凭据。
+Fastify 譏ｯ蜚ｯ荳豁｣蠑城弌蛻怜刻隹・・る弌蛻鈴｢・叙縲∽ｻｻ蜉｡謠貞・縲∽ｺ倶ｻｶ謠貞・蜥・`requesttable` 逧・懷・逕滄幕蟋句ｾ・■窶晄兜蠖ｱ蜷悟ｱ・`BEGIN IMMEDIATE`・帶冠蜻頑眺謾ｾ縲∝ｮ梧・/螟ｱ雍･蜿雁・螳ｹ謚募ｽｱ荵溷酔莠句苅謠蝉ｺ､縲ょｮ樊眺遑ｮ隶､蜷取燕蟆・`蜀咲函荳ｭ`縲～playtimes + 1` 蜥悟ｼ蟋倶ｺ倶ｻｶ荳襍ｷ關ｽ蠎難ｼ帛ｮ樣刔 mpv `end-file reason=eof` 謇榊ｰ・ｻｻ蜉｡/莠倶ｻｶ蜥・`蜀咲函貂・ 荳襍ｷ謠蝉ｺ､縲る㍾螟・EOF/迥ｶ諤∵冠蜻贋ｸ埼㍾螟崎ｮ｡謨ｰ謌門・驥榊､堺ｺ倶ｻｶ縲Ｂdmin-only `GET /api/v1/admin/playback/history` 霑泌屓莉ｻ蜉｡蜥御ｺ倶ｻｶ蛻・｡ｵ・御ｸ榊ｭ俶叛謌冶ｿ泌屓蟐剃ｽ楢ｷｯ蠕・隶､隸∝・謐ｮ縲・
 
-Agent 15 秒 lease 在轮询中续租。Fastify 重启时未决 `claimed/playing` 转 `uncertain` 并保留 owner fence；lease 过期同样转 uncertain。Agent 仅被要求停止；确认 mpv 已停止后才以 failed/停止中终结，不重播、不猜测完成。Node 启动时若正式 autoplay 配置开启而 DDL 不存在会 fail-fast；正常 Compose 仍是 `YUKARI_NODE_AUTOPLAY=0`。旧 JSON 队列任务会被忽略，但卷和旧记录保留。
+Agent 15 遘・lease 蝨ｨ霓ｮ隸｢荳ｭ扈ｭ遘溘・astify 驥榊星譌ｶ譛ｪ蜀ｳ `claimed/playing` 霓ｬ `uncertain` 蟷ｶ菫晉蕗 owner fence・嬪ease 霑・悄蜷梧ｷ霓ｬ uncertain縲・gent 莉・｢ｫ隕∵ｱょ●豁｢・帷｡ｮ隶､ mpv 蟾ｲ蛛懈ｭ｢蜷取燕莉･ failed/蛛懈ｭ｢荳ｭ扈育ｻ難ｼ御ｸ埼㍾謦ｭ縲∽ｸ咲懸豬句ｮ梧・縲・ode 蜷ｯ蜉ｨ譌ｶ闍･豁｣蠑・autoplay 驟咲ｽｮ蠑蜷ｯ閠・DDL 荳榊ｭ伜惠莨・fail-fast・帶ｭ｣蟶ｸ Compose 莉肴弍 `YUKARI_NODE_AUTOPLAY=0`縲よ立 JSON 髦溷・莉ｻ蜉｡莨夊｢ｫ蠢ｽ逡･・御ｽ・差蜥梧立隶ｰ蠖穂ｿ晉蕗縲・
 
-隔离 SQLite 验证：自动领取顺序/Agent 单一归属、task+event+状态投影事务、playtimes 只增加一次、暂停/恢复命令需实测回报后清除、真实 EOF 契约与重复回报、媒体路径不进入历史、触发器注入时事务完整回滚、Fastify 重启/租约超时转 uncertain 且需确认停止。新增仓储与 API 回归 **5/5 通过**；API typecheck/build 通过。完整 `apps/api-server` suite 在此 Windows 执行环境无法成功：多个既有测试需要 Docker synthetic compose，Docker Engine pipe 返回 `permission denied`，本机运行也未设置受保护的 `E2E_CONFIG_PATH`；不能把这些失败记作通过。新 schema 下真实 Windows Agent→mpv 的端到端回归、完整 Docker Compose 和两套 Edge E2E 尚未重跑。Phase 9/10 先前在 JSON task store 上的真实 mpv 画面/声音、控制与 EOF 验证仍有效，但不能替代本次 SQLite task store + mpv 的联调。
+髫皮ｦｻ SQLite 鬪瑚ｯ・ｼ夊・蜉ｨ鬚・叙鬘ｺ蠎・Agent 蜊穂ｸ蠖貞ｱ槭》ask+event+迥ｶ諤∵兜蠖ｱ莠句苅縲｝laytimes 蜿ｪ蠅槫刈荳谺｡縲∵嘯蛛・諱｢螟榊多莉､髴螳樊ｵ句屓謚･蜷取ｸ・勁縲∫悄螳・EOF 螂醍ｺｦ荳朱㍾螟榊屓謚･縲∝ｪ剃ｽ楢ｷｯ蠕・ｸ崎ｿ帛・蜴・彰縲∬ｧｦ蜿大勣豕ｨ蜈･譌ｶ莠句苅螳梧紛蝗樊ｻ壹：astify 驥榊星/遘溽ｺｦ雜・慮霓ｬ uncertain 荳秘怙遑ｮ隶､蛛懈ｭ｢縲よ眠蠅樔ｻ灘お荳・API 蝗槫ｽ・**5/5 騾夊ｿ・*・妁PI typecheck/build 騾夊ｿ・ょｮ梧紛 `apps/api-server` suite 蝨ｨ豁､ Windows 謇ｧ陦檎識蠅・裏豕墓・蜉滂ｼ壼､壻ｸｪ譌｢譛画ｵ玖ｯ暮怙隕・Docker synthetic compose・轡ocker Engine pipe 霑泌屓 `permission denied`・梧悽譛ｺ霑占｡御ｹ滓悴隶ｾ鄂ｮ蜿嶺ｿ晄侃逧・`E2E_CONFIG_PATH`・帑ｸ崎・謚願ｿ吩ｺ帛､ｱ雍･隶ｰ菴憺夊ｿ・よ眠 schema 荳狗悄螳・Windows Agent竊知pv 逧・ｫｯ蛻ｰ遶ｯ蝗槫ｽ偵∝ｮ梧紛 Docker Compose 蜥御ｸ､螂・Edge E2E 蟆壽悴驥崎ｷ代１hase 9/10 蜈亥燕蝨ｨ JSON task store 荳顔噪逵溷ｮ・mpv 逕ｻ髱｢/螢ｰ髻ｳ縲∵而蛻ｶ荳・EOF 鬪瑚ｯ∽ｻ肴怏謨茨ｼ御ｽ・ｸ崎・譖ｿ莉｣譛ｬ谺｡ SQLite task store + mpv 逧・＃隹・・
 
-真实 `request.db` **未迁移 Schema**；已将停服后的数据库及 SQLite sidecar 快照保存在被 Git 忽略的 `.local/phase10-playback-backup/`，`integrity_check`、队列/回执行数及 SHA256 均校验通过。实际 Schema 未改变；本轮曾写入的三条测试预约已按唯一标记清理，详见下文。迁移执行前仍须重新制作新鲜备份。虽然新 DDL 已在临时合成库执行，仍需在部署前停止所有 PHP/Node/Legacy 队列写者和 WAL anchor，制作并校验一致备份（DB 与 WAL/SHM 状态），再由用户批准后执行显式 `node dist/migrate.js request.db playback-task`。新迁移只增两张表和索引，不更改既有列或现有预约/幂等行；旧 JSON volume 不删除。只有真实库迁移后才可在该环境启用自动播放。详细契约/Owner 见 [兼容矩阵](LEGACY_COMPATIBILITY.md#phase-10-node-native-自动播放仅隔离验证)。
+逵溷ｮ・`request.db` **譛ｪ霑∫ｧｻ Schema**・帛ｷｲ蟆・●譛榊錘逧・焚謐ｮ蠎灘所 SQLite sidecar 蠢ｫ辣ｧ菫晏ｭ伜惠陲ｫ Git 蠢ｽ逡･逧・`.local/phase10-playback-backup/`・形integrity_check`縲・弌蛻・蝗樊鴬陦梧焚蜿・SHA256 蝮・｡鬪碁夊ｿ・ょｮ樣刔 Schema 譛ｪ謾ｹ蜿假ｼ帶悽霓ｮ譖ｾ蜀吝・逧・ｸ画擅豬玖ｯ暮｢・ｺｦ蟾ｲ謖牙髪荳譬・ｮｰ貂・炊・瑚ｯｦ隗∽ｸ区枚縲りｿ∫ｧｻ謇ｧ陦悟燕莉埼｡ｻ驥肴眠蛻ｶ菴懈眠魎懷､・ｻｽ縲り區辟ｶ譁ｰ DDL 蟾ｲ蝨ｨ荳ｴ譌ｶ蜷域・蠎捺鴬陦鯉ｼ御ｻ埼怙蝨ｨ驛ｨ鄂ｲ蜑榊●豁｢謇譛・PHP/Node/Legacy 髦溷・蜀呵・柱 WAL anchor・悟宛菴懷ｹｶ譬｡鬪御ｸ閾ｴ螟・ｻｽ・・B 荳・WAL/SHM 迥ｶ諤・ｼ会ｼ悟・逕ｱ逕ｨ謌ｷ謇ｹ蜃・錘謇ｧ陦梧仞蠑・`node dist/migrate.js request.db playback-task`縲よ眠霑∫ｧｻ蜿ｪ蠅樔ｸ､蠑陦ｨ蜥檎ｴ｢蠑包ｼ御ｸ肴峩謾ｹ譌｢譛牙・謌也鴫譛蛾｢・ｺｦ/蟷らｭ芽｡鯉ｼ帶立 JSON volume 荳榊唖髯､縲ょ宵譛臥悄螳槫ｺ楢ｿ∫ｧｻ蜷取燕蜿ｯ蝨ｨ隸･邇ｯ蠅・星逕ｨ閾ｪ蜉ｨ謦ｭ謾ｾ縲りｯｦ扈・･醍ｺｦ/Owner 隗・[蜈ｼ螳ｹ遏ｩ髦ｵ](LEGACY_COMPATIBILITY.md#phase-10-node-native-閾ｪ蜉ｨ謦ｭ謾ｾ莉・囈遖ｻ鬪瑚ｯ・縲・
 
 ### Phase 10 follow-up validation and proxy safety
 
 2026-10-21 follow-up: the full API/PHP oracle suite passed **40 tests, 0 failed, 1 optional real-mpv test skipped**. The separate Windows Agent + real mpv + temporary SQLite test passed **1/1**, verifying observed playing, pause, resume, and actual EOF. user-web Edge passed **8/8 runnable tests** with one real-search fixture skip; admin-web passed **3/3**. All four apps typechecked and built. Browser tests now use `API_PROXY_TARGET` from the process environment and `E2E_WEB_PORT` to avoid an already-running developer Vite server.
 
-During the initial E2E attempt, the React proxy did not read the shell API target, so three uniquely marked `ReactNodeE2E_` small-rest requests went to the default API. The test was stopped; IDs 64–66 were verified by prefix and deleted through the authenticated Node admin endpoint. Their three distinct test-user history/user entries and submission receipts were then removed by exact owner/request IDs in one transaction. Read-only verification found no matching queue rows or receipts and a contiguous remaining queue. The API emitted normal reservation/cleanup notifications, whose counter side effects cannot be reversed. The proxy and E2E port fixes were applied before the passing rerun; all later browser writes targeted only the isolated 3100/8180 deployment.
+During the initial E2E attempt, the React proxy did not read the shell API target, so three uniquely marked `ReactNodeE2E_` small-rest requests went to the default API. The test was stopped; IDs 64窶・6 were verified by prefix and deleted through the authenticated Node admin endpoint. Their three distinct test-user history/user entries and submission receipts were then removed by exact owner/request IDs in one transaction. Read-only verification found no matching queue rows or receipts and a contiguous remaining queue. The API emitted normal reservation/cleanup notifications, whose counter side effects cannot be reversed. The proxy and E2E port fixes were applied before the passing rerun; all later browser writes targeted only the isolated 3100/8180 deployment.
 
 The deployed `request.db` was **not migrated** and formal autoplay remains disabled. No database tables were added to it; the explicit migration and consistent backup procedure remain pending approval.
 
@@ -536,17 +536,17 @@ Phase 11 did not change the live queue, saved `playmode`, media configuration, C
 
 ### Mode compatibility
 
-PHP `init.php` exposes modes 1–5. Mode 1 automatically advances in queue order. Mode 2 requires a person to press the playback-start control. Mode 3 registers a manually maintained player playlist. Mode 4 is a jukebox mode selecting least-played eligible entries, randomizing equal-count choices, avoiding immediate repeats and sometimes balancing play counts. Mode 5 randomly selects from the list regardless of prior play count and excludes the Legacy karaoke-delivery kind. These modes do not share a safe FIFO rule. Fastify and `PlaybackTaskRepository` remain mode-1-only; modes 2–5 fail closed. In particular, mode 3 is not changed to mode 1 and no real config is touched.
+PHP `init.php` exposes modes 1窶・. Mode 1 automatically advances in queue order. Mode 2 requires a person to press the playback-start control. Mode 3 registers a manually maintained player playlist. Mode 4 is a jukebox mode selecting least-played eligible entries, randomizing equal-count choices, avoiding immediate repeats and sometimes balancing play counts. Mode 5 randomly selects from the list regardless of prior play count and excludes the Legacy karaoke-delivery kind. These modes do not share a safe FIFO rule. Fastify and `PlaybackTaskRepository` remain mode-1-only; modes 2窶・ fail closed. In particular, mode 3 is not changed to mode 1 and no real config is touched.
 
 ### POSIX-to-Windows media mapping
 
 The Player Agent now accepts `PLAYER_PATH_MAPPINGS` as a local JSON array of `{source,target}`. POSIX source roots must be normalized absolute directories; target directories must already exist beneath `PLAYER_MEDIA_ROOT`. A queue path must match an explicit source prefix and resolve to an existing file within both roots. `realpath` rejects traversal and symlinks escaping the allowed directory. Unmapped POSIX paths, malformed mappings and missing files fail closed. Existing Windows absolute or relative queue paths are still accepted only under the configured real media root. The mapping never comes from a browser or Fastify request.
 
-PHP persists `fullpath` from its search result; the exact result path is environment dependent. Docker Compose does not mount the Windows media library into the PHP/Node containers. This phase validated mapping with synthetic `/synthetic-media` → temporary Windows media-root mapping and two copies of the external 15-second test clip. It did not derive or apply any production mapping. Before production use, the operator must inspect the local storage layout and set an explicit mapping that resolves each eligible database path to the intended host file.
+PHP persists `fullpath` from its search result; the exact result path is environment dependent. Docker Compose does not mount the Windows media library into the PHP/Node containers. This phase validated mapping with synthetic `/synthetic-media` 竊・temporary Windows media-root mapping and two copies of the external 15-second test clip. It did not derive or apply any production mapping. Before production use, the operator must inspect the local storage layout and set an explicit mapping that resolves each eligible database path to the intended host file.
 
 ### Two-song real-player verification
 
-The isolated Windows real-mpv E2E used a fresh temporary SQLite database and two synthetic queue rows. Admin-authenticated Fastify started mode 1, claimed the first row, Agent mapped its POSIX path, mpv reported real playing, and pause/resume were observed. Only real `end-file reason=eof` completed that row and projected `再生済` with one play count. The scheduler then claimed the second row; its independently observed EOF completed it. Both rows have one EOF event and one play count, with no active task left. Admin history returned two tasks and omitted media paths; Stop disabled autoplay and released the isolated owner fence. This demonstrates an isolated real-player loop, not production autoplay.
+The isolated Windows real-mpv E2E used a fresh temporary SQLite database and two synthetic queue rows. Admin-authenticated Fastify started mode 1, claimed the first row, Agent mapped its POSIX path, mpv reported real playing, and pause/resume were observed. Only real `end-file reason=eof` completed that row and projected `蜀咲函貂・ with one play count. The scheduler then claimed the second row; its independently observed EOF completed it. Both rows have one EOF event and one play count, with no active task left. Admin history returned two tasks and omitted media paths; Stop disabled autoplay and released the isolated owner fence. This demonstrates an isolated real-player loop, not production autoplay.
 
 The sequential test exposed globally colliding deterministic event keys (`claimed`, `playing`, `eof`). Later task transitions could commit while the `INSERT OR IGNORE` silently omitted their events. Keys are now namespaced by task ID. A repository regression test completes two tasks and checks that both retain EOF history. Admin System now displays sanitized playback history next to Agent/task status.
 
@@ -563,47 +563,47 @@ Fastify remains the sole formal queue scheduler/task owner; SQLite `playback_tas
 | Search result path generation and unconverted karaoke controls | Legacy PHP | No Node search rewrite; manager must not compete with Fastify |
 | User/admin presentation | React clients | Admin page reads authenticated current state/history; service still enforces role |
 
-## Phase 12：实际使用准备与最终回归
+## Phase 12・壼ｮ樣刔菴ｿ逕ｨ蜃・､・ｸ取怙扈亥屓蠖・
 
-日期：2026-10-21。Docker Engine 测试访问通过 ignored `.local/empty-docker-config` 下的临时 Compose CLI 插件恢复。正式 Compose 与 `phase12isolated` 合成栈均 healthy；正式配置仍为 `YUKARI_NODE_AUTOPLAY=0`。未修改正式 `request.db`、预约、playmode、媒体配置、密码或 schema。
+譌･譛滂ｼ・026-10-21縲・ocker Engine 豬玖ｯ戊ｮｿ髣ｮ騾夊ｿ・ignored `.local/empty-docker-config` 荳狗噪荳ｴ譌ｶ Compose CLI 謠剃ｻｶ諱｢螟阪よｭ｣蠑・Compose 荳・`phase12isolated` 蜷域・譬亥插 healthy・帶ｭ｣蠑城・鄂ｮ莉堺ｸｺ `YUKARI_NODE_AUTOPLAY=0`縲よ悴菫ｮ謾ｹ豁｣蠑・`request.db`縲・｢・ｺｦ縲｝laymode縲∝ｪ剃ｽ馴・鄂ｮ縲∝ｯ・∵・ schema縲・
 
-完整 API/PHP oracle **43/43 通过**（完整套件中的可选真实 mpv 测试跳过，随后单独启用）；Player Agent **4/4**，PHP lint **305/305**，API、user-web、admin-web、Player Agent typecheck/build 全通过。独立真实 Windows mpv + 临时 SQLite 两首队列测试 **1/1 通过**：真实 playing、pause/resume、EOF、每行一次播放计数和 EOF 事件、EOF 后下一首。没有触碰正式预约。user Edge 报告 **8 通过、1 跳过**（测试曲库未配置真实搜索命中），admin Edge **3/3 通过**，均指向隔离 API。两个 Playwright 命令已输出全部通过项，但 Windows teardown 后进程未退出；收集结果后手动中断，故用例断言通过而命令退出状态不视为干净通过。第一次 API 测试的相对路径与 Compose marker 不匹配均已修正，最终完整套件成功。
+螳梧紛 API/PHP oracle **43/43 騾夊ｿ・*・亥ｮ梧紛螂嶺ｻｶ荳ｭ逧・庄騾臥悄螳・mpv 豬玖ｯ戊ｷｳ霑・ｼ碁囂蜷主黒迢ｬ蜷ｯ逕ｨ・会ｼ娜layer Agent **4/4**・訓HP lint **305/305**・窟PI縲「ser-web縲∥dmin-web縲￣layer Agent typecheck/build 蜈ｨ騾夊ｿ・ら峡遶狗悄螳・Windows mpv + 荳ｴ譌ｶ SQLite 荳､鬥夜弌蛻玲ｵ玖ｯ・**1/1 騾夊ｿ・*・夂悄螳・playing縲｝ause/resume縲・OF縲∵ｯ剰｡御ｸ谺｡謦ｭ謾ｾ隶｡謨ｰ蜥・EOF 莠倶ｻｶ縲・OF 蜷惹ｸ倶ｸ鬥悶よｲ｡譛芽ｧｦ遒ｰ豁｣蠑城｢・ｺｦ縲Ｖser Edge 謚･蜻・**8 騾夊ｿ・・ 霍ｳ霑・*・域ｵ玖ｯ墓峇蠎捺悴驟咲ｽｮ逵溷ｮ樊頗邏｢蜻ｽ荳ｭ・会ｼ径dmin Edge **3/3 騾夊ｿ・*・悟插謖・髄髫皮ｦｻ API縲ゆｸ､荳ｪ Playwright 蜻ｽ莉､蟾ｲ霎灘・蜈ｨ驛ｨ騾夊ｿ・｡ｹ・御ｽ・Windows teardown 蜷手ｿ帷ｨ区悴騾蜃ｺ・帶噺髮・ｻ捺棡蜷取焔蜉ｨ荳ｭ譁ｭ・梧腐逕ｨ萓区妙險騾夊ｿ・悟多莉､騾蜃ｺ迥ｶ諤∽ｸ崎ｧ・ｸｺ蟷ｲ蜃騾夊ｿ・らｬｬ荳谺｡ API 豬玖ｯ慕噪逶ｸ蟇ｹ霍ｯ蠕・ｸ・Compose marker 荳榊源驟榊插蟾ｲ菫ｮ豁｣・梧怙扈亥ｮ梧紛螂嶺ｻｶ謌仙粥縲・
 
-播放策略按当前只读 Legacy `playmode` 显示，管理 UI 不修改此设置：模式 1 可选择 Node FIFO 自动播放；模式 2 可显式接管并逐首点击“开始下一首”，真实 EOF 后等待管理员下一次操作；模式 3 手动播放列表注册语义未迁移；模式 4/5 有不同的选曲、排除、随机及播放次数平衡规则，Node 不用 FIFO 冒充。模式 3–5 当前不可由 Node 接管。
+謦ｭ謾ｾ遲也払謖牙ｽ灘燕蜿ｪ隸ｻ Legacy `playmode` 譏ｾ遉ｺ・檎ｮ｡逅・UI 荳堺ｿｮ謾ｹ豁､隶ｾ鄂ｮ・壽ｨ｡蠑・1 蜿ｯ騾画叫 Node FIFO 閾ｪ蜉ｨ謦ｭ謾ｾ・帶ｨ｡蠑・2 蜿ｯ譏ｾ蠑乗磁邂｡蟷ｶ騾宣ｦ也せ蜃ｻ窶懷ｼ蟋倶ｸ倶ｸ鬥問晢ｼ檎悄螳・EOF 蜷守ｭ牙ｾ・ｮ｡逅・遭荳倶ｸ谺｡謫堺ｽ懶ｼ帶ｨ｡蠑・3 謇句勘謦ｭ謾ｾ蛻苓｡ｨ豕ｨ蜀瑚ｯｭ荵画悴霑∫ｧｻ・帶ｨ｡蠑・4/5 譛我ｸ榊酔逧・画峇縲∵賜髯､縲・囂譛ｺ蜿頑眺謾ｾ谺｡謨ｰ蟷ｳ陦｡隗・・・君ode 荳咲畑 FIFO 蜀貞・縲よｨ｡蠑・3窶・ 蠖灘燕荳榊庄逕ｱ Node 謗･邂｡縲・
 
-管理端提供逐预约媒体可用性检查，结果为 `playable`、`path_unmapped`、`file_missing`、`invalid_path` 或 `agent_offline`，不向浏览器暴露实际路径。`playable` 仅表示 Windows Agent 在本地配置的 allowlist/root 下解析到现存文件，不代表编码格式及卡拉 OK 控制可用。Docker/Legacy 持久化路径格式来自实际搜索结果；本机没有确认正式曲库目录，所以没有配置或猜测真实映射。按 [Player Agent 路径说明](../apps/player-agent/README.md) 由管理员核对 Legacy POSIX 路径，再填写 `PLAYER_PATH_MAPPINGS` 的 source/target 和已有 Windows `PLAYER_MEDIA_ROOT`。
+邂｡逅・ｫｯ謠蝉ｾ幃宣｢・ｺｦ蟐剃ｽ灘庄逕ｨ諤ｧ譽譟･・檎ｻ捺棡荳ｺ `playable`縲～path_unmapped`縲～file_missing`縲～invalid_path` 謌・`agent_offline`・御ｸ榊髄豬剰ｧ亥勣證ｴ髴ｲ螳樣刔霍ｯ蠕・Ａplayable` 莉・｡ｨ遉ｺ Windows Agent 蝨ｨ譛ｬ蝨ｰ驟咲ｽｮ逧・allowlist/root 荳玖ｧ｣譫仙芦邇ｰ蟄俶枚莉ｶ・御ｸ堺ｻ｣陦ｨ郛也∵ｼ蠑丞所蜊｡諡・OK 謗ｧ蛻ｶ蜿ｯ逕ｨ縲・ocker/Legacy 謖∽ｹ・喧霍ｯ蠕・ｼ蠑乗擂閾ｪ螳樣刔謳懃ｴ｢扈捺棡・帶悽譛ｺ豐｡譛臥｡ｮ隶､豁｣蠑乗峇蠎鍋岼蠖包ｼ梧園莉･豐｡譛蛾・鄂ｮ謌也懸豬狗悄螳樊丐蟆・よ潔 [Player Agent 霍ｯ蠕・ｯｴ譏讃(../agents/player-agent/README.md) 逕ｱ邂｡逅・遭譬ｸ蟇ｹ Legacy POSIX 霍ｯ蠕・ｼ悟・蝪ｫ蜀・`PLAYER_PATH_MAPPINGS` 逧・source/target 蜥悟ｷｲ譛・Windows `PLAYER_MEDIA_ROOT`縲・
 
-当前用户可见进程列表未发现 mpv、PHP 或 Legacy 管理播放器进程；受限权限无法检查其他用户/提升权限的 Windows 计划任务。容器 Legacy manager 启动及轮询时会检查共享 owner fence；但独立 Windows 安装/计划任务必须确认共用并遵守该 fence，或保持停止。正式启动仍有两个人工门槛：提供并核验正式媒体映射，确认所有外部 Legacy 调度器已停止/围栏，然后另行批准启用 `YUKARI_NODE_AUTOPLAY`。在此之前保持关闭，不使用真实预约做实播。
+蠖灘燕逕ｨ謌ｷ蜿ｯ隗∬ｿ帷ｨ句・陦ｨ譛ｪ蜿醍鴫 mpv縲￣HP 謌・Legacy 邂｡逅・眺謾ｾ蝎ｨ霑帷ｨ具ｼ帛女髯先揀髯先裏豕墓｣譟･蜈ｶ莉也畑謌ｷ/謠仙合譚・剞逧・Windows 隶｡蛻剃ｻｻ蜉｡縲ょｮｹ蝎ｨ Legacy manager 蜷ｯ蜉ｨ蜿願ｽｮ隸｢譌ｶ莨壽｣譟･蜈ｱ莠ｫ owner fence・帑ｽ・峡遶・Windows 螳芽｣・隶｡蛻剃ｻｻ蜉｡蠢・｡ｻ遑ｮ隶､蜈ｱ逕ｨ蟷ｶ驕ｵ螳郁ｯ･ fence・梧・菫晄戟蛛懈ｭ｢縲よｭ｣蠑丞星蜉ｨ莉肴怏荳､荳ｪ莠ｺ蟾･髣ｨ讒幢ｼ壽署萓帛ｹｶ譬ｸ鬪梧ｭ｣蠑丞ｪ剃ｽ捺丐蟆・ｼ檎｡ｮ隶､謇譛牙､夜Κ Legacy 隹・ｺｦ蝎ｨ蟾ｲ蛛懈ｭ｢/蝗ｴ譬擾ｼ檎┯蜷主嘗陦梧音蜃・星逕ｨ `YUKARI_NODE_AUTOPLAY`縲ょ惠豁､荵句燕菫晄戟蜈ｳ髣ｭ・御ｸ堺ｽｿ逕ｨ逵溷ｮ樣｢・ｺｦ蛛壼ｮ樊眺縲・
 
-## Phase 13：Windows 本地启动、统一构建入口与开发回归
+## Phase 13・啗indows 譛ｬ蝨ｰ蜷ｯ蜉ｨ縲∫ｻ滉ｸ譫・ｻｺ蜈･蜿｣荳主ｼ蜿大屓蠖・
 
-本阶段只整理本地运行体验，没有修改正式预约、`request.db`、Schema、`playmode`、管理凭据或正式媒体目录。正常 Compose 保持 `YUKARI_NODE_AUTOPLAY=0`；正式 PHP/Fastify 容器健康。隔离回归使用独立 `phase13isolated` synthetic SQLite 栈（API 3100、Legacy 8180），未清理任何 Docker volume。
+譛ｬ髦ｶ谿ｵ蜿ｪ謨ｴ逅・悽蝨ｰ霑占｡御ｽ馴ｪ鯉ｼ梧ｲ｡譛我ｿｮ謾ｹ豁｣蠑城｢・ｺｦ縲～request.db`縲ヾchema縲～playmode`縲∫ｮ｡逅・・謐ｮ謌匁ｭ｣蠑丞ｪ剃ｽ鍋岼蠖輔よｭ｣蟶ｸ Compose 菫晄戟 `YUKARI_NODE_AUTOPLAY=0`・帶ｭ｣蠑・PHP/Fastify 螳ｹ蝎ｨ蛛･蠎ｷ縲る囈遖ｻ蝗槫ｽ剃ｽｿ逕ｨ迢ｬ遶・`phase13isolated` synthetic SQLite 譬茨ｼ・PI 3100縲´egacy 8180・会ｼ梧悴貂・炊莉ｻ菴・Docker volume縲・
 
-Docker 镜像现通过独立构建阶段生成 user-web/admin-web，Apache 同源地址为 `http://127.0.0.1:8080/app/`（入口）、`/user/`（用户端）和 `/admin/`（管理端）；旧 PHP URL 保持原样。Apache 将 `/api/v1/` 同源转发给 Fastify，剥离 Authorization，鉴权和 CSRF 仍由 Fastify 执行。Vite 开发模式仍分别使用 5173/5174。
+Docker 髟懷ワ邇ｰ騾夊ｿ・峡遶区桷蟒ｺ髦ｶ谿ｵ逕滓・ user-web/admin-web・窟pache 蜷梧ｺ仙慍蝮荳ｺ `http://127.0.0.1:8080/app/`・亥・蜿｣・峨～/user/`・育畑謌ｷ遶ｯ・牙柱 `/admin/`・育ｮ｡逅・ｫｯ・会ｼ帶立 PHP URL 菫晄戟蜴滓ｷ縲・pache 蟆・`/api/v1/` 蜷梧ｺ占ｽｬ蜿醍ｻ・Fastify・悟翁遖ｻ Authorization・碁俺譚・柱 CSRF 莉咲罰 Fastify 謇ｧ陦後７ite 蠑蜿第ｨ｡蠑丈ｻ榊・蛻ｫ菴ｿ逕ｨ 5173/5174縲・
 
-Windows 11 操作脚本位于 `scripts/windows/`：Start/Stop、状态、日志及 Agent 配置向导。配置向导使用 Windows 文件夹/文件选择器，只保存用户明确选中的媒体根、mpv 路径、可选根内测试视频和人工核实的 POSIX 映射；路径配置保存在 `%LOCALAPPDATA%\YukariPlayerAgent\agent-config.json`，Agent 凭据独立存放。Stop 通过 Agent 专属本地管道请求退出并验证 PID、启动时间和可执行文件，再停止当前 Compose 的 web/API 服务；不杀全部 node.exe、不删卷。配置向导默认定位 `%ProgramFiles%\MPV Player\mpv.exe`，仍允许手动选择安装位置。未配置任何真实曲库映射。
+Windows 11 謫堺ｽ懆・譛ｬ菴堺ｺ・`scripts/windows/`・售tart/Stop縲∫憾諤√∵律蠢怜所 Agent 驟咲ｽｮ蜷大ｯｼ縲る・鄂ｮ蜷大ｯｼ菴ｿ逕ｨ Windows 譁・ｻｶ螟ｹ/譁・ｻｶ騾画叫蝎ｨ・悟宵菫晏ｭ倡畑謌ｷ譏守｡ｮ騾我ｸｭ逧・ｪ剃ｽ捺ｹ縲［pv 霍ｯ蠕・∝庄騾画ｹ蜀・ｵ玖ｯ戊ｧ・｢大柱莠ｺ蟾･譬ｸ螳樒噪 POSIX 譏蟆・ｼ幄ｷｯ蠕・・鄂ｮ菫晏ｭ伜惠 `%LOCALAPPDATA%\YukariPlayerAgent\agent-config.json`・窟gent 蜃ｭ謐ｮ迢ｬ遶句ｭ俶叛縲４top 騾夊ｿ・Agent 荳灘ｱ樊悽蝨ｰ邂｡驕楢ｯｷ豎る蜃ｺ蟷ｶ鬪瑚ｯ・PID縲∝星蜉ｨ譌ｶ髣ｴ蜥悟庄謇ｧ陦梧枚莉ｶ・悟・蛛懈ｭ｢蠖灘燕 Compose 逧・web/API 譛榊苅・帑ｸ肴捩蜈ｨ驛ｨ node.exe縲∽ｸ榊唖蜊ｷ縲る・鄂ｮ蜷大ｯｼ鮟倩ｮ､螳壻ｽ・`%ProgramFiles%\MPV Player\mpv.exe`・御ｻ榊・隶ｸ謇句勘騾画叫螳芽｣・ｽ咲ｽｮ縲よ悴驟咲ｽｮ莉ｻ菴慕悄螳樊峇蠎捺丐蟆・・
 
-Playwright Windows teardown 改由 `scripts/run-web-e2e.mjs` 管理：用 `E2E_WEB_PORT` 启动明确的 Vite 子进程、运行 Playwright 后停止该进程；`E2E_BASE_URL` 可直接针对构建后的 Apache UI。实际验证该脚本的开发模式运行能在测试完成后退出，不遗留测试端口。UI 未引入新框架/全局状态库；管理 System 保留当前播放/Agent、错误状态、预约媒体检查与历史展示。
+Playwright Windows teardown 謾ｹ逕ｱ `scripts/run-web-e2e.mjs` 邂｡逅・ｼ夂畑 `E2E_WEB_PORT` 蜷ｯ蜉ｨ譏守｡ｮ逧・Vite 蟄占ｿ帷ｨ九∬ｿ占｡・Playwright 蜷主●豁｢隸･霑帷ｨ具ｼ嫣E2E_BASE_URL` 蜿ｯ逶ｴ謗･髓亥ｯｹ譫・ｻｺ蜷守噪 Apache UI縲ょｮ樣刔鬪瑚ｯ∬ｯ･閼壽悽逧・ｼ蜿第ｨ｡蠑剰ｿ占｡瑚・蝨ｨ豬玖ｯ募ｮ梧・蜷朱蜃ｺ・御ｸ埼＠逡呎ｵ玖ｯ慕ｫｯ蜿｣縲６I 譛ｪ蠑募・譁ｰ譯・楔/蜈ｨ螻迥ｶ諤∝ｺ難ｼ帷ｮ｡逅・System 菫晉蕗蠖灘燕謦ｭ謾ｾ/Agent縲・漠隸ｯ迥ｶ諤√・｢・ｺｦ蟐剃ｽ捺｣譟･荳主紙蜿ｲ螻慕､ｺ縲・
 
-验证结果：API + PHP oracle **43 通过、0 失败、1 个可选真实 mpv 用例跳过**；user-web Edge **8 通过、1 跳过**（合成曲库无真实搜索命中）；admin-web Edge **3/3 通过**；Player Agent **6/6 通过**。API、user-web、admin-web、Agent typecheck/build 全通过。先前隔离 API 套件有一条旧测试仍期望 Apache 对 `/api/v1` 返回 403；统一代理后 Fastify 正确返回 401/404，已更新断言并通过完整重跑。静态 Docker 构建及真实 `/app/`、`/user/`、`/admin/` 和旧 PHP URL HTTP 回归通过。Phase 13 未重新执行实播；Phase 9/11 已有的本地 mpv 和两首隔离 EOF 验证仍是播放器实播证据，不能视作正式自动播放。
+鬪瑚ｯ∫ｻ捺棡・哂PI + PHP oracle **43 騾夊ｿ・・ 螟ｱ雍･縲・ 荳ｪ蜿ｯ騾臥悄螳・mpv 逕ｨ萓玖ｷｳ霑・*・孛ser-web Edge **8 騾夊ｿ・・ 霍ｳ霑・*・亥粋謌先峇蠎捺裏逵溷ｮ樊頗邏｢蜻ｽ荳ｭ・会ｼ嫗dmin-web Edge **3/3 騾夊ｿ・*・娜layer Agent **6/6 騾夊ｿ・*縲・PI縲「ser-web縲∥dmin-web縲、gent typecheck/build 蜈ｨ騾夊ｿ・ょ・蜑埼囈遖ｻ API 螂嶺ｻｶ譛我ｸ譚｡譌ｧ豬玖ｯ穂ｻ肴悄譛・Apache 蟇ｹ `/api/v1` 霑泌屓 403・帷ｻ滉ｸ莉｣逅・錘 Fastify 豁｣遑ｮ霑泌屓 401/404・悟ｷｲ譖ｴ譁ｰ譁ｭ險蟷ｶ騾夊ｿ・ｮ梧紛驥崎ｷ代る撕諤・Docker 譫・ｻｺ蜿顔悄螳・`/app/`縲～/user/`縲～/admin/` 蜥梧立 PHP URL HTTP 蝗槫ｽ帝夊ｿ・１hase 13 譛ｪ驥肴眠謇ｧ陦悟ｮ樊眺・娜hase 9/11 蟾ｲ譛臥噪譛ｬ蝨ｰ mpv 蜥御ｸ､鬥夜囈遖ｻ EOF 鬪瑚ｯ∽ｻ肴弍謦ｭ謾ｾ蝎ｨ螳樊眺隸∵紺・御ｸ崎・隗・ｽ懈ｭ｣蠑剰・蜉ｨ謦ｭ謾ｾ縲・
 
-正式自动播放仍未启用。管理员仍需在本机运行 `Configure-PlayerAgent.cmd`，人工选择实际媒体根和 mpv.exe；POSIX → Windows 路径前缀必须对照真实预约 fullpath 后再填写。正式启用前还需确认独立 Windows Legacy 调度器停止或共享并遵守 owner fence，并单独批准开关。启动器首次启动需可用的 Docker Desktop、Node.js 24、原 PHP 配置；需要播放器时需先配置 Agent。命令与恢复说明见 [Windows 本地运行手册](WINDOWS_LOCAL_RUNBOOK.zh-CN.md)。
+豁｣蠑剰・蜉ｨ謦ｭ謾ｾ莉肴悴蜷ｯ逕ｨ縲らｮ｡逅・遭莉埼怙蝨ｨ譛ｬ譛ｺ霑占｡・`Configure-PlayerAgent.cmd`・御ｺｺ蟾･騾画叫螳樣刔蟐剃ｽ捺ｹ蜥・mpv.exe・娜OSIX 竊・Windows 霍ｯ蠕・燕郛蠢・｡ｻ蟇ｹ辣ｧ逵溷ｮ樣｢・ｺｦ fullpath 蜷主・蝪ｫ蜀吶よｭ｣蠑丞星逕ｨ蜑崎ｿ倬怙遑ｮ隶､迢ｬ遶・Windows Legacy 隹・ｺｦ蝎ｨ蛛懈ｭ｢謌門・莠ｫ蟷ｶ驕ｵ螳・owner fence・悟ｹｶ蜊慕峡謇ｹ蜃・ｼ蜈ｳ縲ょ星蜉ｨ蝎ｨ鬥匁ｬ｡蜷ｯ蜉ｨ髴蜿ｯ逕ｨ逧・Docker Desktop縲¨ode.js 24縲∝次 PHP 驟咲ｽｮ・幃怙隕∵眺謾ｾ蝎ｨ譌ｶ髴蜈磯・鄂ｮ Agent縲ょ多莉､荳取△螟崎ｯｴ譏手ｧ・[Windows 譛ｬ蝨ｰ霑占｡梧焔蜀珪(WINDOWS_LOCAL_RUNBOOK.zh-CN.md)縲・
 
 The launch scripts include a conditional Compose plugin fallback for installations where the default Docker CLI config is unreadable. It preserves any explicitly selected Docker config/context and does not alter Docker Desktop settings.
 
-## Phase 14：用户端与管理端 UI/UX 重构
+## Phase 14・夂畑謌ｷ遶ｯ荳守ｮ｡逅・ｫｯ UI/UX 驥肴桷
 
-日期：2026-10-21。只调整 React 展示和现有管理 API 调用，不改 PHP/Node 业务 Owner、正式数据库、playmode、媒体目录、凭据或自动播放开关。
+譌･譛滂ｼ・026-10-21縲ょ宵隹・紛 React 螻慕､ｺ蜥檎鴫譛臥ｮ｡逅・API 隹・畑・御ｸ肴隼 PHP/Node 荳壼苅 Owner縲∵ｭ｣蠑乗焚謐ｮ蠎薙｝laymode縲∝ｪ剃ｽ鍋岼蠖輔∝・謐ｮ謌冶・蜉ｨ謦ｭ謾ｾ蠑蜈ｳ縲・
 
-user-web 改为日语 mobile-first：首屏突出服务端当前播放状态；搜索结果隐藏内部媒体路径，保留 Everything/Lister 真实结果及原错误；预约表单提供歌手、评论和已存在的 `secret` 非公开选项。选择歌曲后页面定位到预约表单。预约成功反馈使用服务端返回的预约 ID 和队列再读取状态；隐私遮罩仍由服务端决定。当前 API 未提供个人历史列表，因此界面只指示最近一次本页提交，不推断历史预约归属。
+user-web 謾ｹ荳ｺ譌･隸ｭ mobile-first・夐ｦ門ｱ冗ｪ∝・譛榊苅遶ｯ蠖灘燕謦ｭ謾ｾ迥ｶ諤・ｼ帶頗邏｢扈捺棡髫占酪蜀・Κ蟐剃ｽ楢ｷｯ蠕・ｼ御ｿ晉蕗 Everything/Lister 逵溷ｮ樒ｻ捺棡蜿雁次髞呵ｯｯ・幃｢・ｺｦ陦ｨ蜊墓署萓帶ｭ梧焔縲∬ｯ・ｮｺ蜥悟ｷｲ蟄伜惠逧・`secret` 髱槫・蠑騾蛾｡ｹ縲る画叫豁梧峇蜷朱｡ｵ髱｢螳壻ｽ榊芦鬚・ｺｦ陦ｨ蜊輔る｢・ｺｦ謌仙粥蜿埼ｦ井ｽｿ逕ｨ譛榊苅遶ｯ霑泌屓逧・｢・ｺｦ ID 蜥碁弌蛻怜・隸ｻ蜿也憾諤・ｼ幃嚼遘・・鄂ｩ莉咲罰譛榊苅遶ｯ蜀ｳ螳壹ょｽ灘燕 API 譛ｪ謠蝉ｾ帑ｸｪ莠ｺ蜴・彰蛻苓｡ｨ・悟屏豁､逡碁擇蜿ｪ謖・､ｺ譛霑台ｸ谺｡譛ｬ鬘ｵ謠蝉ｺ､・御ｸ肴耳譁ｭ蜴・彰鬚・ｺｦ蠖貞ｱ槭・
 
-admin-web 改为日语 desktop-first 控制室：主页面并排展示 Agent 连接/实测播放状态、下一首、现存 Legacy 播放模式、自动播放 Pause/Resume/Skip/Stop 和队列操作；支持已存在 Node endpoint 的多选排序、单项上下移/插队/删除和媒体预检。删除、接管、跳过、停止需显式确认。绝对媒体路径和 Agent 内部文件字段不显示。设置、播放历史、系统诊断位于次级页；原 MPC-BE/foobar 控制和本地测试视频仍在诊断页。模式 3–5 继续标注 TODO，不伪称支持，也没有通过 UI 改写正式播放模式。
+admin-web 謾ｹ荳ｺ譌･隸ｭ desktop-first 謗ｧ蛻ｶ螳､・壻ｸｻ鬘ｵ髱｢蟷ｶ謗貞ｱ慕､ｺ Agent 霑樊磁/螳樊ｵ区眺謾ｾ迥ｶ諤√∽ｸ倶ｸ鬥悶∫鴫蟄・Legacy 謦ｭ謾ｾ讓｡蠑上∬・蜉ｨ謦ｭ謾ｾ Pause/Resume/Skip/Stop 蜥碁弌蛻玲桃菴懶ｼ帶髪謖∝ｷｲ蟄伜惠 Node endpoint 逧・､夐画賜蠎上∝黒鬘ｹ荳贋ｸ狗ｧｻ/謠帝弌/蛻髯､蜥悟ｪ剃ｽ馴｢・｣縲ょ唖髯､縲∵磁邂｡縲∬ｷｳ霑・∝●豁｢髴譏ｾ蠑冗｡ｮ隶､縲らｻ晏ｯｹ蟐剃ｽ楢ｷｯ蠕・柱 Agent 蜀・Κ譁・ｻｶ蟄玲ｮｵ荳肴仞遉ｺ縲りｮｾ鄂ｮ縲∵眺謾ｾ蜴・彰縲∫ｳｻ扈溯ｯ頑妙菴堺ｺ取ｬ｡郤ｧ鬘ｵ・帛次 MPC-BE/foobar 謗ｧ蛻ｶ蜥梧悽蝨ｰ豬玖ｯ戊ｧ・｢台ｻ榊惠隸頑妙鬘ｵ縲よｨ｡蠑・3窶・ 扈ｧ扈ｭ譬・ｳｨ TODO・御ｸ堺ｼｪ遘ｰ謾ｯ謖・ｼ御ｹ滓ｲ｡譛蛾夊ｿ・UI 謾ｹ蜀呎ｭ｣蠑乗眺謾ｾ讓｡蠑上・
 
-API 契约、认证及服务端状态权威保持不变；管理端 Vite 代理仅允许既有受保护的 POST `/api/v1/admin/queue/reorder`，Fastify 仍做 session/CSRF/Origin/角色校验。修改文件限于两个 React 应用、管理端测试和代理配置。
+API 螂醍ｺｦ縲∬ｮ､隸∝所譛榊苅遶ｯ迥ｶ諤∵揀螽∽ｿ晄戟荳榊序・帷ｮ｡逅・ｫｯ Vite 莉｣逅・ｻ・・隶ｸ譌｢譛牙女菫晄侃逧・POST `/api/v1/admin/queue/reorder`・熊astify 莉榊★ session/CSRF/Origin/隗定牡譬｡鬪後ゆｿｮ謾ｹ譁・ｻｶ髯蝉ｺ惹ｸ､荳ｪ React 蠎皮畑縲∫ｮ｡逅・ｫｯ豬玖ｯ募柱莉｣逅・・鄂ｮ縲・
 
-验证：user-web/admin-web typecheck 与 production build 均通过。真实 Edge E2E 在 `.local` synthetic Phase 13 SQLite/PHP/API 部署通过：user-web **8 passed、1 skipped**（fixture 没有真实曲库命中）；admin-web **3/3 passed**。覆盖实际登录、搜索成功/失败真实反馈、隐私字段请求、Node 预约和队列回读、调序/批量排序/删除、媒体预检的 `agent_offline` 状态及路径不泄露、无变化设置保存、播放器不可达和注销权限；390px 视口检查无横向溢出。暂用未占用的 API/PHP 端口 3201/8281 和 Vite 端口 5193/5194，正常部署端口未改。隔离 Apache 镜像与随后正常 `web` 镜像均重建；正常 Compose 的 Fastify/PHP healthy，`/user/`、`/admin/`、原 `/search.php`、Fastify `/health` 均 HTTP 200，首页返回的 bundle 是最新构建。没有对正式服务执行写回归，自动播放仍关闭。
+鬪瑚ｯ・ｼ嗽ser-web/admin-web typecheck 荳・production build 蝮・夊ｿ・ら悄螳・Edge E2E 蝨ｨ `.local` synthetic Phase 13 SQLite/PHP/API 驛ｨ鄂ｲ騾夊ｿ・ｼ嗽ser-web **8 passed縲・ skipped**・・ixture 豐｡譛臥悄螳樊峇蠎灘多荳ｭ・会ｼ嫗dmin-web **3/3 passed**縲りｦ・尠螳樣刔逋ｻ蠖輔∵頗邏｢謌仙粥/螟ｱ雍･逵溷ｮ槫渚鬥医・嚼遘∝ｭ玲ｮｵ隸ｷ豎ゅ¨ode 鬚・ｺｦ蜥碁弌蛻怜屓隸ｻ縲∬ｰ・ｺ・謇ｹ驥乗賜蠎・蛻髯､縲∝ｪ剃ｽ馴｢・｣逧・`agent_offline` 迥ｶ諤∝所霍ｯ蠕・ｸ肴ｳ・愆縲∵裏蜿伜喧隶ｾ鄂ｮ菫晏ｭ倥∵眺謾ｾ蝎ｨ荳榊庄霎ｾ蜥梧ｳｨ髞譚・剞・・90px 隗・哨譽譟･譌讓ｪ蜷第ｺ｢蜃ｺ縲よ嘯逕ｨ譛ｪ蜊逕ｨ逧・API/PHP 遶ｯ蜿｣ 3201/8281 蜥・Vite 遶ｯ蜿｣ 5193/5194・梧ｭ｣蟶ｸ驛ｨ鄂ｲ遶ｯ蜿｣譛ｪ謾ｹ縲る囈遖ｻ Apache 髟懷ワ荳朱囂蜷取ｭ｣蟶ｸ `web` 髟懷ワ蝮・㍾蟒ｺ・帶ｭ｣蟶ｸ Compose 逧・Fastify/PHP healthy・形/user/`縲～/admin/`縲∝次 `/search.php`縲：astify `/health` 蝮・HTTP 200・碁ｦ夜｡ｵ霑泌屓逧・bundle 譏ｯ譛譁ｰ譫・ｻｺ縲よｲ｡譛牙ｯｹ豁｣蠑乗恪蜉｡謇ｧ陦悟・蝗槫ｽ抵ｼ瑚・蜉ｨ謦ｭ謾ｾ莉榊・髣ｭ縲・
 
-桌面和手机 Edge 截图保存在忽略目录 `.local/phase14-ui-shots/`（不进入 Git）。本阶段无新增业务 Owner 或未迁移后端模块；Everything/YukaLister、Node 认证和预约队列逻辑均未改。
+譯碁擇蜥梧焔譛ｺ Edge 謌ｪ蝗ｾ菫晏ｭ伜惠蠢ｽ逡･逶ｮ蠖・`.local/phase14-ui-shots/`・井ｸ崎ｿ帛・ Git・峨よ悽髦ｶ谿ｵ譌譁ｰ蠅樔ｸ壼苅 Owner 謌匁悴霑∫ｧｻ蜷守ｫｯ讓｡蝮暦ｼ妣verything/YukaLister縲¨ode 隶､隸∝柱鬚・ｺｦ髦溷・騾ｻ霎大插譛ｪ謾ｹ縲・
 # Phase 15: React routing, themes, i18n and Legacy feature inventory
 
 Added independent React Router trees for user and admin apps. User routes cover home/search and queue; admin routes cover login, queue/control room, system diagnostics and settings, with direct navigation, refresh, history navigation, localized 404 and protected-session redirect behavior. Production Apache fallback is limited to `/user/` and `/admin/`; `/app/` and the original PHP endpoints remain reachable.
@@ -617,3 +617,172 @@ Validation on the isolated synthetic deployment: API typecheck/build passed; use
 ### User manager integration follow-up
 
 Integrated the project-owned `packages/theme/`, `packages/language/` and `packages/reactiveStore/` with both React apps. Theme and language global stores now use the Vue-reactivity-to-React adapter; user home/search/queue and admin queue selection use app-local page stores for shared page state. The web-foundation preference controls consume these managers, while web-foundation remains the home for presentation primitives and compatibility exports. `@vue/reactivity` and `i18next` are installed separately in each app and explicitly resolved from that app's `node_modules`; shared packages are included in Vite's allowed source roots. Both app typechecks and production builds pass after integration. Browser E2E could not be rerun in this shell because Docker Engine denied access to its named pipe; this is an environment permission failure, not a test assertion failure. No API, database, playback mode, media path or autoplay setting changed.
+
+
+## Phase 16 ? MySQL 8.4 cutover (staged; Legacy parity incomplete)
+
+Added a loopback-only `yukari-mysql` service on `127.0.0.1:3307`, persistent named volume `yukari_mysql_data`, health check, one-shot schema bootstrap, a DML-only Fastify account, and a SELECT-only Navicat account. Local credentials are generated into ACL-restricted `.local/phase16-mysql/`; the generated Navicat connection file is `navicat-connection.txt`. The old SQLite database and Phase 10 backup remain unchanged. A consistent `VACUUM INTO` snapshot is retained in `.local/phase16-snapshot/request.db`; it passed `integrity_check` before cutover.
+
+Fastify now uses MySQL for reservation create/replace and receipts, queue read and admin queue mutations, migrated settings, formal playback task/event records and history. Queue notifications still call the PHP notification helper. Search, YukaLister/Everything, credential verification and Bridge context remain Legacy-owned. PHP blocks the old settings page and settings-save entry in MySQL mode; old `exec.php` forwards to Node and migrated queue writes are blocked. Other PHP-only features that directly read/write SQLite are not a second supported business store and remain unavailable/Legacy-only until individually ported. Therefore this is not yet full PHP/MySQL functional parity.
+
+The schema includes reservation, submission receipts, request history, account/profile and other future auxiliary tables, settings, playback tasks/events and supporting tables. Only account/request-history projections used by the migrated request path are currently written by Fastify; Node sessions remain in memory, and saved-song/favorite/pair/external-identity legacy routes are not migrated merely because corresponding schema tables exist. It does not import old SQLite rows or config secrets. A one-time bootstrap projection now reads only `playmode`, `startvolume`, and `requestlistactivereload` from the existing config.ini through a read-only mount, validates them with the existing settings parser, and stores the three values in MySQL. A persisted bootstrap marker prevents later restarts from overwriting administrator changes. A comparison confirmed the allowlisted values match without printing them; all other config values remain PHP-owned. Admin credential verification still uses the existing PHP config and was not reset. Automatic playback remains disabled (`YUKARI_NODE_AUTOPLAY=0`).
+
+Validation: MySQL repository integration passed reservation/idempotency/queue/move/delete and task claim/playing/EOF/history. A real HTTP smoke test passed user session, MySQL reservation creation/readback, admin login/queue/delete and removed its reservation. Read-only Navicat account saw the schema and was denied writes. MySQL service restart and container recreation preserved the named-volume schema/account. API and both React typechecks/builds passed. Full API/PHP suite on a marked isolated MySQL Compose project: 43 passed, 0 failed, 2 optional skips (direct MySQL suite is run separately; real mpv fixture is unavailable). MySQL repository integration passed create/idempotency/queue/move/delete, unchanged settings, playback claim/playing/real EOF/event history. User-web Edge passed 9, 1 real-search fixture skipped; admin-web Edge passed 4/4. A first browser attempt used non-allowlisted temporary ports and correctly failed Origin checks; rerunning on allowed 5173/5174 passed. Read-only health checks returned 200; Legacy pages remained available. The Navicat account was verified read-only, and the named volume preserved schema/account after MySQL restart and container recreation. Search remains dependent on the original Everything/YukaLister configuration; no successful real catalogue hit is claimed.
+
+Navicat development connection: host `127.0.0.1`, port `3307`, schema `yukari`, user `yukari_viewer`, password from the local protected connection file, SSL disabled for loopback only. Never expose this port beyond the local host. Start with `docker compose -f docker/compose.yaml up --build -d`; the Windows launcher prepares protected local credentials first. Never use `down -v`.
+
+### Phase 16 follow-up: Windows media setup and remaining SQLite boundary
+
+Added [Windows video quickstart](WINDOWS_VIDEO_QUICKSTART.zh-CN.md). Fixed the PHP Everything endpoint selection: Compose supplies `YUKARI_EVERYTHING_HOST=host.docker.internal`, adds a host-gateway mapping, and PHP no longer forces IPv6 for DNS hostnames. This is only network routing; Everything HTTP Server/index configuration and Windows Firewall remain operator steps. The subsequent 2026-10-23 check found the Agent connected/idle with its local media root, mpv and test video configured, but no path mappings. Everything is not running and host port 81 is not listening; PHP resolves `host.docker.internal`, but the HTTP connection fails. PHP capabilities report Everything unavailable and YukaLister available (no actual result hit confirmed). MySQL `playmode=1`, Legacy autoplay is false, and Compose `YUKARI_NODE_AUTOPLAY=0`.
+
+The broader SQLite audit confirms that full retirement is not ready: besides YukaLister's search index, the Legacy MyPage module writes profile/history/later/favorites/keywords/pairing/Google-link data; other active SQLite files cover not-found requests, CMS comments, Bingo, priority and notification state, while getID3 includes an SQLite cache implementation. The current MySQL auxiliary tables do not yet back MyPage operations. The primary PHP bootstrap still opens and may update `request.db`; therefore its mount, SQLite support, and WAL anchor cannot safely be removed now. Existing SQLite databases, volumes and backups were not deleted or modified. No autoplay or formal queue data was touched.
+
+### 2026-10-23: regular queue-playback follow-up
+
+Fixed the admin Agent-status capability predicate that incorrectly hid the native MySQL playback scheduler. Availability now requires the explicit autoplay flag, Agent credentials, and a configured scheduler store; the production flag remains `0`. Added a MySQL-route regression test.
+
+Generated two distinct 15-second video/audio fixtures outside the repository and ran the Windows real-mpv E2E against a fresh temporary SQLite queue. It verified pause/resume, two distinct real EOF completions with FIFO advancement, then real skip and stop, compatibility status projections, no active task left, and owner-fence release. This is an isolated real-player test, **not** a MySQL-backed React-to-reservation E2E. API targeted tests passed 5/5; API/user/admin typecheck/build passed; PHP syntax check passed 308 files. No production DB, settings, queue rows or autoplay flag were changed. Browser write E2E was intentionally not aimed at the production MySQL queue.
+
+The normal search竊池eservation竊樽ySQL竊断ormal-autoplay path is still blocked at Everything: start its HTTP Server on port 81, index the selected media folder, and confirm PHP-container reachability. Only then can a real Everything result be reserved and checked by the Agent. The production Agent mapping list is currently empty; a native Windows absolute result under `PLAYER_MEDIA_ROOT` needs no mapping, while Docker/POSIX paths require an exact reviewed prefix. Keep the Windows Legacy playback manager stopped. Do not approve formal autoplay until a real search result passes media preflight and the queue is reviewed.
+
+### 2026-10-23: MySQL-mode Legacy SQLite retirement implementation
+
+The normal Compose MySQL runtime now bakes Legacy PHP sources into the image instead of bind-mounting the whole `legacy/php` tree. PHP mounts only the existing `config.ini` read-only for authentication/EasyAuth compatibility, the dedicated `List.sqlite3` location read-only, and a separate `yukari_queue_owner` volume. Fastify no longer mounts the business queue DB, sidecars, or config file; the shared owner-fence volume is not a data store. The normal MySQL entrypoint skips all SQLite permission changes and does not start `queue-wal-anchor.php`.
+
+PHP MySQL mode reads but does not rewrite config.ini, skips `initdb`/`updatedb`, suppresses priority database creation and query-history writes, and uses a fixed read-only YukaLister path. An Apache PHP auto-prepend guard allows search/capabilities, signed `exec.php` 竊・Fastify compatibility submissions, auth/session checks, and limited Bridge auth/context/search operations. Other old PHP business routes return 410 before application includes run, including MyPage/favorites/pairing/comments/Bingo/not-found feedback, old queue/admin/player/settings/update/restore paths. The Node-native React/Fastify MySQL APIs remain the supported business flows. The old SQLite notification-counter Bridge is disabled; reservation, queue and playback writes no longer invoke it. Its Legacy SSE counter behavior is not migrated.
+
+The local `List.sqlite3` was checked read-only: it is empty (zero bytes, no tables), so YukaLister is not available until an operator supplies a valid index. Everything search remains available only if its Windows HTTP Server is configured and reachable; prior Phase 16 checks found it stopped/unreachable. This pass did not modify MySQL, SQLite files, reservations, settings, media, credentials, or autoplay configuration. Docker Engine inspection/build/restart and PHP-in-container/React live E2E could not run because access to the Docker named pipe is denied. API TypeScript build passed; the full API suite was attempted, with environment-dependent isolated Compose/PHP cases failing at Docker pipe access and one stale Legacy-compat expectation updated to the new 410 contract. PHP CLI is not installed on this host, so container lint and HTTP allowlist verification remain pending until Docker access returns.
+### Phase 16 Windows + Docker 螳樊惻鬪梧噺・・026-10-23・・
+
+譛ｬ谺｡譛ｪ閭ｽ霑帛・ Docker Engine・咼ocker Desktop/backend 霑帷ｨ句ｭ伜惠・御ｽ・ｽ灘燕謇ｧ陦瑚ｺｫ莉ｽ荳ｺ蜿鈴剞逧・`codexsandboxoffline`・侫ocker CLI 隸ｻ蜿也畑謌ｷ `.docker/config.json` 蜥・contexts 蜈・焚謐ｮ譌ｶ謾ｶ蛻ｰ Access Denied・瑚ｮｿ髣ｮ `npipe:////./pipe/docker_engine` 荵溯ｿ泌屓 permission denied縲ら鴫譛・`Start-Yukari.ps1` 菴ｿ逕ｨ蜷御ｸ謇ｧ陦瑚ｺｫ莉ｽ隹・畑 Docker・御ｸ崎・扈募ｼ隸･髯仙宛縲よ悴驥咲ｽｮ Docker Desktop縲∬ｰ・紛 ACL縲∬ｯｷ豎らｳｻ扈滓署譚・・謫堺ｽ應ｻｻ菴・volume縲・ompose 髱呎・・鄂ｮ荳咲ｭ牙酔莠取悽谺｡驥榊ｻｺ謌冶ｿ占｡悟ｮｹ蝎ｨ鬪梧噺縲・
+
+蜿ｯ隸ｻ蛻ｰ逧・鴫蟄・HTTP 迥ｶ諤・ｼ哥astify `/health` 荳ｺ 200・姚egacy capabilities 荳ｺ 200・梧冠蜻・Everything 荳・YukaLister 謳懃ｴ｢荳榊庄逕ｨ縲∵眺謾ｾ蝎ｨ讓｡蠑・1縲∥utoplay=false・嫣/api/lister_index.php` 荳ｺ 503・娥ySQL 讓｡蠑丈ｸ・`/init.php` 荳ｺ 410・帶悴隶､隸・Legacy 邂｡逅・API 霑泌屓鬚・悄 401縲８indows 譛ｬ譛ｺ Everything HTTP `127.0.0.1:81` 蜿ｯ霑泌屓 JSON・御ｽ・Legacy capability 逧・Everything 謗｢豬倶ｻ堺ｸｺ false・侫ocker Engine 荳榊庄隶ｿ髣ｮ・悟屏豁､譛ｪ閭ｽ莉・PHP 螳ｹ蝎ｨ鬪瑚ｯ・host-gateway 霍ｯ蠕・よｲ｡譛画峩謾ｹ Windows 髦ｲ轣ｫ蠅吶・
+
+譛ｬ譛ｺ mpv 蜿ｯ謇ｧ陦梧枚莉ｶ莉堺ｸｺ v0.41.0・窟gent 驟咲ｽｮ譁・ｻｶ蟄伜惠・御ｽ・ｽ灘燕豐｡譛・Player Agent 霑帷ｨ具ｼ帶｣豬句芦 mpv 霑帷ｨ倶ｻ榊惠霑占｡鯉ｼ梧悴扈域ｭ｢螳・ょ屏 Agent 譛ｪ霑占｡御ｸ・Docker/邂｡逅・ｮ､隸∽ｸ榊庄鬪鯉ｼ梧悽谺｡豐｡譛牙星蜉ｨ謦ｭ謾ｾ莉ｻ蜉｡謌冶ｧｦ遒ｰ鬚・ｺｦ縲り・蜉ｨ謦ｭ謾ｾ莉榊・髣ｭ縲・
+
+**譛ｪ騾夊ｿ・譛ｪ霑占｡鯉ｼ・* Compose 驥榊ｻｺ縲∝ｮｹ蝎ｨ health 迥ｶ諤∽ｸ取撃霓ｽ螳樊衍縲｀ySQL 逵溷ｮ樣囈遖ｻ蜀呵ｯｻ豬玖ｯ輔∝ｮｹ蝎ｨ PHP lint/API-PHP 蝗槫ｽ偵ヽeact Edge E2E縲∵怏謨育ｮ｡逅・遭隶､隸∽ｸ・Bridge 霄ｫ莉ｽ鬪瑚ｯ√・verything 螳ｹ蝎ｨ霑樣壹、gent 蝨ｨ郤ｿ迥ｶ諤√る怙隕∝惠蜿ｯ隶ｿ髣ｮ隸･逕ｨ謌ｷ Docker Desktop named pipe 逧・ｺ､莠貞ｼ・Windows 逋ｻ蠖穂ｼ夊ｯ昜ｸｭ驥肴眠霑占｡・`scripts/windows/Start-Yukari.cmd`・悟・謇ｧ陦梧悽髦ｶ谿ｵ runbook・帛ｽ灘燕扈捺棡荳肴桷謌・MySQL Compose 螳樊惻鬪梧噺縲・
+
+\n
+### Follow-up with Docker Desktop access restored (2026-10-23)
+
+The interactive Windows account can now use Docker Desktop 4.95 / Engine 29.8.2 (`desktop-linux`). `docker compose build` completed for PHP, Fastify, bootstrap, and both Vite images. The newly built PHP image passed `yukari-check-php.php`: 298 PHP files, PASS.
+
+Deployment is still blocked before recreation. `Start-Yukari.cmd` reaches the local secret preparation step, where an existing MySQL credential file cannot be read under its Windows ACL. The helper previously caught every read error as 窶徇issing窶・and then failed with EEXIST; it now only creates a credential on ENOENT and otherwise refuses replacement with a safe filename-only error. A read-only Docker bind probe confirms config.ini and List.sqlite3 are mountable, but the MySQL app-password bind is denied by the Docker daemon. Re-granting the current account's ACL was denied; no ownership changes, elevation, secret replacement, or credential output was attempted.
+
+`docker compose up -d` consequently failed while recreating `yukari-mysql-bootstrap`. `docker compose ps` confirms the old healthy containers remain running. `docker inspect` shows they are stale relative to the new Compose: PHP still mounts the whole Legacy tree and `/workspace`; Fastify still mounts `/run/legacy-db` and `/run/legacy-settings/config.ini`. Thus the new no-business-SQLite runtime is **not yet deployed**, and current health checks cannot be attributed to the new image. No volumes or databases were removed or changed. Resolve read/bind access for the existing protected files in `.local/phase16-mysql/` under the normal Windows account, then rerun `scripts/windows/Start-Yukari.cmd`; do not regenerate the credentials merely to bypass ACL failure.
+
+Read-only live checks on the old deployment still reported Fastify health 200, PHP capabilities 200 (`everything_search=false`, `lister_search=false`, `autoplay=false`), `/api/lister_index.php` 503, disabled `/init.php` 410, and unauthenticated Legacy admin session 401. Windows Everything itself answers JSON at loopback port 81, but the PHP capability check cannot reach/validate it. Player Agent is not running; an mpv process remains and was left untouched. No request, setting, playback mode, MySQL data, SQLite data, or autoplay state was changed.
+
+Still pending: actual container recreation/health, live mount verification, isolated Fastify竊熱ySQL reservation/queue/settings write-read-cleanup, PHP-in-container route guard/API regression, React Edge E2E, Agent connectivity, and PHP-container-to-Everything probe. Static Compose configuration and image build are not counted as those runtime checks.
+
+### Full-access deployment attempt (2026-10-23)
+
+Docker Desktop became reachable under the Windows account (`desktop-linux`, Engine 29.8.2). All Compose images built successfully. The new PHP image passed the bundled syntax check: **298 PHP files**. An isolated disposable PHP container used the new image, the read-only config/index mounts, the real Compose host-gateway alias and the Apache guard. It reported `everything_search=true`, `lister_search=false`; a unique nonmatching Everything keyword returned valid JSON with zero items. `/init.php` and an unmigrated Legacy queue URL returned 410; unauthenticated admin session returned 401; an unauthenticated Bridge call returned 403 (reached the allowed handler but did not prove a valid Bridge credential). The probe was stopped and auto-removed.
+
+The normal Compose update did not complete. `Start-Yukari.cmd` stops safely because the existing local credential file is unreadable under its Windows ACL; `prepare-mysql-secrets.mjs` now fails closed instead of treating that error as a missing file. A read-only bind test gives Docker daemon `Access is denied` for the existing app-password file. Granting the current account access was also denied, so no ACL/ownership change or elevation was attempted. `docker compose up -d` stopped at `yukari-mysql-bootstrap` recreation before the PHP/API containers were replaced.
+
+Actual running containers are therefore the prior deployment, not the newly built Compose target. PHP still mounts `/var/www/html` read/write and `/workspace`; Fastify still mounts `/run/legacy-db` and `/run/legacy-settings/config.ini`. `queue-wal-anchor.php` is running in the old PHP container. Fastify has MySQL connection settings and is healthy, but it also retains its SQLite mount. `YUKARI_NODE_AUTOPLAY=0`. Existing containers and all volumes remain intact. Do not claim the runtime SQLite dependency has been removed until the new services are recreated and these mounts/processes are rechecked.
+
+The full API suite against that stale live target yielded **35 passed, 10 failed, 2 skipped**. Failures split between missing synthetic `E2E_CONFIG_PATH`/isolated deployment, tests accidentally targeting the old live PHP URL (for example `/` returned 200 instead of the new image's 410), and PHP oracle tests invoking `exec.php` while the old container is already in MySQL mode (its SQLite bootstrap is intentionally skipped). The MySQL live integration and real mpv tests skipped because their test-only config was unavailable. These are not a passing regression run for the new Compose. No test wrote production reservations or settings.
+
+Windows Everything answers JSON at host loopback port 81. In the new isolated PHP image, the configured `host.docker.internal` probe is reachable and reports true; the old live PHP container lacks `YUKARI_EVERYTHING_HOST` and reports false. YukaLister remains unavailable because its mounted index is empty. Player Agent process is absent; an mpv process remains and was not stopped.
+
+### Phase 17 窶・Windows Media Agent / Everything search handoff (2026-10-23)
+
+Added a bounded Fastify 竊・host-Agent search handoff while preserving the existing `/api/v1/search` React contract. Fastify waits on at most four 8-second search jobs; the authenticated Agent claims them through its existing outbound poll, queries its configured Everything HTTP endpoint with a 3.5-second timeout and `json=1`, `count=50`, `path_column=1`, `size_column=1`, then filters video results using its existing realpath/allow-root resolver. Only short-lived, same-user `media:<opaque>` references and names/sizes reach the browser. Reservation POST resolves the reference back to the verified host path before the existing MySQL RequestService transaction. Search jobs and media references are bounded and ephemeral; expired/stale/duplicate reports fail instead of becoming empty success. YukaLister and PHP search remain compatibility paths.
+
+Compose deliberately keeps `YUKARI_AGENT_SEARCH=0` until a real indexed file hit is confirmed; this preserves the PHP Everything fallback. Set it to `1` only after verification. In Agent mode, offline/HTTP/auth/invalid-JSON/timeouts return explicit errors; a successful zero-result query remains zero. The Admin System page shows Agent connectivity, configured-root boolean, Everything's last observed state, mpv state, safe error code and active search route. New locks contain PID metadata; the launcher removes a legacy empty lock only when its PID/start record confirms the old process exited.
+
+Live host probe: Everything at loopback port 81 returned valid JSON using the new implementation, but a query for the configured test-video basename and a probe beneath the configured root both returned zero. A read-only count of immediate files under that selected root found 12 videos. The GUI index was not visually confirmed and no global index configuration changed. This is an index/query miss, not an HTTP reachability failure. Current production services still return HTTP 200 and the local launcher PID record matches a running Agent, but Docker daemon access from this turn fails on the Windows named pipe. Therefore the modified Fastify image/Compose switch, full React 竊・reservation 竊・MySQL 竊・Agent 竊・mpv integration, and browser E2E were not deployed or verified.
+
+Verification: API, Agent, user-web and admin-web typecheck/build passed after correcting submission-result typing. Player Agent tests passed **13/13**, covering protocol parameters, actual-root filtering, empty vs unavailable response, opaque same-user selection, job expiry, duplicate/late completion, and stale-lock handling. The full API suite was attempted; Docker-dependent PHP oracle/live tests failed because `docker_engine` returned permission denied. The suite is not fully green and needs rerun with the isolated Compose target. Edge E2E was not run because no isolated Compose target could be started. No DB, reservation, index scope, playmode, autoplay setting, media file or password was modified; no commit/push.
+
+\n
+
+### Phase 18 窶・Admin-controlled Windows Player Agent launcher (2026-10-23)
+
+Implemented an authenticated, fixed-action control path: Admin System can request Agent start/connect or stop through Fastify. A per-user Windows Launcher polls with the existing Agent credential, reuses an authenticated connected Agent, or starts only the built Player Agent entrypoint with the current Node executable, fixed arguments, and `shell:false`. It accepts no shell command or path from the browser/API. PID locks are scoped to the Launcher/Agent; live or unverifiable Agent locks are preserved. The Launcher retries while Fastify is offline and does not depend on browser lifetime.
+
+Stop first asks Fastify to stop/settle an active formal MySQL task or Phase 9 test task. The Launcher waits until no task is active, then sends the Agent's fixed local named-pipe shutdown command. Shutdown is never interpreted as EOF. If mpv/Agent does not confirm the safe stop, the Admin page shows a sanitized error and local log location; no process-name kill is used. System displays Launcher state, Agent connectivity, mpv and Everything status.
+
+The per-user Windows logon-task installer was validated in dry-run only. It reported the exact task, current user, fixed Node/Launcher entrypoint and limited privilege without storing a Windows password. The task was **not registered**; the user explicitly required a report and approval before registration. Until then, the Admin controls need the Launcher started manually once. Browser-to-Windows command execution and a general shell endpoint do not exist. Formal autoplay remains disabled; no MySQL, reservation, media-root, or credential changes were made.
+
+Validation: API, Player Agent, and Admin typecheck/build passed; focused Player Agent API tests passed **3/3**; PowerShell installer dry-run passed without changing Task Scheduler. Full Compose/E2E was not run because this execution identity still receives `permission denied` from the Docker Engine named pipe. This is an environment limitation, not a passing runtime deployment check. No live Agent/mpv process was started, stopped, or killed in this phase. See [Launcher instructions](../agents/player-agent/README.md#admin-controlled-windows-launcher-phase-18).
+
+### Phase 18 deployment/host follow-up (2026-10-23)
+
+The owner approved registration for the current Windows user. Registration was attempted through both `Register-ScheduledTask` and `schtasks`; this Codex execution context is denied access to the Task Scheduler API (`New-ScheduledTaskAction` returns access denied). Read-only status confirms the logon task remains absent and the Launcher process is not running. The installer now registers the exact limited interactive task and starts it immediately in the current session, then prints its status, so the user need not sign out to verify it.
+
+Admin source was repaired and builds successfully; the local latest asset is `index-C8eZIu6D.js`. The live `127.0.0.1:5174` response is the Docker Vite dev server (HMR enabled), but its transformed SystemPage still shows the old 5-column component and lacks the launcher controls. `/admin/` on 8080 also serves an older production asset (`index-CDL-Q4fb.js`). Docker CLI cannot connect to the Engine named pipe (`permission denied`), so Compose rebuild/recreation and browser E2E remain unverified; the user does not yet see the updated buttons in those live pages. No task, Agent, mpv, database or autoplay state was changed.
+
+### Phase 18 actual Admin/Windows acceptance (2026-10-23)
+
+After explicit approval, the current user's limited interactive logon task was registered and started in-session. Task Scheduler reports Running; the exact Launcher process is verified. The normal Compose stack was rebuilt without deleting volumes or running migrations; `mysql`, `web`, `api-server`, `user-web-dev`, and `admin-web-dev` report healthy. Production `/admin/` serves the rebuilt `index-ASzaX1WI.js`; live Vite `5174` serves the updated SystemPage and both launcher controls.
+
+Real Admin Playwright login confirmed both controls render. The first start POST exposed an omitted Admin Vite proxy allowlist entry (`403 ADMIN_PROXY_DENIED`); the exact POST route was added. A no-session probe now reaches Fastify and returns `401 UNAUTHENTICATED`, confirming the proxy change did not bypass server authorization. Admin start reused the authenticated existing Agent; stop safely disconnected it; a subsequent Admin start launched a fresh Agent, which authenticated and reported idle. During a real local test-video task, Windows reported a nonzero mpv main-window handle and Fastify observed `playing`. Admin Stop during that task caused the test task to end as `failed`/stopped, never EOF/completed; Agent was then restarted and returned idle. No reservation or formal queue task was created.
+
+A brief API-container stop produced sanitized `API_UNAVAILABLE` Launcher log events. After API restart, health returned and the Launcher/Agent reauthenticated; no active task was present. Latest Admin status showed Everything `connected_media_found`. Formal autoplay remained false throughout. The only business-adjacent writes were Phase 9 local test-task/heartbeat state in the existing `player_agent_state` volume; MySQL reservations, settings, schema, and queue history were not changed.
+
+The stop test found/fixed two Launcher defects: Agent heartbeat freshness lasts 15 seconds, so graceful stop now waits 25 seconds before declaring timeout; a new start command now resets a prior action's error state before launching. API and Agent typecheck/build passed, focused API Player Agent tests **3/3**, Agent suite **13/13**, Admin production build passed, live unauthenticated proxy check returned 401, and the actual authenticated Admin/Windows lifecycle test passed. The full pre-existing isolated data-writing Edge suite was not run against the live business DB; these Playwright checks used only the real Admin session and Player Agent test task.
+
+## Phase 19 — Legacy PHP Admin settings audit and Node/MySQL unification
+
+The settings audit matrix and source references are in [LEGACY_ADMIN_SETTINGS_AUDIT.zh-CN.md](LEGACY_ADMIN_SETTINGS_AUDIT.zh-CN.md). Legacy Admin is unsupported in MySQL mode; React Admin is the only settings UI, Fastify is the write boundary, and `app_setting` is the persistence owner. PHP remains only as current admin-password/EasyAuth verifier and compatibility context provider.
+
+Migrated the three reservation-order settings (`request_automove`, reset-after-break, midjoin-first) into the MySQL settings contract. The explicit setup bootstrap seeds them once from the existing allowlisted config values using `INSERT IGNORE`; Fastify applies the MySQL values to both React and signed Legacy reservation requests. Node's PHP-oracle-compared ordering algorithm consumes them in the same reservation transaction. Changing them affects only new reservations. Existing queue rows and actual playmode were not changed. No startup DDL/backfill was added; missing new keys fail closed until the explicit bootstrap is run.
+
+React Admin now distinguishes the persisted playmode from runtime availability: only MySQL Node FIFO mode 1 can be newly selected; modes 2–5 are reported unsupported, and mode 1 waits for an explicit Admin start. Deployment policy `YUKARI_NODE_AUTOPLAY=0` stays disabled and the API returns a concrete block reason. `startvolume` and Legacy PHP SSE auto-refresh remain visible as read-only compatibility values because current mpv/React do not use them; MySQL API rejects attempts to change them. Playback control/history remain Node + MySQL + Windows Media Agent; old MPC-BE/foobar command settings were not restored.
+
+Validation: api-server, user-web and admin-web typecheck/build passed; new focused MySQL settings/runtime tests **2/2 passed**. A broader focused run produced 8 passing tests plus 5 Docker-dependent PHP-oracle failures because this execution context cannot access `npipe:////./pipe/docker_engine` (`permission denied`); these are environment-blocked, not reported as code passes. No PHP files, MySQL rows/schema, reservations, live playmode, media paths, Agent, or running services were changed. The Compose source autoplay gate is set to `0`; no Compose redeploy was attempted.
+
+Follow-up compatibility hardening: Legacy Admin radio forms use `2` for disabled. Fastify now maps only the recognized legacy boolean values `0/1/2` to effective `0/1` on both config projection and existing `app_setting` reads. Reading old `2` values does not rewrite MySQL; unsupported values return an explicit settings error. Added a regression asserting a no-op save leaves legacy stored `2` unchanged. API, Admin, and user builds plus focused policy tests were rerun successfully. Docker Engine access remains denied, so no live MySQL, PHP-oracle, or Edge E2E validation was possible in this follow-up.
+
+## Phase 20 — mpv live status and safe Admin controls
+
+Admin Queue now presents three separate signals: Fastify/MySQL queue task, Windows Agent connection, and mpv IPC/player state. The Admin polls a sanitized mpv status snapshot every second and slower task/system data every 3.5 seconds. Fastify's mpv status route reads only the existing Agent JSON heartbeat snapshot; it does not query or write MySQL. The Agent reports actual mpv `path` internally for task verification, but strips it before sending status; only the media basename and sanitized dynamic track metadata reach Admin. Ordinary user playback status remains limited to connected/playback/active.
+
+Admin can pause/resume through the existing task-aware controls, seek, set volume, mute, select an audio track by mpv-reported ID, select subtitles by reported ID or turn them off, and stop the active test/formal playback through its existing safe path. Fastify requires an Admin session, a connected authenticated Agent, a matching active task and currently loaded mpv state. Seek bounds and current track IDs are checked against the last real Agent report. The Agent has a single bounded control slot, rejects stale task ownership, expires unacknowledged commands after ten seconds, and reports a typed acknowledgement. No generic IPC, process command or host path API was added. Audio-track selection does not change pitch; pitch/tempo controls remain unsupported.
+
+Pause, resume and stop use actual mpv IPC acknowledgements/status. Agent/task and mpv status remain distinct. Seek and track/volume changes only update the Agent snapshot; they do not create MySQL task events. Queue task state and `playtimes` are still changed only by the existing actual playing/EOF/error/stop reports. The Admin never treats a successful process launch or control enqueue as playback completion. An unavailable Agent/mpv is shown as unavailable; no status is synthesized.
+
+
+### Phase 20 validation follow-up (2026-10-24)
+
+The volume control follows mpv's `--no-config` default maximum of 130%, rather than clamping real telemetry to 100%; Admin and Fastify validate the same 0–130 range. The fixed Agent launch arguments do not read user mpv config, so this range is stable for the managed instance. Official mpv documents `volume-max` default 130 in the [reference manual](https://mpv.io/manual/stable/#options-volume-max).
+
+Latest local verification: API, Agent, Admin and user-web typecheck/build passed; Player Agent tests **15/15**, focused API Agent/control tests **4/4**. The full API suite reports **39 passed, 13 failed, 3 skipped**. Failure classification: 8 PHP-oracle/WAL tests cannot reach Docker because this execution identity is denied the Windows Docker Engine named pipe; 5 isolated live-write tests correctly stop before mutation because the protected `E2E_CONFIG_PATH`/synthetic Compose marker is absent. The 3 skips are the active-player write guard, optional MySQL integration config, and real mpv two-file isolated deployment test. These are environment-blocked checks, not evidence of a code regression; the full suite is not green. React Edge E2E and the changed API image were not deployed because of that same Docker access failure.
+
+No live IPC GUI control was attempted in this follow-up: a Windows `mpv` process existed but could not be positively associated with this Agent's private IPC endpoint, so it was left untouched. Phase 9/10 real mpv playback/EOF results remain prior evidence only and do not constitute a Phase 20 live-control acceptance. No MySQL rows, queue, autoplay setting, password, Docker volume, or media file was changed.
+
+## Phase 19B — React Admin playback and reservation settings
+
+In MySQL deployments, `app_setting` is the durable owner for the Node playback strategy, scheduler enablement, one-shot manual-start request, initial mpv volume, and the three reservation-ordering flags. React Admin can save only the supported Node strategies: `1` = explicit FIFO scheduler (automatic advance after confirmed EOF), `2` = manual queue ownership (Admin starts one song at a time; EOF does not claim another). Saving a strategy never starts scheduling. The Queue playback console is the explicit start/arm/stop control; `YUKARI_NODE_AUTOPLAY=0` remains a server-side deployment block and is reported to Admin.
+
+Scheduler enable/disable and manual-start state persist in `app_setting`; FIFO mode, manual mode, and scheduler state are checked again inside the MySQL claim transaction. A mode change locks the scheduling settings and active task rows and is rejected while scheduling or a playback task is active. The active-task unique constraint remains the final one-task fence. `startvolume` is validated to 0–100 and sent only with a newly claimed queue task; the Windows Agent applies it once before opening that file. Live mpv volume remains a separate runtime value and is not overwritten by telemetry polls. Offline Agent does not prevent saving the default.
+
+The request ordering settings are read by Fastify for every React and signed Legacy PHP reservation request and passed into the Node reservation transaction. They affect newly created reservations only; changing them does not reorder existing rows. The old Legacy Admin remains unsupported. Legacy PHP User search and reservation forwarding remain enabled and do not use SQLite writes.
+
+Canonical new reservation/playback status values are emitted for React and Legacy consumers. Queue reads continue to normalize old MySQL mojibake status rows and preserve their secret masking. Video claims accept the canonical `動画` kind and the old stored representation.
+
+Verification in this execution: API, Admin, and user-web typecheck/build passed; the focused authenticated settings, MySQL queue projection, runtime capability, and durable scheduler tests passed **7/7**; Player Agent unit tests passed **16/16**. Full API suite: **40 passed, 13 environment-blocked, 3 skipped**. The blocked tests either require marker-protected synthetic Compose plus `E2E_CONFIG_PATH`, or invoke PHP/Legacy oracles through Docker; this execution could not read Docker's named pipe (`npipe:////./pipe/docker_engine`, access denied). The isolated MySQL integration test that snapshots/restores scheduler settings and verifies initial volume was not run. Admin/user Edge E2E, PHP lint, live MySQL behavior, and the deployed Docker/browser build therefore remain unverified here; no live MySQL write or formal queue was used.
+
+### Legacy settings page visibility correction
+
+The earlier blanket `/init.php` 410 was too broad for operators who still need to inspect the familiar Legacy form. In MySQL mode, authenticated `GET /init.php` now renders that interface read-only: query/form values are discarded before processing, the old form controls are disabled, the stored password value is not rendered, and non-GET submissions remain 410. React Admin remains the only settings writer. Runtime/browser verification is pending because Docker Engine access is denied in this execution context.
+
+Admin navigation now has a dedicated `/playback` route for the existing task-aware mpv console; `/` retains its embedded console so current queue workflows and selectors remain intact. The `/settings` page links to the Legacy view-only page. Admin typecheck/build passed after these navigation changes; browser E2E remains gated on the isolated Compose environment.
+
+
+### Phase 20 user player surface and deployment follow-up (2026-10-24)
+
+Added user route `/player` with sanitized live mpv status and typed controls for pause/resume, seek, volume/mute, dynamic audio/subtitle tracks, audio delay and fullscreen. Fastify requires a user session and binds every command to the current formal queue task and authenticated Agent; test tasks, stop, skip and scheduler controls are not exposed. Pause/resume remain pending until the Agent snapshot confirms the requested state; a 10-second timeout reports an unconfirmed result instead of success. The Admin route remains `/playback`; Legacy MPC/foobar-only effects, pitch/tempo and capture controls remain unsupported.
+
+Verification: API, user-web, admin-web and Player Agent typecheck/build passed; Player Agent tests 16/16 and focused API player/authorization tests 3/3 passed. The full API suite produced 42 passed, 14 failed and 3 skipped: 8 PHP-oracle tests require the isolated PHP workspace mount, 5 protected write tests require the synthetic deployment marker, and one old unauthenticated Legacy test expects 410 before its auth gate (actual 401); none were counted as passing. Browser E2E was not run against the live MySQL data.
+
+The user/admin Vite services were restarted to clear stale transformed modules; `/player`, `/playback`, shared language modules and API health now respond. Fastify was rebuilt and recreated through the repository-root Compose entrypoint; MySQL stayed healthy and was not recreated, bootstrapped or modified. An initial explicit `-f docker/compose.yaml` restart selected fallback Compose variables and the API rejected the app credential; it was immediately restored through root `docker compose`, which reads the existing root `.env`. No account/password change or database write was performed.
+
+The Windows Launcher and Agent processes are alive, but the Agent process started before the newly built Agent bundle; an mpv process is present and could not be tied to a safely idle task through this unauthenticated execution context. It was not stopped or touched. After confirming no song is playing, use Admin System → Agent 停止, then Agent 起動・接続 to load the new Agent bundle. Formal autoplay remains disabled.
+
+### Phase 20 key-change follow-up (2026-10-24)
+
+Added runtime ±6 semitone key controls to both Admin `/playback` and authenticated user `/player`. Agent adds a labeled mpv Rubber Band filter for the active media, then uses mpv `af-command set-pitch`; current semitones and filter availability come from the Agent's mpv status. Unsupported mpv builds reject the control instead of claiming success. This is pitch shifting without changing playback speed, distinct from selecting another audio track. The installed mpv `--af=help` output confirms Rubber Band is present on this host. Agent 16/16 tests, focused API control/auth tests 2/2, all four project typechecks/builds passed. The running Agent predates this bundle, and the current mpv process was left untouched because its active playback could not be safely established; load the new Agent through Admin only when playback is idle. Per-reservation key selection and Legacy EasyKeyChanger's database projection remain unmigrated.

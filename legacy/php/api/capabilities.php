@@ -64,9 +64,18 @@ function everything_available()
 $lister_dbpath = array_key_exists('listerDBPATH', $config_ini)
     ? urldecode($config_ini['listerDBPATH']) : '';
 
+function lister_index_available($path) {
+    if ($path === '' || !is_file($path)) return false;
+    try {
+        $db = new PDO('sqlite:file:' . realpath($path) . '?mode=ro');
+        $stmt = $db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='t_found'");
+        return $stmt !== false && $stmt->fetchColumn() !== false;
+    } catch (Throwable $error) { return false; }
+}
+
 $features = [
     // 検索タブの出し分け用 (旧サーバーではキー欠落 = アプリ側は表示扱い)
-    'lister_search'     => $lister_dbpath !== '' && file_exists($lister_dbpath),
+    'lister_search'     => lister_index_available($lister_dbpath),
     'everything_search' => everything_available(),
     // インターネット接続系 (URL 指定リクエスト等) の可否
     'internet'          => configbool('connectinternet', true),
@@ -74,8 +83,8 @@ $features = [
     // ローカル接続なら常に可、インターネット経由は online_preview 設定が有効なときのみ。
     // 旧サーバーではキー欠落 = アプリ側は非表示 (preview_video_stream.php 自体が無いため)
     'preview'           => !check_access_from_online() || configbool('online_preview', false),
-    'mypage'           => configbool('usemypage',           true),
-    'bingo'            => configbool('usebingo',            false),
+    'mypage'           => false,
+    'bingo'            => false,
     'keychange'        => configbool('usekeychange',        false),
     'secret'           => configbool('usesecret',           true),
     'bgv'              => configbool('usebgv',              false),
@@ -83,12 +92,12 @@ $features = [
     'haishin'          => configbool('usehaishin',          true),
     'nonamerequest'    => configbool('nonamerequest',       false),
     'otherplayer'      => configbool('useotherplayer',      false),
-    'google_sync'      => !empty($config_ini['google_client_id']),
+    'google_sync'      => false,
     'easyauth'         => configbool('useeasyauth',         false),
     'new_request_list' => configbool('usenewrequestlist',   false),
     'new_search_ui'    => configbool('usenewsearchui',      false),
     // 曲情報の修正 (/api/song_metadata.php)。旧サーバーではキー欠落 = アプリ側は非表示
-    'metadata_edit'    => true,
+    'metadata_edit'    => false,
 ];
 
 $player = [

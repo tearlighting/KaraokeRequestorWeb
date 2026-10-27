@@ -1,5 +1,5 @@
 <?php
-function yukari_node_autoplay_owns_queue() { return is_file(__DIR__ . '/runtime/queue/node-autoplay.owner'); }
+function yukari_node_autoplay_owns_queue() { return is_file(__DIR__ . '/runtime/queue-owner/node-autoplay.owner') || is_file(__DIR__ . '/runtime/queue/node-autoplay.owner'); }
 if (yukari_node_autoplay_owns_queue()) {
     fwrite(STDERR, "Node/Fastify owns the playback queue; Legacy manage-mpc is disabled until ownership is released.\n");
     exit(3);

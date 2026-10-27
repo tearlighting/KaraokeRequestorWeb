@@ -1,4 +1,5 @@
 import { ApiError, apiJson, record } from '../../lib/api';
+import type { MpvControlInput, PublicPlayerStatus } from '../../../../../packages/contracts/src/index';
 
 export interface QueueItem {
   id: number;
@@ -10,6 +11,17 @@ export interface QueueItem {
 }
 export interface Queue { items: QueueItem[]; total: number; remaining: number }
 export interface Playback { playing: boolean; title: string; singer: string; status: string }
+
+export async function getPlayerStatus(): Promise<PublicPlayerStatus> {
+  const data = await apiJson('/playback/agent');
+  if (typeof data.connected !== 'boolean' || typeof data.active !== 'boolean' || !['idle','starting','playing','paused','stopped','unavailable'].includes(String(data.playback)))
+    throw new ApiError('Invalid player status response', 502, 'INVALID_PLAYER_STATUS');
+  return data as unknown as PublicPlayerStatus;
+}
+
+export async function controlPlayer(input: MpvControlInput | { action: 'pause' | 'resume' }): Promise<{ queued: boolean; action: string; id?: string }> {
+  return apiJson('/playback/mpv-control', { method: 'POST', body: JSON.stringify(input) }) as Promise<{ queued: boolean; action: string; id?: string }>;
+}
 
 export async function getQueue(): Promise<Queue> {
   const data = await apiJson('/queue');

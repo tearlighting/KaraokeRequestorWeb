@@ -78,8 +78,12 @@ if (empty($lister_dbpath) || !file_exists($lister_dbpath)) {
     api_error('ListerDB が見つかりません (ゆかりすたー連携が未設定です)', 503);
 }
 try {
-    $ldb = new PDO('sqlite:' . $lister_dbpath);
+    $ldb = new PDO('sqlite:file:' . realpath($lister_dbpath) . '?mode=ro');
     $ldb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $index_table = $ldb->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='t_found'");
+    if ($index_table === false || $index_table->fetchColumn() === false) {
+        api_error('YukaLister index is not initialized; install a valid read-only List.sqlite3 index.', 503);
+    }
 } catch (PDOException $e) {
     api_error('ListerDB を開けません', 503);
 }

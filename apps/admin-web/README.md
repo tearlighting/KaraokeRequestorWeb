@@ -13,7 +13,7 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-管理端 http://127.0.0.1:5174/，用户端仍为 5173，Node API 为 3000，原 PHP 为 8080。可通过 `.env.local` 中的 `API_PROXY_TARGET` 修改 Node 开发代理目标。正式静态部署及 HTTPS 不在本阶段。
+管理端 http://127.0.0.1:5174/，用户端仍为 5173，Node API 为 3000，原 PHP 为 8180。可通过 `.env.local` 中的 `API_PROXY_TARGET` 修改 Node 开发代理目标。正式静态部署及 HTTPS 不在本阶段。
 
 ## 认证和功能
 

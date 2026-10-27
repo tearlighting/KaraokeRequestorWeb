@@ -1,0 +1,16 @@
+{
+  "name": "@yukari/player-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && esbuild src/main.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/main.js && esbuild src/launcher.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/launcher.js",
+    "start": "node dist/main.js",
+    "start:launcher": "node dist/launcher.js",
+    "test": "node --import ../../apps/api-server/tests/windows-preload.mjs --import tsx --test tests/*.test.ts"
+  },
+  "devDependencies": { "@types/node": "26.6.5", "esbuild": "0.28.2", "tsx": "4.23.15", "typescript": "7.0.2" }
+}

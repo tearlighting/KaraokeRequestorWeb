@@ -4,6 +4,9 @@ COPY apps/user-web/package.json apps/user-web/package-lock.json ./apps/user-web/
 RUN npm --prefix apps/user-web ci
 COPY packages/contracts ./packages/contracts
 COPY packages/web-foundation ./packages/web-foundation
+COPY packages/theme ./packages/theme
+COPY packages/language ./packages/language
+COPY packages/reactiveStore ./packages/reactiveStore
 COPY packages/test-support ./packages/test-support
 COPY apps/user-web ./apps/user-web
 RUN npm --prefix apps/user-web run build
@@ -14,6 +17,9 @@ COPY apps/admin-web/package.json apps/admin-web/package-lock.json ./apps/admin-w
 RUN npm --prefix apps/admin-web ci
 COPY packages/contracts ./packages/contracts
 COPY packages/web-foundation ./packages/web-foundation
+COPY packages/theme ./packages/theme
+COPY packages/language ./packages/language
+COPY packages/reactiveStore ./packages/reactiveStore
 COPY packages/test-support ./packages/test-support
 COPY apps/admin-web ./apps/admin-web
 RUN npm --prefix apps/admin-web run build
@@ -36,7 +42,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY docker/docker-entrypoint.sh /usr/local/bin/yukari-dev-entrypoint
+COPY docker/check-php.php /usr/local/bin/yukari-check-php.php
 COPY docker/portal.html /var/www/ui/index.html
+COPY legacy/php /var/www/html
 COPY --from=user-web-build /repo/apps/user-web/dist /var/www/ui/user
 COPY --from=admin-web-build /repo/apps/admin-web/dist /var/www/ui/admin
 RUN chmod +x /usr/local/bin/yukari-dev-entrypoint \

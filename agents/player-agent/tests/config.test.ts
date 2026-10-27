@@ -14,7 +14,7 @@ test('local Agent config is user-scoped, environment overrides it, and token is 
     const tokenPath = join(root, 'token'); writeFileSync(tokenPath, 'private-agent-token\n');
     const config = loadAgentConfig({ LOCALAPPDATA: root, YUKARI_PLAYER_AGENT_TOKEN_FILE: tokenPath });
     assert.equal(config.mediaRoot, 'D:\\Media'); assert.equal(config.pathMappings[0].source, '/legacy/music');
-    assert.equal(config.token, 'private-agent-token'); assert.equal(config.lockDir, local);
+    assert.equal(config.token, 'private-agent-token'); assert.equal(config.lockDir, join(local, 'runtime-v2')); assert.equal(config.logDir, join(local, 'logs'));
     const overridden = loadAgentConfig({ LOCALAPPDATA: root, YUKARI_PLAYER_AGENT_CONFIG: configPath, YUKARI_PLAYER_AGENT_TOKEN: 'env-token', MPV_PATH: 'C:\\other\\mpv.exe', PLAYER_MEDIA_ROOT: 'E:\\Media', PLAYER_PATH_MAPPINGS: '[]' });
     assert.equal(overridden.executable, 'C:\\other\\mpv.exe'); assert.equal(overridden.mediaRoot, 'E:\\Media');
     assert.equal(overridden.pathMappings.length, 0); assert.equal(overridden.token, 'env-token');

@@ -10,6 +10,7 @@ import type { Song } from './features/search/api';
 import { ReservationForm } from './features/reservations/ReservationForm';
 import { QueuePanel } from './features/queue/QueuePanel';
 import { NowPlayingCard } from './features/queue/NowPlayingCard';
+import { PlayerPage } from './features/queue/PlayerPage';
 import { useHomePageStore } from './store/homePageStore';
 
 function UserLayout() {
@@ -17,7 +18,7 @@ function UserLayout() {
   return <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8">
     <header className="app-header mb-6 flex flex-wrap items-center justify-between gap-4">
       <Link to="/" className="brand-mark"><span className="brand-orbit">♫</span><span><small>{t('brand')}</small><strong>みんなで歌う、今日の一曲。</strong></span></Link>
-      <div className="flex flex-wrap items-center gap-2"><nav aria-label="ページ" className="flex gap-1"><NavLink to="/" end className={({isActive}) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>{t('home')}</NavLink><NavLink to="/queue" className={({isActive}) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>{t('queue')}</NavLink></nav><Preferences /></div>
+      <div className="flex flex-wrap items-center gap-2"><nav aria-label="ページ" className="flex gap-1"><NavLink to="/" end className={({isActive}) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>{t('home')}</NavLink><NavLink to="/queue" className={({isActive}) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>{t('queue')}</NavLink><NavLink to="/player" className={({isActive}) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>{t('userPlayerRoute')}</NavLink></nav><Preferences /></div>
     </header>
     <NowPlayingCard />
     <Outlet />
@@ -38,5 +39,5 @@ function HomePage() {
 }
 function QueueRoute() { return <div className="mt-5"><QueuePanel revision={0} createdId={null} /></div>; }
 function NotFound() { const t = useT(); return <section className="panel mt-8 text-center"><h1 className="text-2xl font-bold">{t('notFound')}</h1><Link className="primary mt-5 inline-flex" to="/">{t('backHome')}</Link></section>; }
-function RoutedApp() { return <Routes><Route element={<UserLayout />}><Route index element={<HomePage />} /><Route path="search" element={<HomePage />} /><Route path="queue" element={<QueueRoute />} /><Route path="*" element={<NotFound />} /></Route></Routes>; }
+function RoutedApp() { return <Routes><Route element={<UserLayout />}><Route index element={<HomePage />} /><Route path="search" element={<HomePage />} /><Route path="queue" element={<QueueRoute />} /><Route path="player" element={<PlayerPage />} /><Route path="*" element={<NotFound />} /></Route></Routes>; }
 export function App() { const basename = import.meta.env.BASE_URL === '/' ? '/' : import.meta.env.BASE_URL.replace(/\/$/, ''); return <ThemeProvider><LocaleProvider><BrowserRouter basename={basename}><RoutedApp /></BrowserRouter></LocaleProvider></ThemeProvider>; }

@@ -1,12 +1,14 @@
-import { mkdirSync, openSync, closeSync, unlinkSync } from 'node:fs';
+﻿import { mkdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { createServer, type Server } from 'node:net';
-import { MediaPathResolver } from './media-path.js';
-import { MpvJsonIpcAdapter, type PlayerStatus } from './mpv.js';
+import { MediaPathResolver } from '../../media-agent/src/media-path.js';
+import { MpvJsonIpcAdapter, type MpvControl, type PlayerStatus } from './mpv.js';
 import { loadAgentConfig } from './config.js';
+import { acquireInstanceLock } from './instance-lock.js';
+import { searchEverything, type EverythingHealth } from '../../media-agent/src/everything.js';
 
 const config = loadAgentConfig();
-const { apiUrl: api, token, id, executable, mediaRoot, testVideo, pathMappings, lockDir } = config;
+const { apiUrl: api, token, id, executable, mediaRoot, testVideo, pathMappings, lockDir, everythingUrl, everythingUsername, everythingPassword } = config;
 if (!/^[A-Za-z0-9_-]{1,50}$/.test(id)) throw new Error('YUKARI_PLAYER_AGENT_ID must be 1-50 safe characters');
 if (token.length < 32) throw new Error('Set YUKARI_PLAYER_AGENT_TOKEN to the private token from .local/player-agent-token');
 if (!executable || !mediaRoot) throw new Error('Set MPV_PATH and PLAYER_MEDIA_ROOT');
@@ -18,15 +20,17 @@ const testPath = testVideo ? paths.resolve(testVideo) : null;
 // Prevent two Agent processes on this Windows profile from consuming the same task.
 mkdirSync(lockDir, { recursive: true });
 const lockPath = join(lockDir, 'agent.lock');
-let lock: number;
-try { lock = openSync(lockPath, 'wx'); }
-catch { throw new Error(`Another Player Agent appears to be running (${lockPath})`); }
+const releaseLock = acquireInstanceLock(lockPath);
 const adapter = new MpvJsonIpcAdapter(executable, 4000, `yukari-player-${id}`);
 let currentTask = '';
 let activePlayback = false;
 let pendingEndReport: Report | null = null;
 let closing = false;
 let controlServer: Server | undefined;
+let searchBusy=false;
+let everythingHealth:EverythingHealth|'not_checked'='not_checked';
+let lastAgentError:string|undefined;
+let lastProbeAt=0;
 const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
 async function call<T>(path: string, body: unknown): Promise<T> {
@@ -40,11 +44,25 @@ async function call<T>(path: string, body: unknown): Promise<T> {
   if (!response.ok || value.ok !== true) throw new Error(`API ${response.status} ${value.error?.code || ''}: ${value.error?.message || 'request failed'}`);
   return value.data as T;
 }
-type Assignment = { task: { id: string; kind: 'test'|'queue'; requestId?: number; mediaPath?: string; state: 'claimed'|'playing' } | null; command: 'pause'|'resume'|'stop'|'skip'|null; commandTaskId?: string; mediaCheck?: { id: string; requestId: number; path: string } };
-type Report = { taskId?: string; state?: 'claimed'|'playing'|'completed'|'failed'; playback: 'idle'|'starting'|'playing'|'paused'|'stopped'|'unavailable'; file?: string; error?: string; endReason?: 'eof'; outcome?: 'skipped' };
+type Assignment = { task: { id: string; kind: 'test'|'queue'; requestId?: number; mediaPath?: string; initialVolume?:number; state: 'claimed'|'playing' } | null; command: 'pause'|'resume'|'stop'|'skip'|null; commandTaskId?: string; mpvControl?:MpvControl|null; mediaCheck?: { id: string; requestId: number; path: string }; searchJob?:{id:string;keyword:string} };
+type Report = { taskId?: string; state?: 'claimed'|'playing'|'completed'|'failed'; playback: 'idle'|'starting'|'playing'|'paused'|'stopped'|'unavailable'; file?: string; error?: string; endReason?: 'eof'; outcome?: 'skipped'; mpv?:ReturnType<typeof publicStatus>; controlAck?:{id:string;ok:boolean;error?:'MPV_IPC_UNAVAILABLE'|'MPV_NOT_PLAYING'|'MPV_CONTROL_FAILED'|'MPV_TRACK_UNAVAILABLE'|'MPV_KEY_CHANGE_UNAVAILABLE'} };
 const mapStatus = (value: PlayerStatus['state']): Report['playback'] => value;
+function publicStatus(status:PlayerStatus){const{path:_path,...safe}=status;return safe;}
 
-async function report(value: Report) { return call('report', { agentId: id, testReady: Boolean(testPath), ...value }); }
+async function report(value: Report) { return call('report', { agentId: id, testReady: Boolean(testPath), everything:everythingHealth, mediaRootConfigured:Boolean(mediaRoot), agentError:lastAgentError??null, ...value }); }
+async function performSearch(job:{id:string;keyword:string}) {
+  searchBusy=true;
+  const outcome=await searchEverything(job.keyword,everythingUrl,paths,{username:everythingUsername,password:everythingPassword,timeoutMs:3500});
+  everythingHealth=outcome.health;lastAgentError=outcome.error;
+  try { await call('search-result',{agentId:id,searchId:job.id,health:outcome.health,error:outcome.error,items:outcome.items}); }
+  catch(error) { lastAgentError='SEARCH_REPORT_FAILED';process.stderr.write('Everything search result could not be delivered to Fastify; browser request will expire.\n'); }
+  finally { searchBusy=false; }
+}
+async function probeEverything(){
+  lastProbeAt=Date.now();const outcome=await searchEverything(`path:"${mediaRoot}"`,everythingUrl,paths,{username:everythingUsername,password:everythingPassword,timeoutMs:2500});
+  everythingHealth=outcome.health;lastAgentError=outcome.error;
+  try{const actual=await adapter.getStatus();await report({playback:mapStatus(actual.state),file:actual.file,mpv:publicStatus(actual)});}catch{/* The next normal heartbeat will publish current player state. */}
+}
 async function executeCommand(command: NonNullable<Assignment['command']>) {
   if (!currentTask && command === 'stop') { await adapter.stop(); return; }
   if (!currentTask) return;
@@ -55,8 +73,8 @@ async function executeCommand(command: NonNullable<Assignment['command']>) {
   const actual = await adapter.getStatus();
   if (command === 'stop' || command === 'skip') {
     await report({ taskId: currentTask, state: 'failed', playback: 'stopped', file: actual.file,
-      ...(command === 'skip' ? { outcome: 'skipped', error: '管理员跳过此预约' } : { error: '管理员停止自动播放' }) }); currentTask = '';
-  } else await report({ taskId: currentTask, state: 'playing', playback: mapStatus(actual.state), file: actual.file });
+      ...(command === 'skip' ? { outcome: 'skipped', error: '邂｡逅・遭霍ｳ霑・ｭ､鬚・ｺｦ' } : { error: '邂｡逅・遭蛛懈ｭ｢閾ｪ蜉ｨ謦ｭ謾ｾ' }) }); currentTask = '';
+  } else await report({ taskId: currentTask, state: 'playing', playback: mapStatus(actual.state), file: actual.file, mpv:publicStatus(actual) });
 }
 
 adapter.onEnded((event) => {
@@ -77,19 +95,35 @@ async function runTask(task: NonNullable<Assignment['task']>) {
     if (actual.path !== target || actual.state === 'idle') throw new Error('mpv no longer reports the active task; refusing an automatic replay');
   } else {
     await report({ taskId: task.id, state: 'claimed', playback: 'starting', file: basename(target) });
-    if (actual.path !== target || actual.state === 'idle') await adapter.open(target);
-    else if (actual.state === 'paused') await adapter.play();
+    // A fresh claim is a new task even when it points to the same file that
+    // mpv happened to have loaded before. Replace it and apply the configured
+    // initial volume once; polling/playing recoveries never enter this branch.
+    if(task.kind==='queue'&&task.initialVolume!==undefined)await adapter.setInitialVolume(task.initialVolume);
+    await adapter.open(target);
   }
   const verified = await adapter.getStatus();
   if (verified.path !== target || !['playing','paused'].includes(verified.state)) throw new Error('mpv did not confirm the configured media is loaded');
   activePlayback = true;
-  await report({ taskId: task.id, state: 'playing', playback: mapStatus(verified.state), file: verified.file });
+  await report({ taskId: task.id, state: 'playing', playback: mapStatus(verified.state), file: verified.file, mpv:publicStatus(verified) });
+}
+
+let lastControlResult:Report['controlAck']|undefined;
+async function executeMpvControl(control:MpvControl){
+  if(control.taskId!==currentTask){lastControlResult={id:control.id,ok:false,error:'MPV_NOT_PLAYING'};}
+  else if(lastControlResult?.id!==control.id){
+    try{await adapter.applyControl(control);lastControlResult={id:control.id,ok:true};}
+    catch(error){const reason=error instanceof Error?error.message:'';lastControlResult={id:control.id,ok:false,error:reason==='MPV_IPC_UNAVAILABLE'?'MPV_IPC_UNAVAILABLE':reason==='MPV_NOT_PLAYING'?'MPV_NOT_PLAYING':reason==='MPV_KEY_CHANGE_UNAVAILABLE'?'MPV_KEY_CHANGE_UNAVAILABLE':reason.includes('TRACK')?'MPV_TRACK_UNAVAILABLE':'MPV_CONTROL_FAILED'};}
+  }
+  const actual=await adapter.getStatus();
+  await report({playback:mapStatus(actual.state),file:actual.file,mpv:publicStatus(actual),controlAck:lastControlResult});
 }
 
 async function loop() {
   while (!closing) {
     try {
-      const assignment = await call<Assignment>('next', { agentId: id, testReady: Boolean(testPath) });
+      if(Date.now()-lastProbeAt>30000)void probeEverything();
+      const assignment = await call<Assignment>('next', { agentId: id, testReady: Boolean(testPath), searchReady:!searchBusy });
+      if(assignment.searchJob&&!searchBusy)void performSearch(assignment.searchJob);
       if (assignment.mediaCheck) {
         const result = paths.checkQueueFile(assignment.mediaCheck.path);
         await call('media-check', { agentId: id, checkId: assignment.mediaCheck.id, result });
@@ -121,9 +155,9 @@ async function loop() {
         const actual = await adapter.getStatus();
         const expectedPath = task.kind === 'test' ? testPath : task.mediaPath ? paths.resolveQueueFile(task.mediaPath) : null;
         if (actual.path === expectedPath && (actual.state === 'playing' || actual.state === 'paused')) activePlayback = true;
-        await report({ taskId: task.id, state: actual.state === 'playing' || actual.state === 'paused' ? 'playing' : undefined,
-          playback: mapStatus(actual.state), file: actual.file });
-      } else await report({ playback: currentTask ? 'unavailable' : 'idle' });
+        await report({playback:mapStatus(actual.state),file:actual.file,mpv:publicStatus(actual)});
+      } else { const actual=await adapter.getStatus();await report({playback:mapStatus(actual.state),file:actual.file,mpv:publicStatus(actual)}); }
+      if(assignment.mpvControl){await executeMpvControl(assignment.mpvControl);}else lastControlResult=undefined;
     } catch (error) {
       if (pendingEndReport) {
         try { await report(pendingEndReport); if (currentTask === pendingEndReport.taskId) currentTask = ''; pendingEndReport = null; }
@@ -142,7 +176,7 @@ async function shutdown() {
   if (closing) return; closing = true;
   try { if (currentTask) { await adapter.stop(); await report({ taskId: currentTask, state: 'failed', playback: 'stopped', error: 'Agent shutting down' }); } } catch { /* shutdown cannot claim successful state */ }
   controlServer?.close();
-  await adapter.close(); closeSync(lock); try { unlinkSync(lockPath); } catch { /* lock cleanup is best effort */ }
+  await adapter.close(); releaseLock();
 }
 process.on('SIGINT', () => void shutdown().then(() => process.exit(0)));
 process.on('SIGTERM', () => void shutdown().then(() => process.exit(0)));

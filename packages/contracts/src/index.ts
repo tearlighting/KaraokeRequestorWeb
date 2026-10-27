@@ -18,7 +18,11 @@ export interface LegacyQueueItem extends QueueItem {
 }
 export interface LegacyQueueData extends Omit<QueueData, 'items'> { items: LegacyQueueItem[] }
 /** GET: Node-native read. PUT: PHP-only write. revision hashes exact config bytes. */
-export interface Settings { playmode: number; startvolume: number; requestlistactivereload: number; revision: string; changed?: boolean }
+export interface Settings {
+  playmode: number; startvolume: number; requestlistactivereload: number;
+  request_automove: number; request_automove_reset: number; request_automove_midjoin_first: number;
+  revision: string; changed?: boolean;
+}
 export interface AdminSession { username: string; password_configured: boolean; authProvider: 'node' | 'legacy' }
 export interface SystemStatus {
   php_version: string; os: string; detected_player: string; playmode: number;
@@ -29,16 +33,58 @@ export interface SystemStatus {
 export interface PlayerAgentStatus {
   connected: boolean;
   testReady: boolean;
+  mediaRootConfigured: boolean;
+  everything: 'not_checked'|'connected_no_media'|'connected_media_found'|'unavailable';
+  agentSearchEnabled?: boolean;
+  launcher?: { connected: boolean; state: 'starting'|'running'|'stopping'|'stopped'|'error'; error?: string };
+  agentError?: string;
   autoplayEnabled: boolean;
   manualMode: boolean;
   manualStartRequested: boolean;
   nodeOwnsQueue: boolean;
   nodeAutoplayAvailable: boolean;
+  autoplayUnavailableReason?: string;
   blockedReason?: string;
   playback: 'idle'|'starting'|'playing'|'paused'|'stopped'|'unavailable';
   file?: string;
+  mpv?: MpvLiveStatus;
   task: { id: string; kind: 'test'|'queue'; requestId?: number; state: 'pending'|'claimed'|'playing'|'completed'|'failed'|'uncertain'; createdAt: number; error?: string } | null;
 }
+export interface MpvTrack { id: number; title?: string; language?: string; codec?: string; selected: boolean }
+export interface MpvLiveStatus {
+  connected: boolean;
+  state: 'idle'|'playing'|'paused'|'stopped'|'unavailable';
+  file?: string;
+  duration?: number;
+  position?: number;
+  volume?: number;
+  muted?: boolean;
+  audioDelay?: number;
+  keySemitones?: number;
+  keyChangeAvailable?: boolean;
+  fullscreen?: boolean;
+  audioTracks: MpvTrack[];
+  selectedAudioTrackId?: number;
+  subtitleTracks: MpvTrack[];
+  selectedSubtitleTrackId?: number;
+  error?: 'MPV_IPC_UNAVAILABLE'|'MPV_STATUS_UNAVAILABLE';
+}
+export interface PublicPlayerStatus {
+  connected: boolean;
+  playback: PlayerAgentStatus['playback'];
+  active: boolean;
+  taskState: 'pending'|'claimed'|'playing'|'uncertain'|null;
+  mpv: (Omit<MpvLiveStatus, 'file' | 'error'> & { controlAck?: { id: string; ok: boolean; error?: string } }) | null;
+}
+export type MpvControlInput =
+  | { action: 'seek'; position: number }
+  | { action: 'volume'; value: number }
+  | { action: 'mute'; value: boolean }
+  | { action: 'audio-track'; trackId: number }
+  | { action: 'subtitle-track'; trackId: number | null }
+  | { action: 'audio-delay'; value: number }
+  | { action: 'key-change'; semitones: number }
+  | { action: 'fullscreen'; value: boolean };
 export type MediaAvailability = 'playable' | 'path_unmapped' | 'file_missing' | 'invalid_path' | 'agent_offline' | 'pending' | 'claimed';
 export interface ReservationInput {
   filename: string; fullpath: string; singer: string; comment: string; kind: '動画' | '小休止' | 'カラオケ配信' | 'URL指定' | '動画_別プ'; secret?: number | string;

@@ -1,12 +1,12 @@
 # Docker 開発環境
 
-Phase 6: 元の予約 DB は `legacy/php/runtime/queue/` に移動済みです。Node はこの専用ディレクトリのみ読み取り専用でマウントし、PHP が書き込みと WAL/SHM の維持を担当します。旧 swipe 画面は短時間の読み取り専用チケットを使います。既存 DB の移動は停止・確認が必要で、代替 DB は作成しません。
+現在の MySQL モードでは Fastify が MySQL に業務データを保存します。Legacy PHP ソースは Apache イメージに含まれ、読み取り専用の認証設定と YukaLister 索引、再生 Owner fence のみをマウントします。通常起動では業務 SQLite と WAL anchor を使用しません。未移行の Legacy 業務ページは HTTP 410 を返します。
 
-Phase 4: 旧 PHP ソースとローカル実行データは `legacy/php/` に移動し、Apache の `/var/www/html` にマウントします。ブラウザー URL は変更しません。CLI 検査用にリポジトリを `/workspace` に読み取り専用でマウントします。旧 UI の Node 接続は `/api/v1/meta/health` のみで、業務処理は PHP のままです。[互換性](../docs/LEGACY_COMPATIBILITY.md)を参照してください。
+過去の Phase 4 構成は MySQL モードで置き換えられました。検索・認証など対応済みの Legacy URL は維持されます。停止対象の URL は[互換性一覧](../docs/LEGACY_COMPATIBILITY.md)を参照してください。
 
 ## Phase 3 の起動先
 
-リポジトリ直下で `docker compose -f docker/compose.yaml up --build -d` を実行すると、従来 PHP（http://127.0.0.1:8080）と統合 Node API（http://127.0.0.1:3000/health）が起動します。両ポートはローカルホストのみに公開されます。内部 Bridge の認証情報は初期化サービスが生成し、DB 更新は引き続き PHP だけが担当します。
+リポジトリ直下で `docker compose up -d --build` を実行します。ルートの Compose ファイルが `docker/compose.yaml` を読み込み、既存の Compose プロジェクト名を維持します。PHP、Fastify、MySQL、Vite 開発サーバーが起動し、Fastify の前に一度限りの MySQL 初期化サービスが実行されます。DB や volume は削除しません。ループバック専用の開発用認証情報が既定値で、ルートの無視対象 `.env` で上書きできます。本番環境では既定値を使用しないでください。
 
 `apps/user-web` と `apps/admin-web` でそれぞれ `npm ci` と `npm run dev` を実行してください（PowerShell では `npm.cmd`）。ポートは 5173 と 5174 で、PHP ではなく Node `/api/v1` に接続します。新管理 API は従来設定の空でない管理パスワードが必要です。[API Server](../apps/api-server/README.md) と [進捗](../docs/REFACTOR_PROGRESS.md) を参照してください。
 
@@ -24,7 +24,7 @@ Phase 4: 旧 PHP ソースとローカル実行データは `legacy/php/` に移
 docker compose -f docker/compose.yaml up --build
 ```
 
-初回起動時に PHP 8.2 + Apache イメージをビルドし、必要な PHP 拡張をインストールします。Apache の起動後、<http://localhost:8080> を開いてください。バックグラウンドで起動する場合：
+初回起動時に PHP 8.2 + Apache イメージをビルドし、必要な PHP 拡張をインストールします。Apache の起動後、<http://localhost:8180> を開いてください。バックグラウンドで起動する場合：
 
 ```powershell
 docker compose -f docker/compose.yaml up --build -d
@@ -53,7 +53,7 @@ docker compose -f docker/compose.yaml down
 
 ## トラブルシューティング
 
-- 8080 番ポートが使用中の場合は、そのポートを使用しているプログラムを停止してください。
+- 8180 番ポートが使用中の場合は、そのポートを使用しているプログラムを停止してください。
 - `docker` コマンドが認識されない場合は、Docker Desktop をインストールして起動し、PowerShell を開き直してください。
 - PHP エラーが表示された場合は `docker compose -f docker/compose.yaml logs web` でログを確認してください。イメージのビルド失敗、ワークスペースの書き込み権限、Windows プレーヤー依存機能へのアクセスなどが原因として考えられます。
 - `docker compose ... down` ではワークスペースのデータは削除されません。ローカル状態をリセットする必要がない限り、設定ファイルや SQLite データベースを削除しないでください。

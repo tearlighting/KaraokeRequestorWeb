@@ -10,6 +10,9 @@ const boundary: Plugin = { name: 'admin-api-boundary', configureServer(server) {
       (['/api/v1/admin/queue', '/api/v1/admin/status'].includes(path) && req.method === 'GET') ||
       (path === '/api/v1/admin/queue/reorder' && req.method === 'POST') ||
       (path === '/api/v1/admin/player-agent' && req.method === 'GET') ||
+      (path === '/api/v1/admin/player-agent/mpv' && req.method === 'GET') ||
+      (path === '/api/v1/admin/player-agent/mpv-control' && req.method === 'POST') ||
+      (path === '/api/v1/admin/player-agent/launcher' && req.method === 'POST') ||
       (path === '/api/v1/admin/session' && req.method === 'GET') ||
       (path === '/api/v1/admin/player-agent/test' && req.method === 'POST') ||
       (path === '/api/v1/admin/player-agent/control' && req.method === 'POST') ||

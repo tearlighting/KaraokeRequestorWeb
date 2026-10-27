@@ -38,7 +38,7 @@ if (array_key_exists('listerDBPATH', $config_ini)) {
     $lister_dbpath = urldecode($config_ini['listerDBPATH']);
     if (!empty($lister_dbpath) && file_exists($lister_dbpath)) {
         try {
-            $lister_db = new PDO('sqlite:' . $lister_dbpath);
+            $lister_db = new PDO('sqlite:file:' . realpath($lister_dbpath) . '?mode=ro');
             $worker_stmt = $lister_db->prepare(
                 'SELECT found_worker FROM t_found WHERE found_path LIKE ? LIMIT 1');
         } catch (PDOException $e) {

@@ -9,11 +9,11 @@ Fastify + TypeScript + Zod，为两个 React 应用提供 `/api/v1`。Fastify �
 在项目根目录执行：
 
 ```powershell
-docker compose -f docker/compose.yaml up --build -d
+docker compose up -d --build
 ```
 
 - Node API：http://127.0.0.1:3000/health
-- 原 PHP：http://127.0.0.1:8080/
+- 原 PHP：http://127.0.0.1:8180/
 - 在 `apps/user-web` 执行 `npm.cmd ci`、`npm.cmd run dev`：http://127.0.0.1:5173/
 - 在 `apps/admin-web` 执行 `npm.cmd ci`、`npm.cmd run dev`：http://127.0.0.1:5174/
 

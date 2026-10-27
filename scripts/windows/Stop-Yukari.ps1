@@ -8,7 +8,7 @@ try {
     & (Join-Path $PSScriptRoot 'Stop-PlayerAgent.ps1') -RepoRoot $repoRoot 2>&1 | Tee-Object -FilePath $logFile -Append
     Push-Location $repoRoot
     try {
-        & docker.exe compose -f (Join-Path $repoRoot 'docker/compose.yaml') stop api-server web 2>&1 | Tee-Object -FilePath $logFile -Append
+        & docker.exe compose --env-file (Join-Path $repoRoot '.env') -f (Join-Path $repoRoot 'docker/compose.yaml') stop user-web-dev admin-web-dev api-server web 2>&1 | Tee-Object -FilePath $logFile -Append
         if ($LASTEXITCODE -ne 0) { throw "Docker Compose stop exited with code $LASTEXITCODE" }
     } finally { Pop-Location }
     Write-Host "Yukari stopped. Containers and volumes are preserved. Log: $logFile"

@@ -8,7 +8,9 @@ class ListerDB {
     public function initdb(){
         // DB初期化
         try {
-            $this->ListerDBFD = new PDO($this->readOnly ? 'sqlite:file:' . $this->listerdbfile . '?mode=ro' : 'sqlite:' . $this->listerdbfile);
+            $readOnly = $this->readOnly || getenv('YUKARI_MYSQL_MODE') === '1';
+            $path = $readOnly ? (realpath($this->listerdbfile) ?: $this->listerdbfile) : $this->listerdbfile;
+            $this->ListerDBFD = new PDO($readOnly ? 'sqlite:file:' . $path . '?mode=ro' : 'sqlite:' . $path);
         }catch (PDOException $e) {
             print 'DB初期化エラー : '.$e->getMessage() . "<br/>";
             return false;

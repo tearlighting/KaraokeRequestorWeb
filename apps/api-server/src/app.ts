@@ -3,7 +3,7 @@ import { QueueMutationRepository, QueueMutationService } from './queue-mutations
 import Fastify from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 import { z, ZodError } from 'zod';
 import { LegacyPhpAdapter } from './legacy.js';
 import { SessionStore } from './sessions.js';
@@ -11,22 +11,29 @@ import { BoundaryError } from './errors.js';
 import { SettingsRepository, SettingsService, settingsSchema } from './settings.js';
 import { verifyQueueTicket } from './legacy-queue.js';
 import { QueueRepository, QueueService, queueSchema, queueContextSchema } from './queue.js';
-import type { AdminSession } from '../../../packages/contracts/src/index.js';
+import type { AdminSession, MpvControlInput } from '../../../packages/contracts/src/index.js';
 import { PlayerTaskStore, agentAuthorized } from './player-agent.js';
 import { QueueAutoplayOwner, QueueAutoplayRepository, QueueAutoplayService } from './queue-autoplay.js';
 import { PlaybackTaskRepository } from './playback-tasks.js';
 import { MediaCheckCoordinator, type MediaCheckResult } from './media-checks.js';
+import { AgentSearchCoordinator } from './agent-search.js';
+import { MysqlPlaybackRepository, MysqlQueueMutationRepository, MysqlQueueRepository, MysqlRequestRepository, MysqlRequestService, MysqlSettingsRepository } from './mysql-domain.js';
+import type { MysqlStore } from './mysql.js';
 
 const id = z.coerce.number().int().positive().max(2147483647);
 const statusSchema = z.object({ php_version: z.string(), os: z.string(), detected_player: z.string(), playmode: z.number(),
   mpc_reachable: z.boolean(), foobar_reachable: z.boolean(), playback: z.object({}).passthrough().nullable(), password_configured: z.boolean() });
 const success = <T>(data: T) => ({ ok: true as const, data });
+const safeMpvLabel=z.string().max(96).refine(value=>!/[\\/\u0000-\u001f]/.test(value)&&!/^(?:[a-z]:|\\\\)/i.test(value));
+const mpvTrackSchema=z.object({id:z.number().int().nonnegative(),title:safeMpvLabel.optional(),language:safeMpvLabel.optional(),codec:safeMpvLabel.optional(),selected:z.boolean()}).strict();
+const safeMediaName=z.string().max(255).regex(/^[^/\\\u0000-\u001f]*$/);
+  const mpvStatusSchema=z.object({connected:z.boolean(),state:z.enum(['idle','playing','paused','stopped','unavailable']),file:safeMediaName.optional(),duration:z.number().finite().nonnegative().optional(),position:z.number().finite().nonnegative().optional(),volume:z.number().finite().min(0).max(130).optional(),muted:z.boolean().optional(),audioDelay:z.number().finite().optional(),fullscreen:z.boolean().optional(),keySemitones:z.number().int().min(-24).max(24).optional(),keyChangeAvailable:z.boolean().optional(),audioTracks:z.array(mpvTrackSchema).max(64),selectedAudioTrackId:z.number().int().nonnegative().optional(),subtitleTracks:z.array(mpvTrackSchema).max(64),selectedSubtitleTrackId:z.number().int().nonnegative().optional(),error:z.enum(['MPV_IPC_UNAVAILABLE','MPV_STATUS_UNAVAILABLE']).optional()}).strict();
 function legacyParse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
   if (!parsed.success) throw new BoundaryError(502, 'LEGACY_CONTRACT_ERROR', '原 PHP 响应不符合预期字段：' + parsed.error.issues.map((item) => item.path.join('.')).join(', '));
   return parsed.data;
 }
-export interface AppOptions { legacyUrl: string; bridgeToken: string; userOrigins: string[]; adminOrigins: string[]; secureCookies?: boolean; settingsPath?: string; queueRoot?: string; queueDatabase?: string; nodeAutoplay?: boolean; legacyOrigins?: string[]; playerAgentToken?: string; playerStatePath?: string }
+export interface AppOptions { legacyUrl: string; bridgeToken: string; userOrigins: string[]; adminOrigins: string[]; secureCookies?: boolean; settingsPath?: string; queueRoot?: string; queueDatabase?: string; nodeAutoplay?: boolean; agentSearchEnabled?: boolean; legacyOrigins?: string[]; playerAgentToken?: string; playerStatePath?: string; mysqlStore?: MysqlStore }
 export function createApp(options: AppOptions) {
   // No request/body logging: login secrets, session cookies and service tokens never enter logs.
   const app = Fastify({ logger: false, bodyLimit: 65536, trustProxy: false });
@@ -34,16 +41,25 @@ export function createApp(options: AppOptions) {
   const sessions = new SessionStore(options.secureCookies);
   const receipts = new SubmissionReceipts(options.bridgeToken);
   const requests = new RequestService(new RequestRepository(options.queueRoot || '/run/legacy-db'), receipts);
+  const mysqlRequests = options.mysqlStore ? new MysqlRequestRepository(options.mysqlStore) : undefined;
+  const mysqlRequestService = mysqlRequests ? new MysqlRequestService(mysqlRequests, receipts) : undefined;
+  const mysqlQueue = options.mysqlStore ? new MysqlQueueRepository(options.mysqlStore) : undefined;
+  const mysqlMutations = options.mysqlStore ? new MysqlQueueMutationRepository(options.mysqlStore) : undefined;
+  const mysqlPlayback = options.mysqlStore ? new MysqlPlaybackRepository(options.mysqlStore) : undefined;
   const mutations = new QueueMutationService(new QueueMutationRepository(options.queueRoot || '/run/legacy-db'));
   const queue = new QueueService(new QueueRepository(options.queueRoot || '/run/legacy-db'));
   const autoplay = new QueueAutoplayService(new QueueAutoplayRepository(options.queueRoot || '/run/legacy-db'));
   const autoplayOwner = new QueueAutoplayOwner(options.queueRoot || '/run/legacy-db');
   const playbackTasks = new PlaybackTaskRepository(options.queueRoot || '/run/legacy-db');
   const playbackDatabase = options.queueDatabase || 'request.db';
-  app.addHook('onReady', async () => { if (options.nodeAutoplay) { playbackTasks.requireSchema(playbackDatabase); playbackTasks.recoverOnStartup(playbackDatabase); if(playbackTasks.current(playbackDatabase)&&!autoplayOwner.active())autoplayOwner.acquire(); } });
+  app.addHook('onReady', async () => { if(options.mysqlStore)await options.mysqlStore.ping(); if (options.nodeAutoplay) { if(mysqlPlayback){await mysqlPlayback.requireSchema();await mysqlPlayback.recoverOnStartup();const schedule=await mysqlSettings!.scheduling();if(schedule.enabled||await mysqlPlayback.current())if(!autoplayOwner.active())autoplayOwner.acquire();}else{playbackTasks.requireSchema(playbackDatabase);playbackTasks.recoverOnStartup(playbackDatabase);if(playbackTasks.current(playbackDatabase)&&!autoplayOwner.active())autoplayOwner.acquire();} } });
+  if(options.mysqlStore)app.addHook('onClose',async()=>options.mysqlStore!.close());
   const settings = new SettingsService(new SettingsRepository(options.settingsPath || '/run/legacy-settings/config.ini'));
+  const mysqlSettings = options.mysqlStore ? new MysqlSettingsRepository(options.mysqlStore) : undefined;
+  const readCurrentSettings = async () => mysqlSettings ? settingsSchema.parse(await mysqlSettings.read()) : settings.readCurrent();
   const playerTasks = new PlayerTaskStore(options.playerStatePath || join(tmpdir(), 'yukari-player-agent', randomUUID(), 'state.json'));
   const mediaChecks = new MediaCheckCoordinator();
+  const agentSearch = new AgentSearchCoordinator();
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
     if (request.method === 'GET' && (request.url === '/health' || request.url === '/api/v1/meta/health')) return;
@@ -52,7 +68,7 @@ export function createApp(options: AppOptions) {
     const agentRoute = request.url.split('?')[0].startsWith('/api/v1/agent/');
     if (request.headers.authorization && !(agentRoute && request.headers.authorization.startsWith('Bearer '))) throw new BoundaryError(400, 'BASIC_NOT_ACCEPTED', '新 API 不接受 Basic 凭据，请使用登录会话');
     const admin = request.url.startsWith('/api/v1/admin') || request.url.startsWith('/api/v1/settings') || request.url.startsWith('/api/v1/playback/control');
-    const allowed = legacyQueue || legacyReorder ? [...options.adminOrigins,...(options.legacyOrigins || ['http://127.0.0.1:8080', 'http://localhost:8080'])] : admin ? options.adminOrigins : [...options.userOrigins, ...options.adminOrigins];
+    const allowed = legacyQueue || legacyReorder ? [...options.adminOrigins,...(options.legacyOrigins || ['http://127.0.0.1:8180', 'http://localhost:8180'])] : admin ? options.adminOrigins : [...options.userOrigins, ...options.adminOrigins];
     if (request.headers.origin && !allowed.includes(request.headers.origin)) throw new BoundaryError(403, 'ORIGIN_DENIED', '不允许该来源请求');
     if (!agentRoute && request.headers['x-yukari-client'] !== '1') throw new BoundaryError(403, 'CSRF_HEADER_REQUIRED', '缺少客户端请求标记');
     if (['POST', 'PATCH', 'DELETE', 'PUT'].includes(request.method) && !request.headers['content-type']?.startsWith('application/json')) throw new BoundaryError(415, 'JSON_REQUIRED', '新 API 只接受 JSON 写入');
@@ -78,7 +94,7 @@ export function createApp(options: AppOptions) {
     const context = legacyParse(queueContextSchema, await legacy.call('legacy-queue-context', { role: 'user', userid: value.userid }, { ticket }));
     if (context.role !== value.role || context.ip !== value.ip || context.ua !== value.ua) throw new BoundaryError(403, 'ROLE_MISMATCH', '队列身份不一致');
     const paging = z.object({ limit: z.coerce.number().int().min(0).max(2147483647).default(0), offset: z.coerce.number().int().min(0).max(2147483647).default(0) }).strict().parse(request.query);
-    const data = queue.read(context, paging.limit, paging.offset);
+    const data = mysqlQueue ? await mysqlQueue.read(context,paging.limit,paging.offset,true) : queue.read(context, paging.limit, paging.offset);
     reply.header('X-Yukari-Owner', 'node-queue-read');
     return success(data);
   });
@@ -112,30 +128,129 @@ export function createApp(options: AppOptions) {
     const identity = sessions.get(request, 'user');
     const context = legacyParse(queueContextSchema, await legacy.call('queue-context', identity));
     if (context.role !== 'user') throw new BoundaryError(403, 'ROLE_MISMATCH', '队列身份不一致');
-    const data = queueSchema.parse(queue.read(context));
+    const data = mysqlQueue ? await mysqlQueue.read(context) : queueSchema.parse(queue.read(context));
     reply.header('X-Yukari-Owner', 'node-queue-read');
     return success(data);
   });
-  app.get('/api/v1/playback', async (request) => success(legacyParse(z.object({ playing: z.boolean() }).passthrough(), await legacy.call('playback', sessions.get(request, 'user')))));
+  app.get('/api/v1/playback', async (request) => { const identity=sessions.get(request,'user'); return options.mysqlStore ? success(await mysqlQueue!.playback()) : success(legacyParse(z.object({ playing: z.boolean() }).passthrough(), await legacy.call('playback', identity))); });
   // Public view deliberately omits task IDs, filenames, paths and control material.
   app.get('/api/v1/playback/agent', async (request) => {
     sessions.get(request, 'user');
     const value = playerTasks.status();
-    const formal=playbackTasks.hasSchema(playbackDatabase)?playbackTasks.current(playbackDatabase):undefined;
-    return success({ connected: value.connected, playback: value.playback, active: Boolean(formal&&['claimed','playing'].includes(String(formal.state)) || value.task && ['claimed','playing'].includes(value.task.state)) });
+    const formal=mysqlPlayback?await mysqlPlayback.current():playbackTasks.hasSchema(playbackDatabase)?playbackTasks.current(playbackDatabase):undefined;
+    const snapshot=playerTasks.mpvStatus(),raw=snapshot.mpv;
+    const mpv=raw?{connected:raw.connected,state:raw.state,...(raw.duration!==undefined?{duration:raw.duration}:{}),...(raw.position!==undefined?{position:raw.position}:{}),...(raw.volume!==undefined?{volume:raw.volume}:{}),...(raw.muted!==undefined?{muted:raw.muted}:{}),...(raw.audioDelay!==undefined?{audioDelay:raw.audioDelay}:{}),...(raw.fullscreen!==undefined?{fullscreen:raw.fullscreen}:{}),...(raw.keySemitones!==undefined?{keySemitones:raw.keySemitones}:{}),...(raw.keyChangeAvailable!==undefined?{keyChangeAvailable:raw.keyChangeAvailable}:{}),audioTracks:raw.audioTracks,selectedAudioTrackId:raw.selectedAudioTrackId,subtitleTracks:raw.subtitleTracks,selectedSubtitleTrackId:raw.selectedSubtitleTrackId,...(snapshot.controlAck?{controlAck:snapshot.controlAck}:{})}:null;
+    const taskState=formal&&['pending','claimed','playing','uncertain'].includes(String(formal.state))?formal.state as 'pending'|'claimed'|'playing'|'uncertain':null;
+    return success({ connected: value.connected, playback: value.playback, active: Boolean(formal&&['claimed','playing'].includes(String(formal.state))), taskState, mpv });
   });
-  app.get('/api/v1/admin/player-agent', async (request) => { sessions.get(request, 'admin'); const current=playbackTasks.hasSchema(playbackDatabase)?playbackTasks.current(playbackDatabase):undefined; return success({ ...playerTasks.status(), task:current||playerTasks.status().task, nodeOwnsQueue: autoplayOwner.active(), nodeAutoplayAvailable: options.nodeAutoplay === true }); });
+  app.post('/api/v1/playback/mpv-control', async (request) => {
+    sessions.get(request, 'user');
+    const body=z.discriminatedUnion('action',[
+      z.object({action:z.enum(['pause','resume'])}).strict(),
+      z.object({action:z.literal('seek'),position:z.number().finite().nonnegative()}).strict(),
+      z.object({action:z.literal('volume'),value:z.number().finite().min(0).max(130)}).strict(),
+      z.object({action:z.literal('mute'),value:z.boolean()}).strict(),
+      z.object({action:z.literal('audio-track'),trackId:z.number().int().nonnegative()}).strict(),
+      z.object({action:z.literal('subtitle-track'),trackId:z.number().int().nonnegative().nullable()}).strict(),
+      z.object({action:z.literal('audio-delay'),value:z.number().finite().min(-10).max(10)}).strict(),
+      z.object({action:z.literal('key-change'),semitones:z.number().int().min(-6).max(6)}).strict(),
+      z.object({action:z.literal('fullscreen'),value:z.boolean()}).strict(),
+    ]).parse(request.body);
+    const current=mysqlPlayback?await mysqlPlayback.current():playbackTasks.hasSchema(playbackDatabase)?playbackTasks.current(playbackDatabase):undefined;
+    if(!current||!['claimed','playing'].includes(String(current.state)))throw new BoundaryError(409,'NO_ACTIVE_QUEUE_PLAYBACK','No active queue playback can be controlled');
+    const live=playerTasks.mpvStatus();
+    if(!live.connected||!live.agentId||!live.mpv?.connected)throw new BoundaryError(503,'MPV_IPC_UNAVAILABLE','Player Agent or mpv IPC is unavailable');
+    if('agentId'in current&&current.agentId!==live.agentId)throw new BoundaryError(409,'STALE_PLAYER_TASK','Active playback belongs to another Agent');
+    if(!['playing','paused'].includes(live.mpv.state))throw new BoundaryError(409,'MPV_NOT_PLAYING','mpv has no confirmed active media');
+    if(body.action==='pause'||body.action==='resume'){
+      const result=mysqlPlayback?await mysqlPlayback.control(body.action):playbackTasks.control(playbackDatabase,body.action);
+      return success(result);
+    }
+    if(body.action==='seek'&&(live.mpv.duration===undefined||body.position>live.mpv.duration))throw new BoundaryError(400,'MPV_INVALID_SEEK','Seek position is outside the current media duration');
+    if(body.action==='audio-track'&&!live.mpv.audioTracks.some(track=>track.id===body.trackId))throw new BoundaryError(409,'MPV_TRACK_UNAVAILABLE','Audio track is not present in the current media');
+    if(body.action==='key-change'&&!live.mpv.keyChangeAvailable)throw new BoundaryError(409,'MPV_KEY_CHANGE_UNAVAILABLE','This mpv build does not have the required pitch filter');
+    if(body.action==='subtitle-track'&&body.trackId!==null&&!live.mpv.subtitleTracks.some(track=>track.id===body.trackId))throw new BoundaryError(409,'MPV_TRACK_UNAVAILABLE','Subtitle track is not present in the current media');
+    const {action,...values}=body;
+    const taskId=z.string().uuid().parse(current.id);
+    return success(playerTasks.requestMpvControl(live.agentId,taskId,{action,...values} as MpvControlInput));
+  });
+  app.get('/api/v1/admin/player-agent', async (request) => {
+    sessions.get(request, 'admin');
+    const current = mysqlPlayback ? await mysqlPlayback.current() : playbackTasks.hasSchema(playbackDatabase) ? playbackTasks.current(playbackDatabase) : undefined;
+    // The production MySQL scheduler is a native implementation. Its presence
+    // must not be confused with the old SQLite-only availability check.
+    // Autoplay remains unavailable unless explicitly enabled and an Agent
+    // credential plus the matching task store are configured.
+    const nodeAutoplayAvailable = options.nodeAutoplay === true
+      && Boolean(options.playerAgentToken)
+      && Boolean(mysqlPlayback || playbackTasks.hasSchema(playbackDatabase));
+    const autoplayUnavailableReason = options.nodeAutoplay !== true
+      ? 'Disabled by deployment policy (YUKARI_NODE_AUTOPLAY=0)'
+      : !options.playerAgentToken ? 'Player Agent authentication is not configured'
+      : !mysqlPlayback && !playbackTasks.hasSchema(playbackDatabase) ? 'Playback task storage is unavailable'
+      : undefined;
+    const schedule=mysqlSettings?await mysqlSettings.scheduling():undefined;
+    const base=playerTasks.status();
+    return success({ ...base, autoplayEnabled:schedule?.enabled??base.autoplayEnabled, manualMode:schedule?schedule.enabled&&schedule.playmode===2:base.manualMode, manualStartRequested:schedule?.manualStartRequested??base.manualStartRequested, task: current || base.task, nodeOwnsQueue: autoplayOwner.active(), nodeAutoplayAvailable, autoplayUnavailableReason, agentSearchEnabled:options.agentSearchEnabled===true });
+  });
+  // Fast live telemetry comes from the Agent heartbeat snapshot only. This route
+  // deliberately avoids MySQL so a 1s Admin poll cannot create database writes.
+  app.get('/api/v1/admin/player-agent/mpv', async (request) => {
+    sessions.get(request, 'admin');
+    return success(playerTasks.mpvStatus());
+  });
+  app.post('/api/v1/admin/player-agent/mpv-control', async (request) => {
+    sessions.get(request, 'admin');
+    const body=z.discriminatedUnion('action',[
+      z.object({taskId:z.string().uuid(),action:z.literal('seek'),position:z.number().finite().nonnegative()}).strict(),
+      z.object({taskId:z.string().uuid(),action:z.literal('volume'),value:z.number().finite().min(0).max(130)}).strict(),
+      z.object({taskId:z.string().uuid(),action:z.literal('mute'),value:z.boolean()}).strict(),
+      z.object({taskId:z.string().uuid(),action:z.literal('audio-track'),trackId:z.number().int().nonnegative()}).strict(),
+      z.object({taskId:z.string().uuid(),action:z.literal('subtitle-track'),trackId:z.number().int().nonnegative().nullable()}).strict(),
+      z.object({taskId:z.string().uuid(),action:z.literal('audio-delay'),value:z.number().finite().min(-10).max(10)}).strict(),
+      z.object({taskId:z.string().uuid(),action:z.literal('key-change'),semitones:z.number().int().min(-6).max(6)}).strict(),
+      z.object({taskId:z.string().uuid(),action:z.literal('fullscreen'),value:z.boolean()}).strict(),
+    ]).parse(request.body);
+    const live=playerTasks.mpvStatus();
+    if(!live.connected||!live.agentId||!live.mpv?.connected)throw new BoundaryError(503,'MPV_IPC_UNAVAILABLE','Player Agent or mpv IPC is unavailable');
+    const formal=mysqlPlayback?await mysqlPlayback.current():playbackTasks.hasSchema(playbackDatabase)?playbackTasks.current(playbackDatabase):undefined;
+    const local=playerTasks.status().task;
+    const task=formal&&['claimed','playing'].includes(String(formal.state))?formal:local&&['claimed','playing'].includes(local.state)?local:undefined;
+    if(!task||task.id!==body.taskId||('agentId' in task&&task.agentId!==live.agentId))throw new BoundaryError(409,'STALE_PLAYER_TASK','Control is not for the active Agent task');
+    if(!['playing','paused'].includes(live.mpv.state))throw new BoundaryError(409,'MPV_NOT_PLAYING','mpv has no confirmed active media');
+    if(body.action==='seek'&&(live.mpv.duration===undefined||body.position>live.mpv.duration))throw new BoundaryError(400,'MPV_INVALID_SEEK','Seek position is outside the current media duration');
+    if(body.action==='audio-track'&&!live.mpv.audioTracks.some(track=>track.id===body.trackId))throw new BoundaryError(409,'MPV_TRACK_UNAVAILABLE','Audio track is not present in the current media');
+    if(body.action==='key-change'&&!live.mpv.keyChangeAvailable)throw new BoundaryError(409,'MPV_KEY_CHANGE_UNAVAILABLE','This mpv build does not have the required pitch filter');
+    if(body.action==='subtitle-track'&&body.trackId!==null&&!live.mpv.subtitleTracks.some(track=>track.id===body.trackId))throw new BoundaryError(409,'MPV_TRACK_UNAVAILABLE','Subtitle track is not present in the current media');
+    const {taskId,...input}=body;
+    return success(playerTasks.requestMpvControl(live.agentId,taskId,input));
+  });
+  app.post('/api/v1/admin/player-agent/launcher',async(request)=>{
+    sessions.get(request,'admin');
+    const {action}=z.object({action:z.enum(['start','stop'])}).strict().parse(request.body);
+    if(!options.playerAgentToken)throw new BoundaryError(503,'PLAYER_AGENT_NOT_CONFIGURED','Player Agent is not configured');
+    if(action==='stop'){
+      const formal=mysqlPlayback?await mysqlPlayback.current():undefined;
+      const test=playerTasks.status().task;
+      if(formal&&['claimed','playing','uncertain'].includes(formal.state))await mysqlPlayback!.control('stop');
+      else if(test&&['claimed','playing'].includes(test.state))playerTasks.control('stop');
+      playerTasks.setAutoplay(false);
+      if(!formal||['completed','failed'].includes(formal.state))autoplayOwner.release();
+    }
+    const command=playerTasks.requestLauncherAction(action);
+    return success({action,commandId:command.id,state:action==='start'?'starting':'stopping'});
+  });
   app.post('/api/v1/admin/queue/:id/media-check', async (request) => {
     sessions.get(request, 'admin'); const requestId=id.parse((request.params as {id:string}).id); z.object({}).strict().parse(request.body);
     const live=playerTasks.status(); if(!live.connected) return success({state:'agent_offline' as const,requestId});
-    const row=autoplay.read(playbackDatabase,requestId); if(!row)throw new BoundaryError(404,'REQUEST_NOT_FOUND','Reservation was not found');
+    const row=mysqlQueue?await mysqlQueue.row(requestId):autoplay.read(playbackDatabase,requestId); if(!row)throw new BoundaryError(404,'REQUEST_NOT_FOUND','Reservation was not found');
     return success(mediaChecks.create(requestId,row.fullpath));
   });
   app.get('/api/v1/admin/queue/:id/media-check/:checkId', async (request) => {
     sessions.get(request, 'admin'); const params=z.object({id:z.coerce.number().int().positive(),checkId:z.string().uuid()}).parse(request.params);
     return success(mediaChecks.read(params.checkId,params.id));
   });
-  app.get('/api/v1/admin/playback/history', async (request) => { sessions.get(request,'admin'); const paging=z.object({limit:z.coerce.number().int().min(1).max(100).default(50),offset:z.coerce.number().int().min(0).max(100000).default(0)}).strict().parse(request.query); return success(playbackTasks.history(playbackDatabase,paging.limit,paging.offset)); });
+  app.get('/api/v1/admin/playback/history', async (request) => { sessions.get(request,'admin'); const paging=z.object({limit:z.coerce.number().int().min(1).max(100).default(50),offset:z.coerce.number().int().min(0).max(100000).default(0)}).strict().parse(request.query); return success(mysqlPlayback?await mysqlPlayback.history(paging.limit,paging.offset):playbackTasks.history(playbackDatabase,paging.limit,paging.offset)); });
   app.post('/api/v1/admin/player-agent/test', async (request) => {
     sessions.get(request, 'admin'); z.object({}).strict().parse(request.body);
     if (autoplayOwner.active()) throw new BoundaryError(409,'AUTOPLAY_ACTIVE','Stop formal autoplay before starting a local test task');
@@ -150,9 +265,44 @@ export function createApp(options: AppOptions) {
   });
   app.post('/api/v1/admin/player-agent/autoplay', async (request) => {
     sessions.get(request, 'admin');
-    if (!options.nodeAutoplay) throw new BoundaryError(503, 'NODE_AUTOPLAY_DISABLED', 'Node 自动播放尚未在服务端启用');
-    if (!options.playerAgentToken) throw new BoundaryError(503, 'PLAYER_AGENT_NOT_CONFIGURED', 'Player Agent 未配置');
     const { action } = z.object({ action: z.enum(['start','arm-manual','start-next','stop','pause','resume','skip']) }).strict().parse(request.body);
+    if(mysqlPlayback){
+      if(action==='stop'){
+        const local=playerTasks.status().task;
+        if(local?.kind==='test'&&['claimed','playing'].includes(local.state))throw new BoundaryError(409,'TEST_TASK_ACTIVE','Stop the local test task with its dedicated control');
+        const formal=await mysqlPlayback.current();
+        if(formal&&!options.playerAgentToken)throw new BoundaryError(503,'PLAYER_AGENT_NOT_CONFIGURED','Cannot safely stop the active task without the Agent credential');
+        await mysqlSettings!.setSchedulerEnabled(false);
+        if(formal?.state==='claimed')await mysqlPlayback.stopPending();
+        else if(formal)await mysqlPlayback.control('stop');
+        if(!formal||formal.state==='claimed')autoplayOwner.release();
+        return success({autoplayEnabled:false,manualMode:false});
+      }
+      if(['start','arm-manual','start-next'].includes(action)&&!options.nodeAutoplay)throw new BoundaryError(503,'NODE_AUTOPLAY_DISABLED','Node scheduler is blocked by deployment policy (YUKARI_NODE_AUTOPLAY=0)');
+      if(!options.playerAgentToken)throw new BoundaryError(503,'PLAYER_AGENT_NOT_CONFIGURED','Player Agent authentication is not configured');
+      if(['pause','resume','skip'].includes(action))return success(await mysqlPlayback.control(action as 'pause'|'resume'|'skip'));
+      const state=playerTasks.status();
+      if(action==='start-next'){
+        const schedule=await mysqlSettings!.scheduling();
+        if(schedule.playmode!==2||!schedule.enabled)throw new BoundaryError(409,'MANUAL_PLAYBACK_NOT_ARMED','Select manual mode and enable Node queue ownership first');
+        if(!state.connected)throw new BoundaryError(503,'PLAYER_AGENT_OFFLINE','Player Agent is offline');
+        if(await mysqlPlayback.current())throw new BoundaryError(409,'PLAYBACK_TASK_ACTIVE','Wait for the current reservation to finish or stop it before starting the next');
+        if(!autoplayOwner.active())autoplayOwner.acquire();
+        return success(await mysqlSettings!.requestManualStart());
+      }
+      if(action==='arm-manual'&&!state.connected)throw new BoundaryError(503,'PLAYER_AGENT_OFFLINE','Player Agent is offline');
+      const mode=(await readCurrentSettings()).playmode;
+      if(action==='arm-manual'&&mode!==2)throw new BoundaryError(409,'MANUAL_MODE_REQUIRED','Select manual mode before enabling manual queue ownership');
+      if(action==='start'&&mode!==1)throw new BoundaryError(409,'AUTOPLAY_MODE_UNSUPPORTED','Select FIFO automatic mode before starting automatic playback');
+      if(!state.connected)throw new BoundaryError(503,'PLAYER_AGENT_OFFLINE','Player Agent is offline');
+      if(state.task?.kind==='test'&&['pending','claimed','playing','uncertain'].includes(state.task.state))throw new BoundaryError(409,'TEST_TASK_ACTIVE','Stop the local test task before starting queue playback');
+      if(await mysqlPlayback.current())throw new BoundaryError(409,'PLAYBACK_TASK_ACTIVE','Resolve the active playback task before starting the scheduler');
+      if(await mysqlPlayback.hasLegacyActivePlayback())throw new BoundaryError(409,'LEGACY_PLAYBACK_ACTIVE','A Legacy playback marker exists; reconcile it before transferring queue ownership');
+      const acquired=!autoplayOwner.active();if(acquired)autoplayOwner.acquire();
+      try{return success(await mysqlSettings!.setSchedulerEnabled(true));}catch(error){if(acquired)autoplayOwner.release();throw error;}
+    }
+    if (!options.nodeAutoplay) throw new BoundaryError(503, 'NODE_AUTOPLAY_DISABLED', 'Node autoplay is blocked by deployment policy');
+    if (!options.playerAgentToken) throw new BoundaryError(503, 'PLAYER_AGENT_NOT_CONFIGURED', 'Player Agent authentication is not configured');
     if (['pause','resume','skip'].includes(action)) return success(playbackTasks.control(playbackDatabase,action as 'pause'|'resume'|'skip'));
     if (action === 'stop') {
       const local=playerTasks.status().task;
@@ -164,84 +314,111 @@ export function createApp(options: AppOptions) {
       if(!formal||formal.state==='claimed')autoplayOwner.release();
       return success(result);
     }
-    if (action === 'arm-manual') {
-      if (!playerTasks.status().connected) throw new BoundaryError(503,'PLAYER_AGENT_OFFLINE','Player Agent is offline');
-      const mode=(await settings.readCurrent()).playmode;
-      if(mode!==2)throw new BoundaryError(409,'LEGACY_MODE_MISMATCH','Manual queue start requires the existing Legacy playmode=2; this action does not change that setting');
-      if(playbackTasks.current(playbackDatabase))throw new BoundaryError(409,'PLAYBACK_TASK_ACTIVE','Resolve the active playback task before arming manual mode');
-      if(playbackTasks.hasLegacyActivePlayback(playbackDatabase))throw new BoundaryError(409,'LEGACY_PLAYBACK_ACTIVE','A Legacy playback marker exists; stop and reconcile the old playback manager before transferring ownership');
-      if(!autoplayOwner.active())autoplayOwner.acquire();
-      try { return success(playerTasks.armManual()); } catch(error) { if(!playerTasks.status().autoplayEnabled)autoplayOwner.release(); throw error; }
-    }
-    if (action === 'start-next') {
-      const mode=(await settings.readCurrent()).playmode;
+    if(action==='arm-manual'){
+      if(!playerTasks.status().connected)throw new BoundaryError(503,'PLAYER_AGENT_OFFLINE','Player Agent is offline');
+      const mode=(await readCurrentSettings()).playmode;
       if(mode!==2)throw new BoundaryError(409,'LEGACY_MODE_MISMATCH','Manual queue start requires the existing Legacy playmode=2');
-      if(!playerTasks.status().manualMode)throw new BoundaryError(409,'MANUAL_PLAYBACK_NOT_ARMED','Arm manual playback before starting the next request');
-      if(playbackTasks.current(playbackDatabase))throw new BoundaryError(409,'PLAYBACK_TASK_ACTIVE','Wait for the current reservation to finish or stop it before starting the next');
+      if(playbackTasks.current(playbackDatabase)||playbackTasks.hasLegacyActivePlayback(playbackDatabase))throw new BoundaryError(409,'PLAYBACK_TASK_ACTIVE','Resolve active playback before enabling manual mode');
+      if(!autoplayOwner.active())autoplayOwner.acquire();
+      return success(playerTasks.armManual());
+    }
+    if(action==='start-next'){
+      if((await readCurrentSettings()).playmode!==2||!playerTasks.status().manualMode)throw new BoundaryError(409,'MANUAL_PLAYBACK_NOT_ARMED','Enable manual queue ownership before starting a song');
+      if(playbackTasks.current(playbackDatabase))throw new BoundaryError(409,'PLAYBACK_TASK_ACTIVE','Wait for current playback before starting the next song');
       return success(playerTasks.requestManualStart());
     }
-    let acquiredOwner = false;
-    if (action === 'start') {
-      const live = playerTasks.status();
-      if (!live.connected) throw new BoundaryError(503, 'PLAYER_AGENT_OFFLINE', 'Player Agent 未连接');
-      if (live.task?.kind === 'test' && ['pending','claimed','playing'].includes(live.task.state)) throw new BoundaryError(409, 'TEST_TASK_ACTIVE', 'Stop the local test task before starting queue autoplay');
-      const mode = (await settings.readCurrent()).playmode;
-      if (mode !== 1) throw new BoundaryError(409, 'AUTOPLAY_MODE_UNSUPPORTED', '当前原版播放模式不是顺序自动模式（playmode=1）；设置未改变');
-      if (playbackTasks.hasLegacyActivePlayback(playbackDatabase)) throw new BoundaryError(409,'LEGACY_PLAYBACK_ACTIVE','A Legacy playback marker exists; stop and reconcile the old playback manager before transferring ownership');
-      if (!autoplayOwner.active()) { autoplayOwner.acquire(); acquiredOwner = true; }
-    }
-    let result;
-    try { result = playerTasks.autoplayAction('start'); }
-    catch (error) { if (acquiredOwner) autoplayOwner.release(); throw error; }
-    return success(result);
+    const live=playerTasks.status();
+    if(!live.connected)throw new BoundaryError(503,'PLAYER_AGENT_OFFLINE','Player Agent is offline');
+    if(live.task?.kind==='test'&&['pending','claimed','playing'].includes(live.task.state))throw new BoundaryError(409,'TEST_TASK_ACTIVE','Stop the local test task before starting queue autoplay');
+    if((await readCurrentSettings()).playmode!==1)throw new BoundaryError(409,'AUTOPLAY_MODE_UNSUPPORTED','FIFO automatic mode 1 is required');
+    if(playbackTasks.hasLegacyActivePlayback(playbackDatabase))throw new BoundaryError(409,'LEGACY_PLAYBACK_ACTIVE','A Legacy playback marker exists; reconcile it before transferring ownership');
+    if(!autoplayOwner.active())autoplayOwner.acquire();
+    return success(playerTasks.autoplayAction('start'));
   });
   const agentIdentity = z.object({ agentId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/), testReady: z.boolean().optional() }).strict();
   const requireAgent = (request: { headers: { authorization?: string } }) => {
     if (!options.playerAgentToken || !agentAuthorized(request.headers.authorization, options.playerAgentToken)) throw new BoundaryError(401, 'PLAYER_AGENT_UNAUTHORIZED', 'Player Agent 凭据无效');
   };
   app.post('/api/v1/agent/next', async (request) => {
-    requireAgent(request); const body = agentIdentity.parse(request.body);
-    let assignment: {task:{id:string;kind:'test'|'queue';requestId?:number;state:'pending'|'claimed'|'playing'|'completed'|'failed';createdAt?:number;agentId?:string;error?:string;mediaPath?:string}|null;command:'pause'|'resume'|'stop'|'skip'|null;commandTaskId?:string;mediaCheck?:{id:string;requestId:number;path:string}}=playerTasks.next(body.agentId,body.testReady===true);
+    requireAgent(request); const body = agentIdentity.extend({searchReady:z.boolean().optional()}).parse(request.body);
+    let assignment: {task:{id:string;kind:'test'|'queue';requestId?:number;state:'pending'|'claimed'|'playing'|'completed'|'failed';createdAt?:number;agentId?:string;error?:string;mediaPath?:string;initialVolume?:number}|null;command:'pause'|'resume'|'stop'|'skip'|null;commandTaskId?:string;mediaCheck?:{id:string;requestId:number;path:string};searchJob?:{id:string;keyword:string};mpvControl?:ReturnType<typeof playerTasks.pendingMpvControl>} = playerTasks.next(body.agentId,body.testReady===true);
     if(assignment.task?.kind==='queue')assignment={task:null,command:null};
     if(!assignment.command){const mediaCheck=mediaChecks.claim(body.agentId);if(mediaCheck)assignment={...assignment,mediaCheck};}
+    // Older Agents omit searchReady. Do not claim a job they cannot execute.
+    const searchJob=agentSearch.claim(body.agentId,body.searchReady===true);
+    if(searchJob)assignment={...assignment,searchJob};
     const agentStatus=playerTasks.status();
-    if(!assignment.task&&!assignment.command&&!assignment.mediaCheck&&options.nodeAutoplay&&autoplayOwner.active()&&(!agentStatus.manualMode||agentStatus.manualStartRequested)){
-      const configuredMode=(await settings.readCurrent()).playmode;
-      if(agentStatus.manualMode&&configuredMode!==2)throw new BoundaryError(409,'LEGACY_MODE_MISMATCH','Manual playback strategy no longer matches configured playmode=2');
-      const claimed=playbackTasks.claimNext(playbackDatabase,agentStatus.manualMode?1:configuredMode,body.agentId);
-      if(agentStatus.manualMode)playerTasks.consumeManualStart();
-      if(claimed.task)assignment={...assignment,task:claimed.task,command:claimed.command};
-      else if(claimed.command)assignment={...assignment,task:null,command:claimed.command,commandTaskId:claimed.commandTaskId};
+    if(!assignment.task&&!assignment.command&&!assignment.mediaCheck){
+      if(mysqlPlayback){
+        const claimed=await mysqlPlayback.claimNext(body.agentId,options.nodeAutoplay===true&&autoplayOwner.active());
+        if(claimed.task)assignment={...assignment,task:claimed.task,command:claimed.command};
+        else if(claimed.command)assignment={...assignment,task:null,command:claimed.command,commandTaskId:claimed.commandTaskId};
+      }else if(options.nodeAutoplay&&autoplayOwner.active()&&(!agentStatus.manualMode||agentStatus.manualStartRequested)){
+        const configuredMode=(await readCurrentSettings()).playmode;
+        if(agentStatus.manualMode&&configuredMode!==2)throw new BoundaryError(409,'LEGACY_MODE_MISMATCH','Manual playback strategy no longer matches configured playmode=2');
+        const claimed=playbackTasks.claimNext(playbackDatabase,agentStatus.manualMode?1:configuredMode,body.agentId);
+        if(agentStatus.manualMode)playerTasks.consumeManualStart();
+        if(claimed.task){const task=claimed.task.state==='claimed'?{...claimed.task,initialVolume:(await readCurrentSettings()).startvolume}:claimed.task;assignment={...assignment,task,command:claimed.command};}
+        else if(claimed.command)assignment={...assignment,task:null,command:claimed.command,commandTaskId:claimed.commandTaskId};
+      }
     }
+    assignment.mpvControl=playerTasks.pendingMpvControl(body.agentId)||undefined;
     return success(assignment);
   });
   app.post('/api/v1/agent/report', async (request) => {
     requireAgent(request);
     const body = z.object({ agentId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/), taskId: z.string().uuid().optional(),
       state: z.enum(['claimed','playing','completed','failed']).optional(), playback: z.enum(['idle','starting','playing','paused','stopped','unavailable']),
-      testReady: z.boolean().optional(), file: z.string().max(255).optional(), error: z.string().max(300).optional(), endReason: z.literal('eof').optional(), outcome: z.literal('skipped').optional() }).strict().parse(request.body);
+      testReady: z.boolean().optional(), file: safeMediaName.optional(), error: z.string().max(300).optional(), endReason: z.literal('eof').optional(), outcome: z.literal('skipped').optional(),
+      everything:z.enum(['not_checked','connected_no_media','connected_media_found','unavailable']).optional(),mediaRootConfigured:z.boolean().optional(),agentError:z.enum(['EVERYTHING_CONFIG_INVALID','EVERYTHING_AUTH_FAILED','EVERYTHING_HTTP_ERROR','EVERYTHING_RESPONSE_TOO_LARGE','EVERYTHING_INVALID_JSON','EVERYTHING_TIMEOUT','EVERYTHING_UNREACHABLE','SEARCH_REPORT_FAILED']).nullable().optional(),
+      mpv:mpvStatusSchema.optional(),controlAck:z.object({id:z.string().uuid(),ok:z.boolean(),error:z.enum(['MPV_IPC_UNAVAILABLE','MPV_NOT_PLAYING','MPV_CONTROL_FAILED','MPV_TRACK_UNAVAILABLE','MPV_KEY_CHANGE_UNAVAILABLE']).optional()}).strict().optional() }).strict().parse(request.body);
+    if(body.controlAck)playerTasks.acknowledgeMpvControl(body.agentId,body.controlAck);
     if(body.taskId){
-      const formal=playbackTasks.readTask(playbackDatabase,body.taskId);
+      const localTask=playerTasks.status().task;
+      const formal=localTask?.id===body.taskId?undefined:mysqlPlayback?await mysqlPlayback.readTask(body.taskId):playbackTasks.readTask(playbackDatabase,body.taskId);
       if(formal){
-        const result=playbackTasks.report(playbackDatabase,body.taskId,body.agentId,body);
-        if(result.changed&&result.eventType)void legacy.notifyQueueService().catch(()=>{});
-        if(body.state==='failed'&&body.outcome!=='skipped')playerTasks.setAutoplay(false,'Formal playback failed; inspect task history and explicitly stop the owner fence');
-        const heartbeat=playerTasks.report(body.agentId,{playback:body.playback,testReady:body.testReady===true,file:body.file});
-        if(!playerTasks.status().autoplayEnabled&&body.state==='failed')autoplayOwner.release();
+        const result=mysqlPlayback?await mysqlPlayback.report(body.taskId,body.agentId,body):playbackTasks.report(playbackDatabase,body.taskId,body.agentId,body);
+        if(result.changed&&result.eventType&&!options.mysqlStore)void legacy.notifyQueueService().catch(()=>{});
+        if(body.state==='failed'&&body.outcome!=='skipped'){
+          if(mysqlSettings)await mysqlSettings.setSchedulerEnabled(false);
+          else playerTasks.setAutoplay(false,'Formal playback failed; inspect task history and explicitly stop the owner fence');
+        }
+        const heartbeat=playerTasks.report(body.agentId,{playback:body.playback,testReady:body.testReady===true,file:body.file,everything:body.everything,mediaRootConfigured:body.mediaRootConfigured,agentError:body.agentError,mpv:body.mpv});
+        if(body.state==='failed'&&(!mysqlSettings||!(await mysqlSettings.scheduling()).enabled))autoplayOwner.release();
         return success({...heartbeat,task:result.state});
       }
     }
     if(body.state==='completed'&&body.endReason!=='eof')throw new BoundaryError(400,'PLAYER_EOF_REQUIRED','Only real mpv end-file reason=eof can complete a task');
     return success(playerTasks.report(body.agentId,body));
   });
+  app.post('/api/v1/agent/launcher/poll',async(request)=>{
+    requireAgent(request);
+    const body=z.object({launcherId:z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),state:z.enum(['starting','running','stopping','stopped','error']),error:z.enum(['AGENT_CONFIG_INVALID','AGENT_PROCESS_UNVERIFIED','AGENT_START_FAILED','AGENT_STOP_FAILED','LAUNCHER_RUNTIME_ERROR']).optional()}).strict().parse(request.body);
+    const launcher=playerTasks.reportLauncher(body.launcherId,body.state,body.error);
+    const agent=playerTasks.status();
+    const formal=mysqlPlayback?await mysqlPlayback.current():undefined;
+    const test=agent.task;
+    const taskActive=Boolean(formal&&['claimed','playing','uncertain'].includes(formal.state)||test&&['claimed','playing'].includes(test.state));
+    return success({launcher,command:playerTasks.launcherCommand(),agentConnected:agent.connected,taskActive,playback:agent.playback});
+  });
   app.post('/api/v1/agent/media-check', async (request) => {
     requireAgent(request);
     const body=z.object({agentId:z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),checkId:z.string().uuid(),result:z.enum(['playable','path_unmapped','file_missing','invalid_path'])}).strict().parse(request.body);
     return success(mediaChecks.complete(body.checkId,body.agentId,body.result as MediaCheckResult));
   });
+  app.post('/api/v1/agent/search-result',async(request)=>{
+    requireAgent(request);
+    const body=z.object({agentId:z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),searchId:z.string().uuid(),health:z.enum(['connected_no_media','connected_media_found','unavailable']),error:z.enum(['EVERYTHING_CONFIG_INVALID','EVERYTHING_AUTH_FAILED','EVERYTHING_HTTP_ERROR','EVERYTHING_RESPONSE_TOO_LARGE','EVERYTHING_INVALID_JSON','EVERYTHING_TIMEOUT','EVERYTHING_UNREACHABLE']).optional(),items:z.array(z.object({name:z.string().min(1).max(512),path:z.string().min(3).max(4096),size:z.number().int().nonnegative()}).strict()).max(50)}).strict().parse(request.body);
+    if(body.items.some(item=>!win32.isAbsolute(item.path)))throw new BoundaryError(400,'INVALID_AGENT_MEDIA_PATH','Agent search returned a non-absolute media path');
+    return success(agentSearch.complete(body.searchId,body.agentId,body.items,body.health,body.error));
+  });
   app.get('/api/v1/search', async (request) => {
     const identity = sessions.get(request, 'user');
     const query = z.object({ backend: z.enum(['everything', 'lister']), keyword: z.string().trim().min(1).max(256) }).strict().parse(request.query);
+    if(query.backend==='everything'&&options.agentSearchEnabled){
+      if(!playerTasks.status().connected)throw new BoundaryError(503,'MEDIA_AGENT_OFFLINE','Windows Media Agent is offline; search is unavailable');
+      return success(await agentSearch.create(query.keyword,identity.userid));
+    }
     if (query.backend === 'everything') {
       const capabilities = legacyParse(z.object({ features: z.object({ everything_search: z.boolean() }) }), await legacy.call('capabilities', identity));
       if (!capabilities.features.everything_search) throw new BoundaryError(503, 'SEARCH_UNAVAILABLE', 'Everything 服务不可用；未将连接失败当作空搜索结果');
@@ -257,10 +434,11 @@ export function createApp(options: AppOptions) {
     const context=legacyParse(requestContextSchema,await legacy.call('request-context',identity,{fullpath:typeof claim.input.fullpath==='string'?claim.input.fullpath:'',username:claim.username||''}));
     context.ip=claim.ip;context.ua=claim.ua;context.userid=claim.userid;
     if(claim.mode==='result') {
-      const result=requests.lookup(context.database,claim.receipt,claim.userid);
+      const result=mysqlRequests?await mysqlRequests.lookup(receipts.verify(claim.receipt),claim.userid):requests.lookup(context.database,claim.receipt,claim.userid);
       return success({state:result?'committed':'not_found',result});
     }
-    const value=await requests.submit(context,requestInputSchema.parse(claim.input),claim.receipt,()=>legacy.call('queue-notify',identity));
+    const effectiveContext=mysqlSettings?await mysqlSettings.applyRequestOrdering(context):context;
+    const value=mysqlRequestService?await mysqlRequestService.submit(effectiveContext,requestInputSchema.parse(claim.input),claim.receipt):await requests.submit(context,requestInputSchema.parse(claim.input),claim.receipt,()=>legacy.call('queue-notify',identity));
     reply.header('X-Yukari-Owner','node-request-create');
     return reply.code(201).send(success(value.result));
   });
@@ -271,7 +449,7 @@ export function createApp(options: AppOptions) {
   app.post('/api/v1/requests/result', async request => {
     const body=z.object({receipt:z.string().max(256)}).strict().parse(request.body);
     const context=legacyParse(queueContextSchema,await legacy.call('queue-context',sessions.get(request,'user')));
-    const result=requests.lookup(context.database,body.receipt,sessions.get(request,'user').userid);
+    const result=mysqlRequests?await mysqlRequests.lookup(receipts.verify(body.receipt),sessions.get(request,'user').userid):requests.lookup(context.database,body.receipt,sessions.get(request,'user').userid);
     return success({state:result?'committed':'not_found',result});
   });
   app.post('/api/v1/requests', async (request, reply) => {
@@ -279,10 +457,12 @@ export function createApp(options: AppOptions) {
     const body = requestInputSchema.parse(request.body);
     const receipt=String(request.headers['x-yukari-submission']||'');
     receipts.verify(receipt);
+    body.fullpath=agentSearch.resolveSelection(identity.userid,body.fullpath);
     let username='';
     try { username=decodeURIComponent((request.headers.cookie||'').split(';').map(part=>part.trim()).find(part=>part.startsWith('YkariUsername='))?.slice('YkariUsername='.length)||'').slice(0,64); } catch { username=''; }
     const context=legacyParse(requestContextSchema,await legacy.call('request-context',identity,{fullpath:body.fullpath,username}));
-    const value=await requests.submit(context,body,receipt,()=>legacy.call('queue-notify',identity));
+    const effectiveContext=mysqlSettings?await mysqlSettings.applyRequestOrdering(context):context;
+    const value=mysqlRequestService?await mysqlRequestService.submit(effectiveContext,body,receipt):await requests.submit(context,body,receipt,()=>legacy.call('queue-notify',identity));
     const normalized=normalizeRequest(body);
     if(normalized.singer!==context.nonameusername && normalized.kind!=='小休止' && normalized.singer!=='') reply.header('Set-Cookie',`YkariUsername=${encodeURIComponent(normalized.singer)}; Path=/; SameSite=Lax; Max-Age=5184000${options.secureCookies?'; Secure':''}`);
     reply.header('X-Yukari-Owner','node-request-create');
@@ -293,24 +473,35 @@ export function createApp(options: AppOptions) {
     const body=z.object({ids:z.array(z.number().int().positive().max(2147483647)).max(5000)}).strict().parse(request.body);
     const context=legacyParse(queueContextSchema,await legacy.call('queue-context',identity));
     if(context.role!=='admin')throw new BoundaryError(403,'ROLE_MISMATCH','Admin context required');
-    const result=await mutations.reorder(context.database,body.ids,async()=>legacyParse(z.object({notified:z.literal(true)}),await legacy.call('queue-notify',identity)));
+    const count=mysqlMutations?await mysqlMutations.reorder(body.ids):undefined;
+    const result=count===undefined?await mutations.reorder(context.database,body.ids,async()=>legacyParse(z.object({notified:z.literal(true)}),await legacy.call('queue-notify',identity))):{reordered:true as const,count};
     reply.header('X-Yukari-Owner','node-queue-mutation');return success(result);
   });
   app.get('/api/v1/admin/queue', async (request, reply) => {
     const identity = sessions.get(request, 'admin');
     const context = legacyParse(queueContextSchema, await legacy.call('queue-context', identity));
     if (context.role !== 'admin') throw new BoundaryError(403, 'ROLE_MISMATCH', '队列身份不一致');
-    const data = queueSchema.parse(queue.read(context));
+    const data = mysqlQueue ? await mysqlQueue.read(context) : queueSchema.parse(queue.read(context));
     reply.header('X-Yukari-Owner', 'node-queue-read');
     return success(data);
   });
-  app.get('/api/v1/admin/status', async (request) => success(legacyParse(statusSchema, await legacy.call('admin-status', sessions.get(request, 'admin')))));
+  app.get('/api/v1/admin/status', async (request) => {
+    const identity=sessions.get(request,'admin');
+    if(!options.mysqlStore)return success(legacyParse(statusSchema,await legacy.call('admin-status',identity)));
+    await legacy.call('admin-session',identity);
+    const settingsValue=await mysqlSettings!.read(), agent=playerTasks.status();
+    const playback=await mysqlQueue!.playback();
+    return success(statusSchema.parse({php_version:'Legacy-only',os:'Windows Player Agent',detected_player:agent.connected?'mpv':'unavailable',
+      playmode:settingsValue.playmode,mpc_reachable:false,foobar_reachable:false,playback,password_configured:true}));
+  });
   app.delete('/api/v1/admin/requests/:id', async (request, reply) => {
     const identity = sessions.get(request, 'admin');
     const params = z.object({ id }).parse(request.params);
     const context = legacyParse(queueContextSchema, await legacy.call('queue-context', identity));
     if (context.role !== 'admin') throw new BoundaryError(403, 'ROLE_MISMATCH', 'Admin context required');
-    const result = await mutations.execute(context.database, params.id, 'delete', async () => legacyParse(z.object({ notified: z.literal(true) }), await legacy.call('queue-notify', identity)));
+    let result;
+    if(mysqlMutations){await mysqlMutations.mutate(params.id,'delete');result={id:params.id,deleted:true as const};}
+    else result=await mutations.execute(context.database, params.id, 'delete', async () => legacyParse(z.object({ notified: z.literal(true) }), await legacy.call('queue-notify', identity)));
     reply.header('X-Yukari-Owner', 'node-queue-mutation');
     return success(z.object({ id: z.literal(params.id), deleted: z.literal(true) }).parse(result));
   });
@@ -320,7 +511,9 @@ export function createApp(options: AppOptions) {
     const body = z.object({ action: z.enum(['up', 'down', 'warikomi']) }).strict().parse(request.body);
     const context = legacyParse(queueContextSchema, await legacy.call('queue-context', identity));
     if (context.role !== 'admin') throw new BoundaryError(403, 'ROLE_MISMATCH', 'Admin context required');
-    const result = await mutations.execute(context.database, params.id, body.action, async () => legacyParse(z.object({ notified: z.literal(true) }), await legacy.call('queue-notify', identity)));
+    let result;
+    if(mysqlMutations){const message=await mysqlMutations.mutate(params.id,body.action);result={id:params.id,action:body.action,message};}
+    else result=await mutations.execute(context.database, params.id, body.action, async () => legacyParse(z.object({ notified: z.literal(true) }), await legacy.call('queue-notify', identity)));
     reply.header('X-Yukari-Owner', 'node-queue-mutation');
     return success(z.object({ id: z.literal(params.id), action: z.literal(body.action), message: z.string() }).parse(result));
   });
@@ -328,17 +521,29 @@ export function createApp(options: AppOptions) {
     const identity = sessions.get(request, 'admin');
     // PHP verifies current credentials/policy only; it never builds settings here.
     const grant = legacyParse(z.object({ config_revision: z.string().regex(/^[a-f0-9]{64}$/) }), await legacy.call('admin-session', identity));
-    const data = await settings.read(grant.config_revision);
+    const data = options.mysqlStore ? settingsSchema.parse(await new MysqlSettingsRepository(options.mysqlStore).read()) : await settings.read(grant.config_revision);
     // Recheck revocation and concurrent in-place/atomic configuration replacement.
     const after = legacyParse(z.object({ config_revision: z.string() }), await legacy.call('admin-session', identity));
-    if (after.config_revision !== data.revision) throw new BoundaryError(503, 'SETTINGS_CHANGED', '配置读取期间发生变化，请重新读取');
+    if (!options.mysqlStore && after.config_revision !== data.revision) throw new BoundaryError(503, 'SETTINGS_CHANGED', '配置读取期间发生变化，请重新读取');
     reply.header('X-Yukari-Owner', 'node-settings-read');
     return success(data);
   });
   app.put('/api/v1/settings', async (request) => {
     const identity = sessions.get(request, 'admin');
     const body = settingsSchema.omit({ changed: true }).strict().parse(request.body);
-    return success(legacyParse(settingsSchema, await legacy.call('admin-settings-save', identity, Object.fromEntries(Object.entries(body).map(([key, value]) => [key, String(value)])))));
+    if(options.mysqlStore){
+      const repository=new MysqlSettingsRepository(options.mysqlStore),current=await repository.read();
+      if(body.playmode!==current.playmode){
+        const schedule=await repository.scheduling(),task=await mysqlPlayback!.current(),local=playerTasks.status().task;
+        if(schedule.enabled||task||local&&['pending','claimed','playing','uncertain'].includes(local.state))throw new BoundaryError(409,'PLAYMODE_CHANGE_BLOCKED','Stop the Node scheduler and resolve the active task before changing playback mode');
+      }
+      return success(await repository.update(body));
+    }
+    const before=await settings.read(body.revision);
+    if(body.request_automove!==before.request_automove||body.request_automove_reset!==before.request_automove_reset||body.request_automove_midjoin_first!==before.request_automove_midjoin_first)
+      throw new BoundaryError(409,'MYSQL_SETTINGS_REQUIRED','Reservation ordering settings are Node/MySQL-owned; this Legacy SQLite profile cannot save them');
+    const saved=legacyParse(z.object({playmode:z.number(),startvolume:z.number(),requestlistactivereload:z.number(),revision:z.string().regex(/^[a-f0-9]{64}$/),changed:z.boolean().optional()}),await legacy.call('admin-settings-save', identity, Object.fromEntries(Object.entries(body).map(([key, value]) => [key, String(value)]))));
+    return success({...await settings.read(saved.revision),changed:saved.changed});
   });
   app.post('/api/v1/playback/control', async (request) => {
     const identity = sessions.get(request, 'admin');

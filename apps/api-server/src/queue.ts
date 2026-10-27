@@ -9,7 +9,7 @@ export const queueSchema = z.object({ items: z.array(z.object({ id: z.number().i
   display_name: z.string(), songfile: z.string(), singer: z.string(), nowplaying: z.string(), kind: z.string() })),
   total: z.number().int(), remaining_count: z.number().int(), has_more: z.boolean(), remaining_seconds: z.number().int() }) satisfies z.ZodType<QueueData>;
 export const queueContextSchema = z.object({ database: z.string().min(1), secret_text: z.string(), ip: z.string(), ua: z.string(), role: z.enum(['user', 'admin']) });
-const legacyQueueSchema = queueSchema.extend({ items: z.array(queueSchema.shape.items.element.extend({
+export const legacyQueueSchema = queueSchema.extend({ items: z.array(queueSchema.shape.items.element.extend({
   song_name: z.string(), lister_artist: z.string(), lister_work: z.string(), lister_op_ed: z.string(), lister_comment: z.string(),
   comment: z.string(), masked: z.number().int().min(0).max(1), fullpath: z.string(), volume: z.number().int(),
   secret: z.number().int(), loop: z.number().int(), pause: z.number().int(), track: z.number().int(),

@@ -25,6 +25,7 @@ if (!is_string($operation)) bridge_fail('operation 无效', 400);
 // Narrow service-token capability for queue invalidation after native playback
 // transitions. It cannot invoke admin APIs or mutate requesttable.
 if ($operation === 'queue-notify-service') {
+    if (getenv('YUKARI_MYSQL_MODE') === '1') bridge_fail('Legacy SQLite notifications are disabled in MySQL mode', 410);
     require_once 'function_updatenotice.php';
     ob_start();
     try {
@@ -85,6 +86,7 @@ if ($role === 'admin') {
 } elseif (isset($admin[$operation])) bridge_fail('需要管理身份', 403);
 elseif (!hash_equals($user_proof, $_SERVER['HTTP_X_YUKARI_ADMIN_PROOF'] ?? '')) bridge_fail('用户会话已失效', 401);
 if ($operation === 'queue-notify') {
+    if (getenv('YUKARI_MYSQL_MODE') === '1') bridge_fail('Legacy SQLite notifications are disabled in MySQL mode', 410);
     // User proof is sufficient for reservation notification; role was validated above.
     // Notification-only reuse. Never load commonfunc/initdb or execute queue SQL.
     require_once 'function_updatenotice.php';
@@ -112,7 +114,8 @@ if ($operation === 'request-context') {
         'history' => ($config_ini['usemypage'] ?? 1) == 1, 'metadata' => null,
         'nonameusername' => urldecode($config_ini['nonameusername'] ?? urlencode('名無しさん')),
         'displayname' => mb_substr((string)($_POST['username'] ?? ''), 0, 64)];
-    $path = urldecode($config_ini['listerDBPATH'] ?? '');
+    $path = getenv('YUKARI_MYSQL_MODE') === '1' && trim((string)getenv('YUKARI_LISTER_DB_PATH')) !== ''
+        ? trim((string)getenv('YUKARI_LISTER_DB_PATH')) : urldecode($config_ini['listerDBPATH'] ?? '');
     if (!empty($_POST['fullpath']) && $path !== '' && is_file($path)) {
         require_once 'function_search_listerdb.php';
         ob_start();

@@ -31,7 +31,7 @@ test('Node-native 设置与原 PHP 投影等价：默认、空值、布尔、注
     'playmode=3\nstartvolume="words;still quoted"\nrequestlistactivereload=on\n',
     'other[0]=value\nconfigpass=synthetic-not-a-real-password\nplaymode=3\n',
     'requestlistactivereload=false\nstartvolume=61\nplaymode=2\n',
-    'playmode=0\n', 'playmode=6\n', 'startvolume=-1\n', 'startvolume=101\n', 'requestlistactivereload=2\n',
+    'playmode=0\n', 'playmode=6\n', 'startvolume=-1\n', 'startvolume=101\n',
   ];
   const oracle = phpProjection(fixtures);
   fixtures.forEach((fixture, index) => {
@@ -45,6 +45,10 @@ test('Node-native 设置与原 PHP 投影等价：默认、空值、布尔、注
     '"playmode"=5\n', 'other="multiline\nplaymode=5\n"\n']) {
     assert.throws(() => projectSettings(Buffer.from(fixture)), { code: 'SETTINGS_UNAVAILABLE' });
   }
+  // Legacy radio controls submit 2 for disabled; Node stores the effective
+  // boolean value so the MySQL runtime never interprets 2 as enabled.
+  const disabled=projectSettings(Buffer.from('requestlistactivereload=2\nrequest_automove=2\nrequest_automove_reset=2\nrequest_automove_midjoin_first=2\n'));
+  assert.deepEqual([disabled.requestlistactivereload,disabled.request_automove,disabled.request_automove_reset,disabled.request_automove_midjoin_first],[0,0,0,0]);
 });
 
 test('只读 repository：版本冲突、原子替换后的失效挂载、文件缺失；不创建或修改数据', async () => {
@@ -84,7 +88,7 @@ test('真实 Node-native GET 与无数据库的旧 PHP 投影对照；权限及�
   const result = await admin.call('/settings'); assert.equal(result.status, 200);
   // Snapshot travels over stdin only; the PHP oracle emits three fields + hash,
   // loads no runtime config/commonfunc and cannot initialize the real database.
-  assert.deepEqual(result.body.data, phpProjection([original.toString('utf8')])[0]);
+  const expected=phpProjection([original.toString('utf8')])[0];assert.deepEqual({playmode:result.body.data.playmode,startvolume:result.body.data.startvolume,requestlistactivereload:result.body.data.requestlistactivereload},{playmode:expected.playmode,startvolume:expected.startvolume,requestlistactivereload:expected.requestlistactivereload});assert.match(result.body.data.revision,/^[a-f0-9]{64}$/);
   assert.equal(hash(await readFile(path)), before);
 });
 

@@ -260,6 +260,11 @@ function readconfig(
     
     
     $config_ini = readconfig_array();
+    if (getenv('YUKARI_MYSQL_MODE') === '1' && trim((string)getenv('YUKARI_LISTER_DB_PATH')) !== '') {
+        // MySQL mode exposes only the dedicated read-only index mount, never the
+        // historical machine-specific path stored in old config.ini files.
+        $config_ini['listerDBPATH'] = urlencode(trim((string)getenv('YUKARI_LISTER_DB_PATH')));
+    }
     
     if ( $dbname !== 'none' )
        $dbname = urldecode($config_ini["dbname"]);
@@ -405,7 +410,14 @@ if ($stmt === false ){
 }
 
 readconfig($dbname,$playmode,$playerpath,$foobarpath,$requestcomment,$usenfrequset,$historylog,$waitplayercheckstart,$playerchecktimes,$connectinternet,$usevideocapture,$moviefullscreen,$helpurl,$commenturl_base,$commentroom,$commenturl);
-$res=initdb($db,$dbname);
+// MySQL mode keeps config.ini as the authentication/search compatibility source,
+// but must never initialize or open the former SQLite business database.
+if (getenv('YUKARI_MYSQL_MODE') === '1') {
+	$db = null;
+	$historylog = 0; // search terms are not persisted to Legacy history.log
+} else {
+	$res=initdb($db,$dbname);
+}
 
 // cache control
 @header( 'Expires: Thu, 01 Jan 1970 00:00:00 GMT' );

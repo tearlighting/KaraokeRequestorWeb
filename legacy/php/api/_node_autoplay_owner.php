@@ -1,5 +1,7 @@
 <?php
 function yukari_node_autoplay_active()
 {
-    return is_file(dirname(__DIR__) . '/runtime/queue/node-autoplay.owner');
+    $runtime = dirname(__DIR__) . '/runtime/';
+    return is_file($runtime . 'queue-owner/node-autoplay.owner')
+        || is_file($runtime . 'queue/node-autoplay.owner'); // isolated SQLite compatibility profile
 }

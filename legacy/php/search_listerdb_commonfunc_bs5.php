@@ -28,7 +28,7 @@ function listerdb_is_generating() {
     }
     if (!file_exists($lister_dbpath)) return false;
     try {
-        $pdo = new PDO('sqlite:' . $lister_dbpath);
+        $pdo = new PDO(getenv('YUKARI_MYSQL_MODE') === '1' ? 'sqlite:file:' . realpath($lister_dbpath) . '?mode=ro' : 'sqlite:' . $lister_dbpath);
         $row = $pdo->query("SELECT 1 FROM t_found WHERE song_name != '' LIMIT 1")->fetch();
         return ($row === false);
     } catch (Exception $e) {

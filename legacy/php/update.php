@@ -1,5 +1,5 @@
 <?php
-if (isset($_REQUEST['nowplaying']) && is_file(__DIR__ . '/runtime/queue/node-autoplay.owner')) {
+if (isset($_REQUEST['nowplaying']) && (is_file(__DIR__ . '/runtime/queue-owner/node-autoplay.owner') || is_file(__DIR__ . '/runtime/queue/node-autoplay.owner'))) {
     http_response_code(409);
     echo 'Playback status is owned by Fastify while queue autoplay is active';
     exit;

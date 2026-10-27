@@ -39,6 +39,7 @@ try {
     if(!empty($input['singer']) && ($input['kind']??'')!=='小休止') setcookie('YkariUsername',$input['singer'],time()+5184000,'/');
     if(strtolower($_SERVER['HTTP_X_REQUESTED_WITH']??'')==='xmlhttprequest') {
         header('Content-Type: application/json; charset=utf-8');echo json_encode(['newid'=>$id,'committed'=>true,'warnings'=>$data['warnings']??[]]);
-    } else { header('Location: /requestlist_top.php?showid='.$id,true,303); }
+    } else if (getenv('YUKARI_MYSQL_MODE') === '1') { header('Location: /user/',true,303); }
+    else { header('Location: /requestlist_top.php?showid='.$id,true,303); }
 } catch(Throwable $error) { http_response_code(403);header('Content-Type: application/json; charset=utf-8');echo json_encode(['ok'=>false,'error'=>$error->getMessage()]); }
 exit;

@@ -16,4 +16,10 @@ NUL
 **/.env*
 **/bridge-token
 **/*.ppk
+**/*.pem
+**/*.key
+legacy/php/runtime
+legacy/php/cms
+legacy/php/test_race
+legacy/php/fortest
 .local

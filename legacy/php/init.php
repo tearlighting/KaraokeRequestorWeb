@@ -1,5 +1,19 @@
 <?php
 
+// In MySQL mode this historical page is available only as a read-only view.
+// Its legacy request-to-INI serializer can write on GET as well as POST, so
+// remove all request values before rendering and reject every non-GET method.
+$yukari_mysql_readonly_settings = getenv('YUKARI_MYSQL_MODE') === '1';
+if ($yukari_mysql_readonly_settings) {
+    if (strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+        http_response_code(410);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Legacy configuration writes are disabled in MySQL mode. Use React Admin to change settings.';
+        exit;
+    }
+    $_GET = $_POST = $_REQUEST = [];
+}
+
 require_once 'commonfunc.php';
 require_once 'configauth_class.php';
 $configauth = new ConfigAuth();
@@ -270,7 +284,7 @@ if (isset($newconfig['usev2ui'])) {
 // $config_ini['roomurl'] = array();
 $config_ini_new = array_merge($config_ini,$newconfig);
 
-if(!empty($config_ini_new) ){
+if(!$yukari_mysql_readonly_settings && !empty($config_ini_new) ){
     $change_counter++;
 }
 
@@ -540,13 +554,17 @@ print '<button type="button" class="btn btn-secondary" id="yukkoview2bt" '.$yukk
   <a href="requestlist_top.php" class="btn btn-secondary" > リクエストTOP画面に戻る　</a>
 </div></div>
 
+  <?php if ($yukari_mysql_readonly_settings): ?>
+  <div class="alert alert-info" role="status">MySQL モードではこの Legacy 設定画面は閲覧専用です。設定変更には React Admin の Settings を使用してください。</div>
+  <?php endif; ?>
   <form name="allconfig" method="post" action="init.php" enctype="multipart/form-data">
+  <fieldset <?php echo $yukari_mysql_readonly_settings ? 'disabled' : ''; ?>>
 <div class="card cfg-card mb-4"><div class="card-body">
   <h1  id="workconfig"  class="menulink" >動作設定 </h1>
 
   <div class="mb-3">
     <h3 title="未設定でパスワードチェックを省略">設定画面パスワード</h3>
-    <input type="password" name="configpass" id="configpass" class="form-control" placeholder="未設定でパスワードチェックを省略"  value=<?php echo  $configauth -> show_password(); ?> >
+    <input type="password" name="configpass" id="configpass" class="form-control" placeholder="未設定でパスワードチェックを省略"  value=<?php echo  $yukari_mysql_readonly_settings ? '' : $configauth -> show_password(); ?> >
   </div>
 
   <div class="mb-3">
@@ -2171,6 +2189,7 @@ if(array_key_exists("useeasyauth_word",$config_ini)) {
 </div></div>
 
   <input type="submit" class="btn btn-secondary btn-lg" value="設定" />
+  </fieldset>
   </form>
   <hr />
 

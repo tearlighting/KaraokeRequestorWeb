@@ -7,6 +7,12 @@ test('真实 Legacy 授权端点：用户不被角色头升级；Basic 必须有
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Yukari-Client': '1', 'User-Agent': 'LegacyGrantTestUA', ...extra }, body: '{}',
   });
   const anonymous = await issue({ 'X-Yukari-Role': 'admin' });
+  if (anonymous.status === 410) {
+    const disabled = await anonymous.json();
+    assert.equal(disabled.error.code, 'LEGACY_FEATURE_DISABLED');
+    assert.equal((await issue({ Authorization: `Basic ${Buffer.from('admin:invalid').toString('base64')}` })).status, 410);
+    return; // MySQL mode deliberately disables the old PHP queue-ticket page.
+  }
   assert.equal(anonymous.status, 200);
   const ticket = (await anonymous.json()).data.ticket as string;
   const claims = JSON.parse(Buffer.from(ticket.split('.')[0], 'base64url').toString());

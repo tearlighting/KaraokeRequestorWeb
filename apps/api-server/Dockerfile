@@ -14,6 +14,7 @@ COPY apps/api-server/package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /workspace/apps/api-server/dist ./dist
 COPY apps/api-server/migrations ./migrations
+COPY apps/api-server/migrations/mysql ./migrations/mysql
 RUN mkdir -p /run/player-agent-state && chown node:node /run/player-agent-state
 USER node
 EXPOSE 3000

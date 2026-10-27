@@ -32,6 +32,8 @@ if ($stmt === false ){
 function prioritydb_add($priority_db, $kind, $priorityword, $prioritynum){
     global $kind_num;
 
+    if ($priority_db === null) return false;
+
     $res = true;
     $stmt = $priority_db->prepare("INSERT INTO prioritytable (kind, priorityword, prioritynum) VALUES (:kind, :priorityword, :prioritynum)");
     $stmt->bindValue(':kind', (int)$kind_num[$kind], PDO::PARAM_INT);
@@ -47,6 +49,7 @@ function prioritydb_add($priority_db, $kind, $priorityword, $prioritynum){
 
 function prioritydb_delete($priority_db, $id){
     global $kind_num;
+    if ($priority_db === null) return false;
     
     $res = true;
     $sql = sprintf("DELETE FROM prioritytable where id = %d",$id);
@@ -61,6 +64,7 @@ function prioritydb_delete($priority_db, $id){
 }
 
 function prioritydb_get($priority_db){
+    if ($priority_db === null) return array();
     $sql = "SELECT * FROM prioritytable ORDER BY prioritynum DESC";
     $select = $priority_db->query($sql);
     $allpriority = $select->fetchAll(PDO::FETCH_ASSOC);
@@ -69,6 +73,8 @@ function prioritydb_get($priority_db){
     return $allpriority;
 }
 
-$priority_db = prioritydb_init();
+// Search priority overrides were stored in a separate legacy business DB.
+// Keep file search usable in MySQL mode without creating that SQLite database.
+$priority_db = getenv('YUKARI_MYSQL_MODE') === '1' ? null : prioritydb_init();
 
 ?>

@@ -46,14 +46,14 @@ export function verifyLegacySubmission(envelope:string,secret:string) {
 }
 export function normalizeRequest(input:RequestInput) {
   let kind=input.kind;
-  if(input.loop!==undefined)kind='カラオケ配信';
-  if(input.otherplayer!==undefined && kind==='動画')kind='動画_別プ';
+  if(Number(input.loop??0)!==0)kind='\u30ab\u30e9\u30aa\u30b1\u914d\u4fe1';
+  if(input.otherplayer!==undefined && kind==='\u52d5\u753b')kind='\u52d5\u753b_\u5225\u30d7';
   const numeric=(v:unknown)=> typeof v==='number' || (typeof v==='string' && v.trim()!=='' && Number.isFinite(Number(v)));
   const number=(v:unknown)=>numeric(v)?Number(v):0;
   const limited=(v:unknown,min:number,max:number)=>{const n=integer(v);return n<min||n>max?0:n;};
   // Legacy sets urlreq from the original kind before applying loop's kind override,
   // then lets an explicit urlreq field replace that default.
-  const url=(input.urlreq===undefined ? (input.kind.includes('URL指定')?1:0) : Number(input.urlreq))===1;
+  const url=(input.urlreq===undefined ? (input.kind.includes('URL\u6307\u5b9a')?1:0) : Number(input.urlreq))===1;
   const songfile=url?input.filename:input.filename.replace(/\(ニコカラ.*?\)|（ニコカラ.*?）|【ニコカラ.*?】|\[ニコカラ.*?\]/g,'').replace(/(.+)(\.[^.]+$)/,'$1');
   return {songfile,singer:!phpEmpty(input.freesinger)?input.freesinger!:input.singer,comment:input.comment,kind,fullpath:input.fullpath,
     secret:input.secret??0,loop:input.loop??0,keychange:number(input.keychange),track:number(input.track),pause:number(input.pause),

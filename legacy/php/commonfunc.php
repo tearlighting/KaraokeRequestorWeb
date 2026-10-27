@@ -18,7 +18,13 @@ if (isset($_SERVER['PHP_AUTH_USER'])){
 }
 
 
-if (isset($_SERVER) && isset($_SERVER["SERVER_ADDR"]) ){
+// A Docker container's SERVER_ADDR is its own bridge address, not the Windows
+// host running Everything. Allow Compose to provide an explicit host endpoint;
+// non-Docker and older deployments keep the historical behavior below.
+$configured_everything_host = getenv('YUKARI_EVERYTHING_HOST');
+if (is_string($configured_everything_host) && trim($configured_everything_host) !== '') {
+    $everythinghost = trim($configured_everything_host);
+} elseif (isset($_SERVER) && isset($_SERVER["SERVER_ADDR"]) ){
     //var_dump($_SERVER);
     $everythinghost = $_SERVER["SERVER_ADDR"];
     $count_semi = substr_count($everythinghost, ':');
@@ -324,7 +330,11 @@ function check_json_available_fromurl($url,$timeout = 10){
 
 function get_everything_ipvar() {
     global $everythinghost;
-    return isIPv4($everythinghost) ? 4 : 6;
+    // Do not force IPv6 for Docker's host.docker.internal DNS name. Let cURL
+    // resolve the host normally; literal addresses retain the old preference.
+    if (isIPv4($everythinghost)) return 4;
+    if (isIPv6($everythinghost)) return 6;
+    return 0;
 }
 
 function decode_everything_json($json, $url = '') {
@@ -1039,6 +1049,7 @@ function makesongnamefromfilename($filename){
 }
 
 function searchwordhistory($word,$filename = 'history.log'){
+    if (getenv('YUKARI_MYSQL_MODE') === '1') return;
     date_default_timezone_set('Asia/Tokyo');
     $fp = fopen($filename, 'a');
     $logword = date('r').' '.$word."\r\n";
@@ -1121,6 +1132,7 @@ function commentpost_v4($cmd,$msg,$commenturl)
 }
 
 function notify_requestlist_update(){
+    if (getenv('YUKARI_MYSQL_MODE') === '1') return;
     ob_start();
     try {
         require_once __DIR__.'/function_updatenotice.php';
