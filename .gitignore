@@ -51,6 +51,7 @@ playwright-report/
 .env
 .env.*
 !.env.example
+!/docker/.env
 /.local/
 /secrets/
 **/bridge-token

@@ -115,7 +115,7 @@
       NODE_QUEUE_OWNER_ROOT: /run/queue-owner
       PLAYER_AGENT_TOKEN_FILE: /run/player-agent-token/token
       PLAYER_AGENT_STATE_PATH: /run/player-agent-state/state.json
-      YUKARI_NODE_AUTOPLAY: "0"
+      YUKARI_NODE_AUTOPLAY: "1"
       YUKARI_AGENT_SEARCH: "0"
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"

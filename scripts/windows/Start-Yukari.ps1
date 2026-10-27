@@ -16,10 +16,16 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Docker Engine is unavailable. Start Docker Desktop, wait until it says Running, then run Start-Yukari.cmd again.' }
     } finally { Pop-Location }
 
-    Write-Host '[2/4] Checking safe playback settings...'
+    Write-Host '[2/4] Checking playback deployment policy...'
     $composeText = Get-Content -LiteralPath $composeFile -Raw
-    if ($composeText -notmatch 'YUKARI_NODE_AUTOPLAY:\s*["'']?0') {
-        throw 'Startup refused: docker/compose.yaml must keep YUKARI_NODE_AUTOPLAY set to 0.'
+    $autoplayMatch = [regex]::Match($composeText, '(?m)^\s*YUKARI_NODE_AUTOPLAY:\s*["'']?([01])["'']?\s*(?:#.*)?$')
+    if (-not $autoplayMatch.Success) {
+        throw 'Startup refused: set YUKARI_NODE_AUTOPLAY explicitly to 0 or 1 in docker/compose.yaml.'
+    }
+    if ($autoplayMatch.Groups[1].Value -eq '1') {
+        Write-Host 'Node autoplay is permitted by deployment policy. Playback still requires an explicit Admin action.'
+    } else {
+        Write-Host 'Node autoplay is blocked by deployment policy.'
     }
     Push-Location $repoRoot
     try {

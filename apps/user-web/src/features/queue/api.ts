@@ -8,6 +8,7 @@ export interface QueueItem {
   singer: string;
   nowplaying: string;
   kind: string;
+  keychange: number;
 }
 export interface Queue { items: QueueItem[]; total: number; remaining: number }
 export interface Playback { playing: boolean; title: string; singer: string; status: string }
@@ -31,7 +32,7 @@ export async function getQueue(): Promise<Queue> {
     if (typeof row.id !== 'number' || typeof row.position !== 'number' || typeof row.nowplaying !== 'string') throw new ApiError('队列记录缺少 ID、位置或状态');
     return {
       id: row.id, position: row.position, display_name: String(row.display_name ?? ''),
-      singer: String(row.singer ?? ''), nowplaying: row.nowplaying, kind: String(row.kind ?? ''),
+      singer: String(row.singer ?? ''), nowplaying: row.nowplaying, kind: String(row.kind ?? ''), keychange: Number(row.keychange ?? 0),
     };
   });
   // Preserve server order and server position, including secret display_name masking.

@@ -44,7 +44,7 @@ async function call<T>(path: string, body: unknown): Promise<T> {
   if (!response.ok || value.ok !== true) throw new Error(`API ${response.status} ${value.error?.code || ''}: ${value.error?.message || 'request failed'}`);
   return value.data as T;
 }
-type Assignment = { task: { id: string; kind: 'test'|'queue'; requestId?: number; mediaPath?: string; initialVolume?:number; state: 'claimed'|'playing' } | null; command: 'pause'|'resume'|'stop'|'skip'|null; commandTaskId?: string; mpvControl?:MpvControl|null; mediaCheck?: { id: string; requestId: number; path: string }; searchJob?:{id:string;keyword:string} };
+type Assignment = { task: { id: string; kind: 'test'|'queue'; requestId?: number; mediaPath?: string; initialVolume?:number; initialKeySemitones?:number; state: 'claimed'|'playing' } | null; command: 'pause'|'resume'|'stop'|'skip'|null; commandTaskId?: string; mpvControl?:MpvControl|null; mediaCheck?: { id: string; requestId: number; path: string }; searchJob?:{id:string;keyword:string} };
 type Report = { taskId?: string; state?: 'claimed'|'playing'|'completed'|'failed'; playback: 'idle'|'starting'|'playing'|'paused'|'stopped'|'unavailable'; file?: string; error?: string; endReason?: 'eof'; outcome?: 'skipped'; mpv?:ReturnType<typeof publicStatus>; controlAck?:{id:string;ok:boolean;error?:'MPV_IPC_UNAVAILABLE'|'MPV_NOT_PLAYING'|'MPV_CONTROL_FAILED'|'MPV_TRACK_UNAVAILABLE'|'MPV_KEY_CHANGE_UNAVAILABLE'} };
 const mapStatus = (value: PlayerStatus['state']): Report['playback'] => value;
 function publicStatus(status:PlayerStatus){const{path:_path,...safe}=status;return safe;}
@@ -99,7 +99,7 @@ async function runTask(task: NonNullable<Assignment['task']>) {
     // mpv happened to have loaded before. Replace it and apply the configured
     // initial volume once; polling/playing recoveries never enter this branch.
     if(task.kind==='queue'&&task.initialVolume!==undefined)await adapter.setInitialVolume(task.initialVolume);
-    await adapter.open(target);
+    await adapter.open(target,task.kind==='queue'?(task.initialKeySemitones??0):0);
   }
   const verified = await adapter.getStatus();
   if (verified.path !== target || !['playing','paused'].includes(verified.state)) throw new Error('mpv did not confirm the configured media is loaded');

@@ -23,7 +23,11 @@ try {
   await root.query(`CREATE TABLE IF NOT EXISTS schema_migration (version VARCHAR(64) PRIMARY KEY, checksum CHAR(64) NOT NULL, applied_at BIGINT NOT NULL) ENGINE=InnoDB`);
   for (const version of ['001-initial.sql','002-queue-mutex.sql']) {
     const sql = readFileSync(new URL(`../migrations/mysql/${version}`, import.meta.url), 'utf8');
-    const checksum = createHash('sha256').update(sql).digest('hex');
+    // Git/Windows may check the same migration out with CRLF while the MySQL
+    // volume recorded its original LF checksum. Normalize line endings before
+    // hashing so `docker compose up` is portable and does not report a false
+    // migration-content change on Windows.
+    const checksum = createHash('sha256').update(sql.replace(/\r\n/g, '\n')).digest('hex');
     const [rows] = await root.execute('SELECT checksum FROM schema_migration WHERE version=?', [version]) as [Array<{checksum:string}>, unknown];
     if (rows[0]) {
       if (rows[0].checksum !== checksum) {

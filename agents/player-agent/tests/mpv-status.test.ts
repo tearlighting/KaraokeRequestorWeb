@@ -53,6 +53,35 @@ test('key filter is installed once with a fixed label and unsupported builds fai
   await assert.rejects((unsupported as unknown as {prepareKeyFilter():Promise<void>}).prepareKeyFilter(),/MPV_KEY_CHANGE_UNAVAILABLE/);
 });
 
+test('a queued nonzero key is applied before mpv resumes and unsupported builds fail closed',async()=>{
+  const adapter=new MpvJsonIpcAdapter(process.execPath),sent:unknown[][]=[];const filters:unknown[]=[];let paused=false;
+  Object.assign(adapter,{
+    command:async(command:unknown[])=>{sent.push(command);if(command[0]==='loadfile')queueMicrotask(()=>{for(const listener of (adapter as unknown as {fileLoadedListeners:Set<()=>void>}).fileLoadedListeners)listener();});},
+    commandExisting:async(command:unknown[])=>{sent.push(command);if(command[0]==='set_property'&&command[1]==='pause'){paused=Boolean(command[2]);return;}if(command[0]==='get_property'&&command[1]==='af')return [...filters];if(command[0]==='af'&&command[1]==='add'){filters.push({label:'yukari-key',name:'rubberband',params:{'pitch-scale':'1'}});return;}if(command[0]==='af-command'){filters[0]={label:'yukari-key',name:'rubberband',params:{'pitch-scale':String(command[3])}};return;}},
+    getStatus:async()=>({connected:true,state:paused?'paused':'playing',path:'C:\\media\\fixture.mp4',file:'fixture.mp4',audioTracks:[],subtitleTracks:[],keyChangeAvailable:true,keySemitones:3}),
+  });
+  await adapter.open('C:\\media\\fixture.mp4',3);
+  const pitch=2**(3/12);
+  assert.deepEqual(sent.slice(0,1),[['set_property','pause',true]]);
+  assert.ok(sent.some(command=>command[0]==='af-command'&&command[1]==='yukari-key'&&command[2]==='set-pitch'&&command[3]===String(pitch)));
+  assert.deepEqual(sent.at(-1),['set_property','pause',false]);
+
+  const unsupported=new MpvJsonIpcAdapter(process.execPath);const unsupportedCommands:unknown[][]=[];
+  Object.assign(unsupported,{command:async(command:unknown[])=>{if(command[0]==='loadfile')queueMicrotask(()=>{for(const listener of (unsupported as unknown as {fileLoadedListeners:Set<()=>void>}).fileLoadedListeners)listener();});},commandExisting:async(command:unknown[])=>{unsupportedCommands.push(command);return command[0]==='get_property'?[]:undefined;},getStatus:async()=>({connected:true,state:'paused',path:'C:\\media\\fixture.mp4',audioTracks:[],subtitleTracks:[]})});
+  await assert.rejects(unsupported.open('C:\\media\\fixture.mp4',2),/MPV_KEY_CHANGE_UNAVAILABLE/);
+  assert.equal(unsupportedCommands.some(command=>command[0]==='set_property'&&command[1]==='pause'&&command[2]===false),false,'unsupported pitch must remain paused and fail rather than play in the wrong key');
+});
+
+test('reported key tracks the last successful Rubber Band command, not static mpv filter options',async()=>{
+  const adapter=new MpvJsonIpcAdapter(process.execPath);const filter={label:'yukari-key',name:'rubberband',params:{'pitch-scale':'1'}};
+  const props:Record<string,unknown>={'idle-active':false,pause:false,path:'C:\\media\\fixture.mp4',duration:30,'time-pos':4,volume:50,mute:false,'audio-delay':0,fullscreen:false,'track-list':[],'af':[filter]};
+  Object.assign(adapter,{socket:{destroyed:false},commandExisting:async(command:unknown[])=>command[0]==='get_property'?(command[1]==='af'?[filter]:props[String(command[1])]):undefined});
+  await (adapter as unknown as {prepareKeyFilter():Promise<void>}).prepareKeyFilter();
+  await adapter.applyControl({id:'key-1',taskId:'task-1',action:'key-change',semitones:2});
+  const status=await adapter.getStatus();
+  assert.equal(status.keyChangeAvailable,true);assert.equal(status.keySemitones,2,'mpv af options stay at their initial value even though the dynamic set-pitch command succeeded');
+});
+
 test('safe control actions map to mpv properties and reject stale track IDs',async()=>{
   const adapter=new MpvJsonIpcAdapter(process.execPath);const sent:unknown[][]=[];
   const status={connected:true,state:'playing' as const,file:'test.mkv',duration:90,position:2,volume:50,muted:false,

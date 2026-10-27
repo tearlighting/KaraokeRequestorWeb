@@ -220,10 +220,12 @@ export class MysqlPlaybackRepository {
         if(active.state==='uncertain')return {task:null,command:'stop' as const,commandTaskId:active.task_id,uncertain:true};
         if(active.agent_id!==agentId)throw new BoundaryError(409,'PLAYBACK_TASK_OWNED','An active task is assigned to another Agent');
         await c.execute('UPDATE playback_task SET lease_until=?,updated_at=? WHERE task_id=? AND state IN (?,?)',[ts+15,ts,active.task_id,'claimed','playing']);
-        const [media]=await c.execute<(RowDataPacket & {fullpath:string})[]>('SELECT fullpath FROM reservation WHERE id=?',[active.request_id]);
+        const [media]=await c.execute<(RowDataPacket & {fullpath:string;keychange:number|string|null})[]>('SELECT fullpath,keychange FROM reservation WHERE id=?',[active.request_id]);
         if(!media[0])throw new BoundaryError(409,'PLAYBACK_REQUEST_MISSING','The queued request no longer exists');
         const initialVolume=active.state==='claimed'?await this.readStartVolume(c):undefined;
-        return {task:{id:active.task_id,kind:'queue' as const,requestId:Number(active.request_id),state:active.state==='playing'?'playing' as const:'claimed' as const,mediaPath:media[0].fullpath,agentId,...(initialVolume!==undefined?{initialVolume}:{})},command:active.command as 'pause'|'resume'|'stop'|'skip'|null,uncertain:false};
+        const keychange=Number(media[0].keychange??0);
+        if(active.state==='claimed'&&(!Number.isInteger(keychange)||keychange < -6||keychange > 6))throw new BoundaryError(409,'AUTOPLAY_KEY_CHANGE_UNSUPPORTED','Queue item key change must be a whole number from -6 to +6 semitones');
+        return {task:{id:active.task_id,kind:'queue' as const,requestId:Number(active.request_id),state:active.state==='playing'?'playing' as const:'claimed' as const,mediaPath:media[0].fullpath,agentId,...(initialVolume!==undefined?{initialVolume}:{}),...(active.state==='claimed'?{initialKeySemitones:keychange}:{})},command:active.command as 'pause'|'resume'|'stop'|'skip'|null,uncertain:false};
       }
       if(!allowNew||!enabled||(playmode!==1&&playmode!==2)||(playmode===2&&!manualPending))return {task:null,command:null,uncertain:false};
       if(playmode===2){
@@ -236,13 +238,15 @@ export class MysqlPlaybackRepository {
       const row=rows[0];
       if(!row)return {task:null,command:null,uncertain:false};
       if((row.kind!==KIND_VIDEO&&row.kind!==LEGACY_KIND_VIDEO)||typeof row.fullpath!=='string'||!row.fullpath.trim()||/^https?:\/\//i.test(row.fullpath)||! /\.(mp4|avi|mkv|mpg|flv|webm|wmv|ogm|mov)$/i.test(row.fullpath))throw new BoundaryError(409,'AUTOPLAY_ITEM_UNSUPPORTED','Queue item is not a supported local video');
-      for(const option of ['loop','pause','track','keychange','audiodelay','volume'])if(Number(row[option])!==0)throw new BoundaryError(409,'AUTOPLAY_OPTIONS_UNSUPPORTED',`Queue item option ${option} is not supported`);
+      for(const option of ['loop','pause','track','audiodelay','volume'])if(Number(row[option])!==0)throw new BoundaryError(409,'AUTOPLAY_OPTIONS_UNSUPPORTED',`Queue item option ${option} is not supported`);
+      const keychange=Number(row.keychange??0);
+      if(!Number.isInteger(keychange)||keychange < -6||keychange > 6)throw new BoundaryError(409,'AUTOPLAY_KEY_CHANGE_UNSUPPORTED','Queue item key change must be a whole number from -6 to +6 semitones');
       const initialVolume=await this.readStartVolume(c),taskId=randomUUID();
       await c.execute("INSERT INTO playback_task(task_id,request_id,state,agent_id,lease_until,playback_state,created_at,updated_at) VALUES(?,?,'claimed',?,?,'starting',?,?)",[taskId,row.id,agentId,ts+15,ts,ts]);
       const [changed]=await c.execute('UPDATE reservation SET nowplaying=? WHERE id=? AND nowplaying=?',[STATUS_CLAIMED,row.id,row.nowplaying]);
       if(Number((changed as {affectedRows:number}).affectedRows)!==1)throw new BoundaryError(409,'AUTOPLAY_CLAIM_RACE','Queue row changed while being claimed');
       await this.event(c,taskId,'claimed','claimed',agentId,{requestId:Number(row.id)});
-      return {task:{id:taskId,kind:'queue' as const,requestId:Number(row.id),state:'claimed' as const,mediaPath:row.fullpath,agentId,initialVolume},command:null,uncertain:false};
+      return {task:{id:taskId,kind:'queue' as const,requestId:Number(row.id),state:'claimed' as const,mediaPath:row.fullpath,agentId,initialVolume,initialKeySemitones:keychange},command:null,uncertain:false};
     });
   }
   private async readStartVolume(c:import('mysql2/promise').PoolConnection){const[rows]=await c.execute<(RowDataPacket & {value_json:unknown})[]>("SELECT value_json FROM app_setting WHERE setting_key='startvolume'");const value=decodeSetting(rows[0]?.value_json??50);const number=Number(value);if(!Number.isInteger(number)||number<0||number>100)throw new BoundaryError(503,'START_VOLUME_INVALID','Stored mpv default volume is outside 0窶・00');return number;}  async readTask(id:string){const rows=await this.store.rows<RowDataPacket & Record<string,unknown>>("SELECT task_id AS id,request_id AS requestId,'queue' AS kind,state,agent_id AS agentId,playback_state AS playback,command,created_at AS createdAt,updated_at AS updatedAt,started_at AS startedAt,finished_at AS finishedAt,error_code AS errorCode,error_message AS error,error_message AS errorMessage FROM playback_task WHERE task_id=?",[id]);return rows[0]||undefined;}

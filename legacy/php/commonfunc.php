@@ -514,13 +514,9 @@ function searchlocalfilename_part($kerwords, &$result_array,$start = 0, $length 
 
         $prioritylist = $use_priority ? prioritydb_get($priority_db) : [];
 		
-		// IPv6check
-		// IPv6check
-		if(isIPv4($everythinghost)){
-			$ipvar = 4;
-		}else{
-			$ipvar = 6;
-		}
+		// Literal addresses retain their explicit family; hostnames such as
+		// host.docker.internal must be resolved normally by cURL.
+		$ipvar = get_everything_ipvar();
 		
 		$askeverythinghost = $everythinghost;
 		
@@ -633,12 +629,8 @@ function searchlocalfilename($kerwords, &$result_array,$order = null, $path = nu
 		if(empty($order)){
 		    $order = 'sort=size&ascending=0';
 		}
-		// IPv6check
-		if(isIPv4($everythinghost)){
-			$ipvar = 4;
-		}else{
-			$ipvar = 6;
-		}
+		// Do not force IPv6 for Compose hostnames (e.g. host.docker.internal).
+		$ipvar = get_everything_ipvar();
 	    $askeverythinghost = $everythinghost;
 		
 		if(array_key_exists("max_filesize", $config_ini)){

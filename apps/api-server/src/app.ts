@@ -341,7 +341,7 @@ export function createApp(options: AppOptions) {
   };
   app.post('/api/v1/agent/next', async (request) => {
     requireAgent(request); const body = agentIdentity.extend({searchReady:z.boolean().optional()}).parse(request.body);
-    let assignment: {task:{id:string;kind:'test'|'queue';requestId?:number;state:'pending'|'claimed'|'playing'|'completed'|'failed';createdAt?:number;agentId?:string;error?:string;mediaPath?:string;initialVolume?:number}|null;command:'pause'|'resume'|'stop'|'skip'|null;commandTaskId?:string;mediaCheck?:{id:string;requestId:number;path:string};searchJob?:{id:string;keyword:string};mpvControl?:ReturnType<typeof playerTasks.pendingMpvControl>} = playerTasks.next(body.agentId,body.testReady===true);
+    let assignment: {task:{id:string;kind:'test'|'queue';requestId?:number;state:'pending'|'claimed'|'playing'|'completed'|'failed';createdAt?:number;agentId?:string;error?:string;mediaPath?:string;initialVolume?:number;initialKeySemitones?:number}|null;command:'pause'|'resume'|'stop'|'skip'|null;commandTaskId?:string;mediaCheck?:{id:string;requestId:number;path:string};searchJob?:{id:string;keyword:string};mpvControl?:ReturnType<typeof playerTasks.pendingMpvControl>} = playerTasks.next(body.agentId,body.testReady===true);
     if(assignment.task?.kind==='queue')assignment={task:null,command:null};
     if(!assignment.command){const mediaCheck=mediaChecks.claim(body.agentId);if(mediaCheck)assignment={...assignment,mediaCheck};}
     // Older Agents omit searchReady. Do not claim a job they cannot execute.

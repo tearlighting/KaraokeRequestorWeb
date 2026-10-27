@@ -1,4 +1,7 @@
 name: docker
 
+# Keep `docker compose up -d --build` at the repository root identical to the
+# Windows launcher. The application services and safety switches live only in
+# docker/compose.yaml so the two entry points cannot drift.
 include:
   - path: docker/compose.yaml

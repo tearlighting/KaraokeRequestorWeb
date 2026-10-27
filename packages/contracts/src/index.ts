@@ -7,7 +7,7 @@ export interface ApiSuccess<T> { ok: true; data: T }
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 export interface QueueItem {
   id: number; position: number; reqorder: number; display_name: string; songfile: string;
-  singer: string; kind: string; nowplaying: string;
+  singer: string; kind: string; nowplaying: string; keychange: number;
 }
 export interface QueueData { items: QueueItem[]; total: number; remaining_count: number; has_more: boolean; remaining_seconds: number }
 /** Scoped Legacy read response. Sensitive fields are masked by the server. */

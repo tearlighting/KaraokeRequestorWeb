@@ -20,7 +20,7 @@ function schedulerStore(mode:number,enabled:boolean,manualStart:boolean,volume:n
       if(sql.includes('FROM playback_task'))return [tasks.filter(task=>['claimed','playing','uncertain'].includes(task.state)),[]];
       if(sql.startsWith('UPDATE playback_task SET lease_until='))return [{affectedRows:1},[]];
       if(sql.includes('FROM reservation')&&sql.includes('nowplaying IN (?,?,?,?,?)'))return [[],[]];
-      if(sql.startsWith('SELECT fullpath FROM reservation'))return [[{fullpath:queue.find(row=>row.id===Number(values[0]))?.fullpath}],[]];
+      if(sql.startsWith('SELECT fullpath,keychange FROM reservation')){const row=queue.find(item=>item.id===Number(values[0]));return [[row?{fullpath:row.fullpath,keychange:row.keychange}:undefined].filter(Boolean),[]];}
       if(sql.includes('FROM reservation')&&sql.includes('nowplaying IN (?,?,?)')) {
         return [queue.filter(row=>values.map(String).includes(row.nowplaying)),[]];
       }
@@ -68,4 +68,18 @@ test('MySQL FIFO mode claims automatically only while the durable scheduler and 
 
   const stopped=schedulerStore(1,false,false,62);
   assert.equal((await new MysqlPlaybackRepository(stopped.store).claimNext('agent-one',true)).task,null,'saved FIFO mode does not run until an Admin explicitly enables scheduling');
+});
+
+test('MySQL queue claim passes the saved semitone shift to the Agent and rejects unsafe values',async()=>{
+  const fixture=schedulerStore(1,true,false,50),repository=new MysqlPlaybackRepository(fixture.store);
+  fixture.queue[0].keychange=3;
+  const claim=await repository.claimNext('agent-one');
+  assert.equal(claim.task?.initialKeySemitones,3);
+  const resumed=await repository.claimNext('agent-one');
+  assert.equal(resumed.task?.initialKeySemitones,3,'a claimed task keeps receiving its reservation key until playback is confirmed');
+
+  const invalid=schedulerStore(1,true,false,50);invalid.queue[0].keychange=7;
+  await assert.rejects(new MysqlPlaybackRepository(invalid.store).claimNext('agent-one'),{code:'AUTOPLAY_KEY_CHANGE_UNSUPPORTED'});
+  assert.equal(invalid.queue[0].nowplaying,'未再生','invalid key settings do not claim or mutate the reservation');
+  assert.equal(invalid.tasks.length,0);
 });

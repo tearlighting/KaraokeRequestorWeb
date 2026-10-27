@@ -17,7 +17,7 @@ export type MpvControl =
   | { id: string; taskId: string; action: 'fullscreen'; value: boolean };
 export type PlayerStatus = MpvLiveStatus & { path?: string };
 export interface PlayerAdapter {
-  open(path: string): Promise<void>;
+  open(path: string, initialKeySemitones?: number): Promise<void>;
   play(): Promise<void>;
   pause(): Promise<void>;
   stop(): Promise<void>;
@@ -34,6 +34,7 @@ export class MpvJsonIpcAdapter implements PlayerAdapter {
   private requestId = 0;
   private pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void; timer: NodeJS.Timeout }>();
   private fileLoadedListeners = new Set<() => void>();
+  private appliedKeySemitones: number | undefined;
   private ended = (_: { reason: 'eof'|'stop'|'error'; error?: string }) => {};
   private pipe: string;
   constructor(private executable: string, private timeoutMs = 4000, pipeName = `yukari-player-${randomUUID()}`) {
@@ -128,6 +129,7 @@ export class MpvJsonIpcAdapter implements PlayerAdapter {
     }
     if(!hasFilter())throw new Error('MPV_KEY_CHANGE_UNAVAILABLE');
     await this.commandExisting(['af-command','yukari-key','set-pitch','1']);
+    this.appliedKeySemitones=0;
   }
   async getStatus(): Promise<PlayerStatus> {
     if(this.socket?.destroyed!==false){try{await this.connect(Math.min(this.timeoutMs,500));}catch{return {connected:false,state:'unavailable',audioTracks:[],subtitleTracks:[],error:'MPV_IPC_UNAVAILABLE'};}}
@@ -143,10 +145,10 @@ export class MpvJsonIpcAdapter implements PlayerAdapter {
       const selectedAudioTrackId=audioTracks.find(track=>track.selected)?.id;
       const selectedSubtitleTrackId=subtitleTracks.find(track=>track.selected)?.id;
       const keyFilter=Array.isArray(rawAf)?rawAf.find(value=>value&&typeof value==='object'&&(value as Record<string,unknown>).label==='yukari-key') as Record<string,unknown>|undefined:undefined;
-      const afParams=keyFilter?.params&&typeof keyFilter.params==='object'?keyFilter.params as Record<string,unknown>:undefined;
-      const rawPitch=afParams?.['pitch-scale'];
-      const pitchScale=typeof rawPitch==='string'?Number(rawPitch):typeof rawPitch==='number'?rawPitch:undefined;
-      const keySemitones=typeof pitchScale==='number'&&Number.isFinite(pitchScale)&&pitchScale>0?Math.round(12*Math.log2(pitchScale)):undefined;
+      // mpv's `af` property retains Rubber Band's construction parameters after
+      // `af-command set-pitch`; it does not report its live dynamic pitch value.
+      // Report only the last successful typed IPC command from this Agent.
+      const keySemitones=keyFilter?this.appliedKeySemitones:undefined;
       const finite=(value:unknown)=>typeof value==='number'&&Number.isFinite(value)?value:undefined;
       if(idle===true||typeof path!=='string')return {connected:true,state:'idle',audioTracks,subtitleTracks,...(finite(volume)!==undefined?{volume:finite(volume)}:{}),...(typeof muted==='boolean'?{muted}:{}),...(finite(audioDelay)!==undefined?{audioDelay:finite(audioDelay)}:{}),...(typeof fullscreen==='boolean'?{fullscreen}:{}),keyChangeAvailable:Boolean(keyFilter),...(keySemitones!==undefined?{keySemitones}:{})};
       const state=paused===true?'paused':'playing';
@@ -155,7 +157,12 @@ export class MpvJsonIpcAdapter implements PlayerAdapter {
       return {connected:false,state:'unavailable',audioTracks:[],subtitleTracks:[],error:'MPV_STATUS_UNAVAILABLE'};
     }
   }
-  async open(path: string) {
+  async open(path: string, initialKeySemitones = 0) {
+    if(!Number.isInteger(initialKeySemitones)||initialKeySemitones < -6||initialKeySemitones > 6)throw new Error('MPV_INVALID_KEY_CHANGE');
+    // Hold audio until the pitch filter and requested key are applied. A keyed
+    // request must never briefly start in the original key or silently fall back.
+    const holdForKey=initialKeySemitones!==0;
+    if(holdForKey)await this.commandExisting(['set_property','pause',true]);
     let timer: NodeJS.Timeout;
     let onLoaded: () => void;
     const loadedPromise = new Promise<void>((resolve, reject) => {
@@ -165,8 +172,16 @@ export class MpvJsonIpcAdapter implements PlayerAdapter {
     });
     try { await this.command(['loadfile', path, 'replace']); await loadedPromise; }
     catch (error) { clearTimeout(timer!); this.fileLoadedListeners.delete(onLoaded!); throw error; }
-    // Pitch support is optional per mpv build. Failure here must not block video playback.
-    try { await this.prepareKeyFilter(); } catch { /* Status reports keyChangeAvailable=false. */ }
+    // Pitch support is optional for ordinary requests. A request that explicitly
+    // asks for a key change fails closed if this mpv build cannot apply it.
+    try {
+      await this.prepareKeyFilter();
+      if(holdForKey){await this.commandExisting(['af-command','yukari-key','set-pitch',String(2**(initialKeySemitones/12))]);this.appliedKeySemitones=initialKeySemitones;}
+    } catch(error) {
+      if(holdForKey)throw new Error('MPV_KEY_CHANGE_UNAVAILABLE');
+      // Status reports keyChangeAvailable=false; unkeyed video still plays.
+    }
+    if(holdForKey)await this.commandExisting(['set_property','pause',false]);
     const until = Date.now() + 15000;
     while (Date.now() < until) {
       const status = await this.getStatus();
@@ -208,6 +223,7 @@ export class MpvJsonIpcAdapter implements PlayerAdapter {
       if(!status.keyChangeAvailable)throw new Error('MPV_KEY_CHANGE_UNAVAILABLE');
       const scale=2**(control.semitones/12);
       await this.commandExisting(['af-command','yukari-key','set-pitch',String(scale)]);
+      this.appliedKeySemitones=control.semitones;
     }else{
       await this.commandExisting(['set_property','fullscreen',control.value]);
     }

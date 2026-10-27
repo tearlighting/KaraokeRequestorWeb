@@ -136,7 +136,13 @@ test('真实歌曲预约链（需接入真实曲库）', async ({ page }) => {
     await page.getByTestId('search-submit').click();
     await page.getByRole('button', { name: 'この曲を予約' }).first().click();
     await page.getByTestId('reservation-singer').fill(singer);
+    await page.getByTestId('reservation-keychange').selectOption('2');
+    const created=page.waitForResponse(response=>response.url().endsWith('/api/v1/requests')&&response.request().method()==='POST');
     await page.getByTestId('reservation-submit').click();
+    const submitted=await created;expect(submitted.status()).toBe(201);expect(submitted.request().postDataJSON().keychange).toBe(2);
+    const id=(await submitted.json()).data.id;
+    const saved=(await admin.call('/admin/queue')).body.data.items.find((item:{id:number})=>item.id===id);
+    expect(saved.keychange).toBe(2);
     await expect(page.getByTestId('queue')).toContainText(singer);
   } finally {
     for (const item of (await admin.call('/admin/queue')).body.data.items.filter((item: {singer: string}) => item.singer === singer)) await admin.call(`/admin/requests/${item.id}`, 'DELETE', {});

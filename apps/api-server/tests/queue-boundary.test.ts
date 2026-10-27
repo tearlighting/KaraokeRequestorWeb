@@ -43,7 +43,7 @@ test('隔离真实 SQLite + 授权替身：user/admin 差异、字段白名单�
     const adminCookie = admin.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
     const clear = await app.inject({ url: '/api/v1/admin/queue', headers: { 'x-yukari-client': '1', cookie: adminCookie } });
     assert.equal(clear.json().data.items[0].songfile, 'private title');
-    assert.deepEqual(Object.keys(clear.json().data.items[0]).sort(), ['id','position','reqorder','display_name','songfile','singer','nowplaying','kind'].sort());
+    assert.deepEqual(Object.keys(clear.json().data.items[0]).sort(), ['id','position','reqorder','display_name','songfile','singer','nowplaying','kind','keychange'].sort());
     db.prepare("UPDATE requesttable SET clientip='bridge-ip',clientua=? WHERE id=1").run('YukariNode/' + user.json().data.userId);
     assert.equal((await app.inject({ url: '/api/v1/queue', headers })).json().data.items[0].songfile, 'private title');
     const adminHeaders = { 'x-yukari-client':'1', cookie:adminCookie };

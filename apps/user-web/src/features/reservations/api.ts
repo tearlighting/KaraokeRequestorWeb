@@ -2,13 +2,14 @@ import { ApiError, apiJson } from '../../lib/api';
 import type { ReservationInput } from '../../../../../packages/contracts/src/index';
 import type { Song } from '../search/api';
 
-export async function reserve(song: Song | null, singer: string, comment: string, secret = false): Promise<{ id: number; warnings: string[] }> {
+export async function reserve(song: Song | null, singer: string, comment: string, secret = false, keychange = 0): Promise<{ id: number; warnings: string[] }> {
   const form: ReservationInput = {
     filename: song?.name ?? '小休止',
     fullpath: song?.fullpath ?? '',
     singer: singer.trim(),
     comment,
     kind: song ? '動画' : '小休止',
+    keychange,
     ...(secret ? { secret: 1 } : {}),
   };
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(form))))).map(n=>n.toString(16).padStart(2,'0')).join('');

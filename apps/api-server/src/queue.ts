@@ -6,7 +6,7 @@ import { BoundaryError } from './errors.js';
 import type { QueueData, LegacyQueueData } from '../../../packages/contracts/src/index.js';
 
 export const queueSchema = z.object({ items: z.array(z.object({ id: z.number().int(), position: z.number().int(), reqorder: z.number().int(),
-  display_name: z.string(), songfile: z.string(), singer: z.string(), nowplaying: z.string(), kind: z.string() })),
+  display_name: z.string(), songfile: z.string(), singer: z.string(), nowplaying: z.string(), kind: z.string(), keychange: z.number().int() })),
   total: z.number().int(), remaining_count: z.number().int(), has_more: z.boolean(), remaining_seconds: z.number().int() }) satisfies z.ZodType<QueueData>;
 export const queueContextSchema = z.object({ database: z.string().min(1), secret_text: z.string(), ip: z.string(), ua: z.string(), role: z.enum(['user', 'admin']) });
 export const legacyQueueSchema = queueSchema.extend({ items: z.array(queueSchema.shape.items.element.extend({
