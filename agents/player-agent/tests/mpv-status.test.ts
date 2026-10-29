@@ -117,3 +117,15 @@ test('initial volume is validated and applied through a single explicit mpv IPC 
   await assert.rejects(adapter.setInitialVolume(-1),/Invalid configured start volume/);
   assert.deepEqual(sent,[['set_property','volume',0],['set_property','volume',87]]);
 });
+
+test('danmaku overlay uses mpv JSON IPC command-name compatibility format on the existing socket',async()=>{
+  const adapter=new MpvJsonIpcAdapter(process.execPath);const sent:unknown[]=[];
+  const internals=adapter as unknown as {socket:{destroyed:boolean;write(data:string):boolean};receive:(message:{request_id:number;error:string})=>void};
+  internals.socket={destroyed:false,write(data:string){const packet=JSON.parse(data) as {command:unknown;request_id:number};sent.push(packet.command);queueMicrotask(()=>internals.receive({request_id:packet.request_id,error:'success'}));return true;}};
+  await adapter.setOverlayData('ASS frame');
+  await adapter.setOverlayData(null);
+  assert.deepEqual(sent,[
+    {name:'osd-overlay',id:48211,format:'ass-events',data:'ASS frame',res_x:1280,res_y:720,z:20},
+    {name:'osd-overlay',id:48211,format:'none',data:''},
+  ]);
+});

@@ -26,8 +26,10 @@
       retries: 30
       start_period: 30s
     restart: unless-stopped
-  mysql-bootstrap:
-    # Idempotent local initialization. Fastify waits until schema/settings exist.
+  mysql-init:
+    # Runs on Compose startup but only initializes an empty database. Existing
+    # account passwords and seeded settings are never reset or re-imported.
+    container_name: yukari-mysql-init
     build:
       context: ..
       dockerfile: apps/api-server/Dockerfile
@@ -39,6 +41,7 @@
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-yukari-local-root-only}
       MYSQL_APP_PASSWORD: ${MYSQL_PASSWORD:-yukari-local-app-only}
       MYSQL_VIEWER_PASSWORD: ${MYSQL_VIEWER_PASSWORD:-yukari-local-viewer-only}
+      MYSQL_MIGRATION_PASSWORD: ${MYSQL_MIGRATION_PASSWORD:-yukari-local-migrator-only}
       MYSQL_LEGACY_SETTINGS_FILE: /run/legacy-settings/config.ini
     volumes:
       - type: bind
@@ -50,6 +53,25 @@
       mysql:
         condition: service_healthy
     restart: "no"
+  mysql-migrate:
+    # Ordered, checksummed, non-root incremental migrations. Failure gates API startup.
+    container_name: yukari-mysql-migrate
+    build:
+      context: ..
+      dockerfile: apps/api-server/Dockerfile
+    command: ["node", "dist/migrate-mysql.js"]
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: yukari
+      MYSQL_USER: yukari_migrator
+      MYSQL_PASSWORD: ${MYSQL_MIGRATION_PASSWORD:-yukari-local-migrator-only}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mysql-init:
+        condition: service_completed_successfully
+    restart: "no"
   web:
     container_name: yukari-web-php
     # Serves Legacy PHP plus the production-built user-web (/user/) and admin-web (/admin/).
@@ -57,6 +79,7 @@
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      target: php-web
     ports:
       - "127.0.0.1:8180:80"
     extra_hosts:
@@ -75,7 +98,7 @@
         read_only: true
         bind: { create_host_path: false }
       - yukari_queue_owner:/var/www/html/runtime/queue-owner
-      - ./apache-private.conf:/etc/apache2/conf-enabled/zz-yukari-private.conf:ro
+      - ../gateway/apache-private.conf:/etc/apache2/conf-enabled/zz-yukari-private.conf:ro
       - legacy_bridge:/run/yukari:ro
     depends_on:
       bridge-init:
@@ -107,7 +130,7 @@
       - "127.0.0.1:3000:3000"
     environment:
       TZ: Asia/Tokyo
-      USER_ORIGINS: "http://127.0.0.1:8180,http://localhost:8180,http://127.0.0.1:5173,http://localhost:5173"
+      USER_ORIGINS: "http://127.0.0.1:8180,http://localhost:8180,http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:${USER_LAN_PORT:-8181},http://localhost:${USER_LAN_PORT:-8181}"
       ADMIN_ORIGINS: "http://127.0.0.1:8180,http://localhost:8180,http://127.0.0.1:5174,http://localhost:5174"
       LEGACY_QUEUE_ORIGINS: "http://127.0.0.1:8180,http://localhost:8180"
       LEGACY_PHP_URL: http://web
@@ -117,6 +140,9 @@
       PLAYER_AGENT_STATE_PATH: /run/player-agent-state/state.json
       YUKARI_NODE_AUTOPLAY: "1"
       YUKARI_AGENT_SEARCH: "0"
+      USER_LAN_PORT: ${USER_LAN_PORT:-8181}
+      ADMIN_LAN_PORT: ${USER_LAN_PORT:-8181}
+      CLOUDFLARE_TUNNEL_CONFIGURED: ${CLOUDFLARE_TUNNEL_TOKEN:+1}
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
       MYSQL_DATABASE: yukari
@@ -131,7 +157,9 @@
     depends_on:
       mysql:
         condition: service_healthy
-      mysql-bootstrap:
+      mysql-init:
+        condition: service_completed_successfully
+      mysql-migrate:
         condition: service_completed_successfully
       bridge-init:
         condition: service_completed_successfully
@@ -142,6 +170,54 @@
       interval: 15s
       timeout: 5s
       retries: 3
+  user-lan:
+    container_name: yukari-user-lan
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: gateway-lan
+    ports:
+      - "${USER_LAN_PORT:-8181}:8080"
+    depends_on:
+      api-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/user/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  gateway-tunnel:
+    container_name: yukari-gateway-tunnel
+    profiles: ["tunnel"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: gateway-tunnel
+    expose:
+      - "8080"
+    depends_on:
+      api-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/user/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  cloudflared:
+    container_name: yukari-cloudflared
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    # The official client reads TUNNEL_TOKEN directly from its environment.
+    # It is intentionally empty by default; this service is opt-in via profile.
+    command: ["tunnel", "--metrics", "0.0.0.0:2000", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    expose:
+      - "2000"
+    depends_on:
+      gateway-tunnel:
+        condition: service_healthy
+    restart: unless-stopped
   user-web-dev:
     container_name: yukari-user-web-dev
     build:
@@ -153,8 +229,10 @@
       - "127.0.0.1:5173:5173"
     environment:
       API_PROXY_TARGET: http://api-server:3000
+      VITE_USE_POLLING: "1"
     volumes:
       - ../apps/user-web/src:/repo/apps/user-web/src
+      - ../apps/user-web/public:/repo/apps/user-web/public:ro
       - ../apps/user-web/index.html:/repo/apps/user-web/index.html:ro
       - ../apps/user-web/vite.config.ts:/repo/apps/user-web/vite.config.ts:ro
       - ../packages/contracts:/repo/packages/contracts

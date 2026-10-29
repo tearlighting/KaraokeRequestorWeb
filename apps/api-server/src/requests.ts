@@ -10,7 +10,7 @@ const scalar=z.union([z.string().max(8192),z.number().finite()]);
 const text=(max:number)=>z.string().refine(s=>[...s].length<=max, 'Too long');
 export const requestInputSchema=z.object({filename:text(2048), singer:text(256), freesinger:text(256).optional(), comment:text(512),
   kind:z.enum(['動画','小休止','カラオケ配信','URL指定','動画_別プ']),fullpath:z.string().max(4096).default(''),secret:scalar.optional(),loop:scalar.optional(),
-  otherplayer:scalar.optional(),urlreq:scalar.optional(),keychange:scalar.optional(),track:scalar.optional(),pause:scalar.optional(),
+  participantId:z.string().uuid().optional(),otherplayer:scalar.optional(),urlreq:scalar.optional(),keychange:scalar.optional(),track:scalar.optional(),pause:scalar.optional(),
   audiodelay:scalar.optional(),volume:scalar.optional(),duration:scalar.optional(),selectid:scalar.optional()}).strict();
 export type RequestInput=z.infer<typeof requestInputSchema>;
 export const requestContextSchema=z.object({database:z.string(),ip:z.string(),ua:z.string(),userid:z.string(),

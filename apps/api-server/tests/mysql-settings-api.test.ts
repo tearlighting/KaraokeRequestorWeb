@@ -22,7 +22,7 @@ test('React Admin settings GET/PUT are authenticated and persist through MySQL o
   const address=legacy.address();assert.ok(address&&typeof address!=='string');
   const mysqlStore={
     ping:async()=>undefined,close:async()=>undefined,
-    rows:async(sql:string)=>sql.includes('FROM app_setting')?[...values].map(([setting_key,value])=>({setting_key,value_json:JSON.stringify(value),revision:revisions.get(setting_key)!})):[],
+    rows:async(sql:string)=>sql.includes('information_schema.tables')?[{n:2}]:sql.includes('FROM app_setting')?[...values].map(([setting_key,value])=>({setting_key,value_json:JSON.stringify(value),revision:revisions.get(setting_key)!})):[],
     transaction:async<T>(callback:(connection:unknown)=>Promise<T>)=>{
       const connection={
         query:async(sql:string,params:unknown[]=[])=>{if(sql.includes('FROM playback_task'))return [[]];const selected=new Set(params.map(String));const rows=[...values].filter(([key])=>!selected.size||selected.has(key));return [rows.map(([setting_key,value])=>sql.includes('SELECT setting_key,revision')?{setting_key,revision:revisions.get(setting_key)}:{setting_key,value_json:JSON.stringify(value)})]},

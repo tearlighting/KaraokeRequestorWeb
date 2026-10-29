@@ -63,7 +63,7 @@ test('mpv telemetry is private, polling does not consume commands, and controls 
     const task=store.createTest();store.next('agent_one',true);
     const mpv={connected:true,state:'playing' as const,file:'clip.mkv',duration:30,position:4,volume:80,muted:false,audioTracks:[{id:2,title:'Main',selected:true},{id:8,title:'Karaoke',selected:false}],selectedAudioTrackId:2,subtitleTracks:[],};
     store.report('agent_one',{taskId:task.id,state:'playing',playback:'playing',testReady:true,file:'clip.mkv',mpv});
-    const status=store.mpvStatus();assert.equal(status.mpv?.file,'clip.mkv');assert.equal(status.mpv?.selectedAudioTrackId,2);
+    const status=store.mpvStatus();assert.equal(status.mpv?.file,'clip.mkv');assert.equal(status.mpv?.selectedAudioTrackId,2);assert.equal(status.observedAt,now,'MPV confirmation has its own timestamp');
     const command=store.requestMpvControl('agent_one',task.id,{action:'audio-track',trackId:8});
     assert.equal(store.next('agent_one',true).task?.id,task.id);
     const delivered=store.pendingMpvControl('agent_one');assert.equal(delivered?.id,command.id);
@@ -76,7 +76,7 @@ test('mpv telemetry is private, polling does not consume commands, and controls 
     assert.throws(()=>store.acknowledgeMpvControl('agent_one',{id:command.id,ok:true}),{code:'STALE_MPV_CONTROL'});
     const expiring=store.requestMpvControl('agent_one',task.id,{action:'seek',position:10});now+=10001;store.next('agent_one',true);
     assert.equal(store.pendingMpvControl('agent_one'),null);assert.equal(store.mpvStatus().controlAck?.id,expiring.id);assert.equal(store.mpvStatus().controlAck?.ok,false);
-    now+=16000;assert.equal(store.mpvStatus().mpv,undefined,'stale Agent telemetry is not presented as live');
+    now+=16000;assert.equal(store.mpvStatus().mpv,undefined,'stale Agent telemetry is not presented as live');assert.ok((store.mpvStatus().observedAt||0)<now-5000,'an old idle report cannot authorize recovery');
   }finally{rmSync(root,{recursive:true,force:true});}
 });
 
@@ -134,7 +134,7 @@ test('Fastify agent routes require agent token; test task/control require admin 
     assert.deepEqual(Object.keys(publicLive.json().data).sort(),['active','connected','mpv','playback','taskState']);
     assert.equal(publicLive.json().data.mpv.file,undefined,'public telemetry never contains media names or paths');
     assert.equal(publicLive.json().data.mpv.path,undefined,'public telemetry never contains media paths');
-    assert.equal((await app.inject({method:'POST',url:'/api/v1/playback/mpv-control',headers:{...headers,cookie:userCookie},payload:{action:'pause'}})).statusCode,409,'users cannot control a test task as queue playback');
+    assert.equal((await app.inject({method:'POST',url:'/api/v1/playback/mpv-control',headers:{...headers,cookie:userCookie},payload:{action:'pause'}})).statusCode,401,'user sessions cannot issue playback controls');
     assert.equal((await app.inject({method:'POST',url:'/api/v1/admin/player-agent/mpv-control',headers:{...headers,cookie:userCookie},payload:{taskId,action:'seek',position:4}})).statusCode,401,'a user session never gains Admin control rights');
     assert.equal((await app.inject({method:'GET',url:'/api/v1/admin/player-agent/mpv',headers:{...headers,cookie:userCookie}})).statusCode,401);
     const invalidTrack=await app.inject({method:'POST',url:'/api/v1/admin/player-agent/mpv-control',headers:adminHeaders,payload:{taskId,action:'audio-track',trackId:99}});
@@ -169,7 +169,7 @@ test('Fastify agent routes require agent token; test task/control require admin 
   } finally { await app.close(); await new Promise<void>(resolve => legacy.close(() => resolve())); rmSync(root, { recursive: true, force: true }); }
 });
 
-test('user player controls are authenticated, queue-task-bound, sanitized and limited to safe actions',async()=>{
+test('user player view is sanitized and limited controls target only active queue playback',async()=>{
   const root=mkdtempSync(join(tmpdir(),'yukari-user-player-'));
   const database=join(root,'request.db'),taskId='11111111-1111-4111-8111-111111111111';
   const db=new DatabaseSync(database);
@@ -189,14 +189,20 @@ test('user player controls are authenticated, queue-task-bound, sanitized and li
     const mpv={connected:true,state:'playing' as const,file:'private-video.mkv',duration:90,position:8,volume:72,muted:false,audioDelay:0,fullscreen:false,keySemitones:0,keyChangeAvailable:true,audioTracks:[{id:2,title:'Vocal',selected:true},{id:7,title:'Instrumental',selected:false}],selectedAudioTrackId:2,subtitleTracks:[],};
     assert.equal((await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agentHeaders,payload:{agentId:'agent_one',playback:'playing',mpv}})).statusCode,200);
     const status=await app.inject({method:'GET',url:'/api/v1/playback/agent',headers:userHeaders});assert.equal(status.statusCode,200);assert.equal(status.json().data.active,true);assert.equal(status.json().data.taskState,'playing');assert.equal(status.json().data.mpv.path,undefined);assert.equal(status.json().data.mpv.file,undefined);assert.equal(JSON.stringify(status.json().data).includes('private-video'),false);
-    const seek=await app.inject({method:'POST',url:'/api/v1/playback/mpv-control',headers:userHeaders,payload:{action:'seek',position:18}});assert.equal(seek.statusCode,200);
-    const assignment=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agentHeaders,payload:{agentId:'agent_one'}});assert.equal(assignment.statusCode,200);assert.equal(assignment.json().data.mpvControl.id,seek.json().data.id);assert.equal(assignment.json().data.mpvControl.taskId,taskId);
-    assert.equal((await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agentHeaders,payload:{agentId:'agent_one',playback:'playing',mpv:{...mpv,position:18},controlAck:{id:seek.json().data.id,ok:true}}})).statusCode,200);
-    const key=await app.inject({method:'POST',url:'/api/v1/playback/mpv-control',headers:userHeaders,payload:{action:'key-change',semitones:-1}});assert.equal(key.statusCode,200,'user control can request a semitone shift on the active queue task');
-    const keyAssignment=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agentHeaders,payload:{agentId:'agent_one'}});assert.equal(keyAssignment.json().data.mpvControl.id,key.json().data.id);
-    assert.equal((await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agentHeaders,payload:{agentId:'agent_one',playback:'playing',mpv:{...mpv,keySemitones:-1},controlAck:{id:key.json().data.id,ok:true}}})).statusCode,200);
-    const delay=await app.inject({method:'POST',url:'/api/v1/playback/mpv-control',headers:userHeaders,payload:{action:'audio-delay',value:0.1}});assert.equal(delay.statusCode,200);
-    assert.equal((await app.inject({method:'POST',url:'/api/v1/playback/mpv-control',headers:userHeaders,payload:{action:'skip'}})).statusCode,400,'destructive queue actions are not part of the user control contract');
+    const seek=await app.inject({method:'POST',url:'/api/v1/user/player/control',headers:userHeaders,payload:{action:'seek',position:18}});assert.equal(seek.statusCode,200);assert.equal(seek.json().data.queued,true);
+    const assignment=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agentHeaders,payload:{agentId:'agent_one'}});assert.equal(assignment.statusCode,200);assert.equal(assignment.json().data.mpvControl.action,'seek');assert.equal(assignment.json().data.mpvControl.taskId,taskId);
+    assert.equal((await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agentHeaders,payload:{agentId:'agent_one',playback:'playing',mpv,controlAck:{id:seek.json().data.mpvControl?.id||seek.json().data.id,ok:true}}})).statusCode,200);
+    const key=await app.inject({method:'POST',url:'/api/v1/user/player/control',headers:userHeaders,payload:{action:'key-change',semitones:-1}});assert.equal(key.statusCode,200);
+    const keyAssignment=await app.inject({method:'POST',url:'/api/v1/agent/next',headers:agentHeaders,payload:{agentId:'agent_one'}});assert.equal(keyAssignment.json().data.mpvControl.action,'key-change');
+    assert.equal((await app.inject({method:'POST',url:'/api/v1/agent/report',headers:agentHeaders,payload:{agentId:'agent_one',playback:'playing',mpv,controlAck:{id:key.json().data.id,ok:true}}})).statusCode,200);
+    const delay=await app.inject({method:'POST',url:'/api/v1/user/player/control',headers:userHeaders,payload:{action:'audio-delay',value:0.1}});assert.equal(delay.statusCode,200);
+    assert.equal((await app.inject({method:'POST',url:'/api/v1/user/player/control',headers:userHeaders,payload:{action:'skip'}})).statusCode,400,'the user endpoint does not accept queue actions');
+    assert.equal((await app.inject({method:'POST',url:'/api/v1/user/player/control',headers:userHeaders,payload:{action:'volume',value:131}})).statusCode,400,'volume is bounded');
+    assert.equal((await app.inject({method:'POST',url:'/api/v1/user/player/control',headers:userHeaders,payload:{action:'volume',value:50,taskId}})).statusCode,400,'clients cannot choose a task ID');
+    assert.equal((await app.inject({method:'POST',url:'/api/v1/user/player/control',headers,payload:{action:'pause'}})).statusCode,401,'a user session is required');
+    const adminLogin=await app.inject({method:'POST',url:'/api/v1/admin/session',headers,payload:{username:'admin',password:'not-persisted'}});assert.equal(adminLogin.statusCode,200);const adminCookie=String(adminLogin.headers['set-cookie']).split(', ').find(value=>value.startsWith('YukariAdminSession='))?.split(';')[0];assert.ok(adminCookie);
+    assert.equal((await app.inject({method:'POST',url:'/api/v1/user/player/control',headers:{...headers,cookie:adminCookie},payload:{action:'pause'}})).statusCode,401,'Admin identity alone is not accepted as a User session');
+    assert.equal((await app.inject({method:'POST',url:'/api/v1/playback/mpv-control',headers:userHeaders,payload:{action:'seek',position:18}})).statusCode,401,'the old Admin-only route remains protected');
     assert.equal((await app.inject({method:'POST',url:'/api/v1/playback/mpv-control',headers:{...headers,origin:'http://admin'},payload:{action:'pause'}})).statusCode,401,'Admin origin without a user session is not authorized');
   }finally{await app.close();await new Promise<void>(resolve=>legacy.close(()=>resolve()));rmSync(root,{recursive:true,force:true});}
 });

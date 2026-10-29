@@ -83,3 +83,18 @@ test('MySQL queue claim passes the saved semitone shift to the Agent and rejects
   assert.equal(invalid.queue[0].nowplaying,'未再生','invalid key settings do not claim or mutate the reservation');
   assert.equal(invalid.tasks.length,0);
 });
+
+test('active Agent polls avoid settings row locks and renew the durable lease only near expiry',async()=>{
+  const fixture=schedulerStore(1,true,false,50),repository=new MysqlPlaybackRepository(fixture.store);
+  const first=await repository.claimNext('agent-one');assert.ok(first.task);
+  fixture.writes.length=0;
+
+  await repository.claimNext('agent-one');
+  assert.equal(fixture.writes.some(sql=>sql.includes('FROM app_setting')&&sql.includes('FOR UPDATE')),false,'active playback polling does not lock scheduler settings');
+  assert.equal(fixture.writes.some(sql=>sql.startsWith('UPDATE playback_task SET lease_until=')),false,'a healthy 15 second lease is not rewritten on every poll');
+
+  fixture.tasks[0]!.lease_until=Math.floor(Date.now()/1000)+5;
+  fixture.writes.length=0;
+  await repository.claimNext('agent-one');
+  assert.equal(fixture.writes.filter(sql=>sql.startsWith('UPDATE playback_task SET lease_until=')).length,1,'the lease is renewed once its remaining lifetime reaches five seconds');
+});

@@ -2,7 +2,11 @@ import { apiRequest, ApiError } from '../../../../packages/contracts/src/index';
 export { ApiError };
 let session: Promise<unknown> | null = null;
 export function ensureUserSession() {
-  session ??= apiRequest('/user/session', { method: 'POST', body: '{}' }).catch((error) => { session = null; throw error; });
+  session ??= apiRequest('/user/session', { method: 'POST', body: '{}' }).catch((error) => {
+    session = null;
+    if (error instanceof ApiError) error.stage = 'session';
+    throw error;
+  });
   return session;
 }
 export async function apiJson(path: string, init: RequestInit = {}): Promise<Record<string, unknown>> {

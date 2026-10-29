@@ -567,3 +567,60 @@ The persisted mode change is rejected during scheduler ownership, a pending manu
 #### Legacy `/init.php` visibility in MySQL mode
 
 The historical PHP settings interface remains visible at `/init.php` after its existing administrator authentication. This is a read-only presentation path: MySQL-mode requests must be GET, all query/form parameters are discarded before page rendering, the old settings form is disabled, and the password field does not display its stored value. Non-GET submissions are rejected with 410. The PHP settings serializer is not invoked; React Admin → Fastify → MySQL remains the only writer. The Apache MySQL guard permits only this GET page and continues to reject its POST handler.
+## Phase 21：LAN 手机 User Web 入口
+
+新增 `user-lan` 专用 Nginx 服务（默认 host TCP 8181）。它只提供 production `/user/` 静态应用和固定方法/路径的 User API 代理；管理、Legacy PHP、Agent/Launcher、通用健康检查及数据库在该入口均不可达。旧 PHP 搜索/预约入口没有被手机 LAN 代理使用。Everything 搜索仍由 Fastify → 已认证 Windows Media Agent 执行，浏览器不直连 Everything，也不接触 Windows 共享目录。
+
+| 能力 | Owner / 路径 | 访问边界 |
+|---|---|---|
+| LAN 地址候选 | Windows Media Agent 通过认证心跳上报，Admin-only Fastify 状态返回 | 仅 RFC1918 IPv4、剔除虚拟/VPN/tunnel 接口；普通用户状态不含地址 |
+| 手机 UI 与二维码 | 静态 User Web + React Admin System | QR 使用当前 Agent 地址及 `USER_LAN_PORT`，IP 变化后随 Agent 心跳更新 |
+| 手机 User API | 同源 `/api/v1` → Nginx 固定 allowlist → Fastify | 独立用户会话与 CSRF；LAN Origin 仅接受精确代理标记、Origin/转发 Host 一致及配置端口 |
+| 搜索、预约、队列、公开播放态 | Fastify 原有业务 Owner；搜索由 Media Agent/Everything | MySQL 写规则和去重契约不变；此阶段未创建预约测试数据 |
+
+此入口不会将 `/admin`、旧 PHP 页面、数据库、Fastify 管理/Agent 接口直接暴露到 LAN。Agent 不在线或未报告可用地址时 Admin 不生成猜测 URL。防火墙仅作说明，未自动增规则。Phase 21 的合成移动端 E2E 与只读真实搜索 E2E 已通过，但实体手机扫码和该手机 Wi-Fi/防火墙路径尚待手动验收。
+
+### Phase 23 播放控制延迟
+
+User `/player` 通过同源 Fastify HTTP 获取公开脱敏 mpv 状态并提交任务绑定控制；浏览器不会直连 Windows Agent/mpv。空闲时维持 1 秒状态刷新，控制等待期间临时加快到 250 ms，控制结束后恢复；Agent 状态只在 Fastify 已收到报告后显示，位置预测不得改变 playing/EOF 事实。LAN Edge 只读实测状态 GET 为 200，单次请求最大约 2.8 ms（本机经 LAN Nginx 入口），390px/1365px 无横向溢出。
+
+命令执行由 Agent 轮询 `/api/v1/agent/next`。新 Agent 源码在拥有活动任务时改为 250 ms 检查命令、空闲 1.5 秒；遥测 1 Hz，MySQL 15 秒 lease 只在余 5 秒内续写，活动任务轮询不锁 `app_setting`。无需浏览器 WebSocket：当前状态 API 请求 RTT 不是主延迟；浏览器 WS 也无法加快 Agent 拉取控制的路径。API/LAN 镜像已部署；Agent bundle 已构建，但运行中的 Windows Agent 尚待通过 Admin → System 安全停止/启动后加载。未对正式播放发控制命令，实际命令 RTT仍待实机验证。
+## Phase 22：房间连接体验与 Legacy 对照
+
+| Legacy 功能 | Legacy Owner / 存储 | React/Fastify 对应 | 状态 |
+|---|---|---|---|
+| 本地连接 QR / Host/IP 推导 | `toolinfo.php`；运行请求 Host/`SERVER_ADDR` | Agent 上报私网地址；Admin 浏览器探测后生成 LAN QR | 已有 Phase 21；现在探测未成功不发 QR |
+| 在线 `globalhost` 检查 | `toolinfo.php` 读 `config.ini`，受 `connectinternet` 控制并做服务器 HTTP 探测 | MySQL `app_setting` 保存自定义 HTTPS `/user/` URL；Admin 浏览器调用公开 nonce 探针 | 已实现设置和当前浏览器连通性，不负责搭建公网网络 |
+| 在线 WireGuard / pfwd | `pfwd_settings.php`、`autoplayctrl.php` 调 Windows WireGuard 进程或旧 pfwd | 无 Node/React 管理控制 | Legacy-only，不由新 Admin 启动/停止 |
+| EasyAuth 在线关键字 | Legacy ConfigAuth，旧 `toolinfo.php` 曾把关键字放入 URL | 无 URL 口令，也无新代码将管理口令加入 QR | 暂缓；新 HTTPS 公开入口的用户注册/共享口令需要单独设计 |
+| 别部屋切换 | `init.php` 的 `roomurl`/`roomurlshow`，Legacy 页面选择不同 URL | 新 User 顶栏显示单个 MySQL 实例房间名；另一个房间打开另一个实例 URL | 多租户/共享数据库未实现，按实例隔离 |
+| 连接状态和 QR | Legacy `toolinfo.php` 服务器端探测；`capabilities.php` 给出房间名/列表 | Admin System 状态 + 浏览器 nonce 探测；User capabilities 展示房间名 | 已实现当前浏览器实测；公网普遍可达仍需运营者/手机验收 |
+
+Phase 22 新增的 `GET/PUT /api/v1/admin/connection-entry` 受管理会话及 CSRF 保护，复用 MySQL `app_setting` 键值存储，不增加 Schema。公开 `GET /api/v1/user/entry-probe?nonce=<uuid>` 仅回显随机 nonce 和固定服务标识，无身份、路径、配置或业务数据；其唯一 CORS 通配头仅适用于该探针。自定义公网 User Origin 必须等于显式配置的 HTTPS URL、首选模式为 public、Host 与专用代理转发头一致。LAN User 白名单仍只代理现有路径和探针，所有管理/Legacy/Agent/MySQL 路由保持拒绝。
+
+验证结果：设置 URL 校验、MySQL 仓储保存、HTTPS Secure Cookie、精确 Origin/Host、管理员仍拒绝、探针响应测试与 Phase 21 LAN Origin 共 4/4；相关项目 typecheck/build 和 Agent 20/20 通过。正常 Compose 已部署，Admin 实际登录后显示 LAN QR，User LAN 390px Edge 1/1。Phase 22 尚无公网域名/隧道配置，不能宣称公网入口已通；更广 API suite 在普通 Compose 下有 17 项失败/3 项跳过（PHP oracle/隔离写测试需要专用挂载/fixture），需按隔离测试文档复跑。
+
+## Phase 24：MySQL 播放异常恢复
+
+正式播放任务仍由 Fastify/MySQL 单独拥有，Agent 是唯一 mpv 执行端。MySQL-mode Fastify 启动时无论 `YUKARI_NODE_AUTOPLAY` 是否开启，都会把残留的 `claimed/playing` 转成 `uncertain`、保留预约且取得 owner fence；部署开关仍只控制新任务领取。此状态下 Agent 仅在 task.agent_id 匹配且同一 mpv 实际报告目标文件仍 playing/paused 时恢复原任务，不重开视频、不增加 playtimes；真实 EOF 事件可在重启后幂等补记。若播放器 idle、已停止或实际打开其他媒体，则只把旧任务终结为 failed/停止中，不把其他文件停掉，也不宣称 EOF。Agent 离线或 IPC 状态未知时保持 uncertain、阻止新领取。
+
+Admin Queue 为最新失败/未决尝试提供 `POST /api/v1/admin/playback/tasks/:taskId/recheck|retry|handled|confirm-inactive`。恢复任务采用 LEFT JOIN 显示，以免预约已删除时隐藏仍占用队列 owner fence 的任务。孤立任务只能关闭，不能重播或重建预约。状态检查读取 Agent 快照，不将请求失败推断为停止。若 Agent/IPC 无法恢复，管理员可通过单独确认操作记录“我确认当前没有播放”的人工证明；此操作把 uncertain 终结为 failed/stopped，在 `playback_event` 记录理由，不发播放器命令、不宣称 EOF、不增加 playtimes。这个人工证明允许之后重试或标记处理，但管理员必须先确认 mpv 确实没有播放。重试把原预约恢复为未再生并追加 `retry_requested`，不删除历史或直接创建并行任务，后续新尝试仍按正常队列/FIFO领取；重复操作由事件键和状态条件拒绝。人工处理保留预约，投影为停止中并记录简短理由，不增加 playtimes。
+
+没有 Schema 迁移。Admin 只收到任务错误码/固定错误消息、预约展示字段和 Agent/mpv 脱敏状态，不返回媒体路径或凭据。Legacy PHP 不拥有恢复操作，PHP 旧播放器控制仍关闭。失败报告按既有安全规则关闭自动调度。隔离仓储测试覆盖真实 EOF 后重启补报、同 Agent active re-adopt、inactive fail-closed、重试幂等及人工处理不改播放次数。Docker Engine 在当前执行沙箱返回 named-pipe `permission denied`，因此真实 MySQL 合成容器、Edge E2E 与部署重启未能执行；不可把单元测试视为现场恢复验收。
+### Phase 25 — 参与者昵称与代点身份
+
+| 能力 | Owner / 路由 | 存储与权限 | 迁移状态 |
+| --- | --- | --- | --- |
+| 当前浏览器身份 | Fastify `YkariUserID` → `YukariUserSession` | 稳定 UUID 是请求 actor；昵称不参与认证 | 保留既有机制 |
+| 个人昵称 | React User → `GET/PUT /api/v1/user/profile` | MySQL `app_user.userid/displayname`；只能改当前 actor 的资料 | 已实现 |
+| 选择代点参与者 | React User → `GET /api/v1/user/participants`，预约 `participantId` | 只返回现有参与者的 ID/昵称；Fastify 校验 ID 存在。session owner、receipt owner、历史 actor 不变 | 已实现；仅 MySQL 模式 |
+| 预约参与者关联 | Fastify `MysqlRequestRepository` | `reservation.participant_userid` 指向 `app_user.userid`；旧预约为 NULL，不根据昵称或历史猜测回填 | `003-reservation-participant.sql` 已由 Compose migration job 应用到当前开发 MySQL；既有 25 条预约均保持 NULL |
+| 管理参与者 | React Admin `/participants` → `GET /api/v1/admin/participants`、`PUT /api/v1/admin/participants/:id` | 管理 session；显示参与者关联预约数与由该浏览器发起的历史数。改昵称不回写旧预约 `singer`/历史；不提供合并或改属操作 | 已实现；API 依赖新增列迁移 |
+| Legacy PHP User | 原 PHP → 签名 `exec.php` 兼容入口 | 缺少 participantId 时 Node 将 actor `userid` 作为新预约参与者；PHP 仍不获得 React 的任意身份选择能力 | 兼容保留，未更改 PHP 认证 |
+
+**身份边界：** actor 是谁由 HttpOnly 用户会话决定；参与者只决定预约显示及参加者归属。选择他人不授予读取私人历史、修改或删除他人预约的能力。相同昵称的 UUID 保持独立。一次性 MySQL migration 仅在 `reservation` 增加可空 `participant_userid`、索引和 `ON DELETE SET NULL` 外键；不新建参与者表，不改动既有预约。当前开发 Compose 已应用 Migration，并已部署 API/User/Admin。真实管理登录后读取参与者及真实手机预约验收尚未完成；隔离库 E2E 仍需专用 fixture，不得在当前队列执行写测试。
+### Phase 28A Web Gateway
+
+Canonical HTTP ingress rules now live in `gateway/`. Apache remains the local-only Legacy PHP/React entry at `127.0.0.1:8180`. The default LAN Nginx gateway on port 8181 serves React User and Admin routes, with exact method/path API allowlists. Fastify permits LAN Admin Origin only from the gateway's dedicated marker plus matching private IPv4 host/port; Admin session and CSRF authorization remain server-side. No PHP route, MySQL, Agent, Launcher, mpv IPC, or Everything endpoint is exposed on the LAN gateway.
+
+The optional Compose `tunnel` profile has a second internal Nginx origin that serves only `/user/*` and the User API allowlist. `cloudflared` is profile-gated and has no host-published port. Normal Compose never starts it. A real public route still requires a locally held Tunnel token and external hostname/origin configuration; neither is provisioned by this repository.

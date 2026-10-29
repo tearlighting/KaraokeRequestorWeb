@@ -15,6 +15,12 @@ npm.cmd run dev
 
 访问 http://127.0.0.1:5173/。默认仅监听本机。Linux/macOS 使用 `npm` 即可。
 
+## ホーム画面に追加 / PWA
+
+本番 User Web は `/user/` を scope にした standalone manifest を配信します。iPhone は Safari の共有メニューから「ホーム画面に追加」、Android は Chrome のメニューから「アプリをインストール」または「ホーム画面に追加」を選択してください。アイコンは Yukari のロゴで、曲のジャケット画像は使用しません。通常のブラウザーでもそのまま利用できます。
+
+検索・予約・セッション・再生状態を Service Worker やアプリ独自のキャッシュには保存しません。オフラインでの予約機能はありません。端末がオンラインの状態でアプリを起動してください。
+
 Node 地址不同，可复制 `.env.example` 为 `.env.local` 修改 `API_PROXY_TARGET` 并重启 Vite。默认连接 http://127.0.0.1:3000；浏览器只调用 `/api/v1`，不再直连 PHP。
 
 ## 验证

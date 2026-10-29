@@ -3,7 +3,7 @@
 
 :root { font-family: Inter, "Noto Sans JP", "Yu Gothic UI", Meiryo, system-ui, sans-serif; font-synthesis: none; text-rendering: optimizeLegibility; }
 @layer base {
-  body { @apply m-0 antialiased; color: var(--text); background: radial-gradient(ellipse at top left, color-mix(in srgb, var(--primary) 9%, transparent) 0, transparent 42%), var(--background); }
+  body { @apply m-0 antialiased; color: var(--text); background: var(--background); }
   button { @apply cursor-pointer disabled:cursor-not-allowed disabled:opacity-50; }
   input, select, textarea { @apply w-full rounded-xl border px-3 py-3 text-base; border-color: var(--border); background: var(--surface); color: var(--text); }
   input[type="checkbox"] { @apply h-5 w-5 accent-teal-700; }
@@ -11,8 +11,40 @@
   ::selection { background: color-mix(in srgb, var(--primary) 35%, transparent); color: var(--text); }
 }
 @layer components {
+  .user-app-shell { @apply min-h-screen; min-height: 100dvh; }
+  .user-topbar { @apply sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b px-4 sm:px-6; border-color: var(--border); background: color-mix(in srgb, var(--background) 90%, transparent); backdrop-filter: blur(16px); }
+  .user-brand { @apply flex min-w-0 items-center gap-2 no-underline; color: var(--text); }
+  .user-brand .brand-orbit { @apply flex h-9 w-9 items-center justify-center rounded-full font-bold; background: var(--primary); color: white; }
+  .user-brand small { @apply block text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]; }
+  .user-brand strong { @apply block text-sm leading-tight; }
+  .user-topbar-actions { @apply flex items-center gap-2; }
+  .room-chip { @apply max-w-32 truncate rounded-full border px-3 py-1 text-xs; border-color: var(--border); }
+  .user-desktop-nav { @apply hidden items-center gap-1 md:flex; }
+  .user-desktop-nav a { @apply rounded-full px-3 py-2 text-sm text-[var(--muted)] no-underline; }
+  .user-desktop-nav a.active { @apply bg-[var(--surface-muted)] font-semibold text-[var(--text)]; }
+  .user-main { @apply mx-auto max-w-3xl px-4 pt-5 sm:px-6 sm:pt-8; padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+  .user-home { @apply space-y-4; }
+  .user-home > h1 { @apply text-2xl font-bold tracking-tight sm:text-3xl; }
+  .user-home-intro { @apply text-sm text-[var(--muted)]; }
+  .participant-setup-callout { @apply flex min-h-12 items-center justify-between rounded-2xl border px-4 py-3 text-sm font-semibold no-underline; border-color: var(--border); background: var(--surface); color: var(--primary); }
+  .user-page-stack { @apply space-y-4; }
+  .user-page-heading { @apply space-y-1; }
+  .user-page-heading h1 { @apply break-words text-2xl font-bold tracking-tight; }
+  .user-page-heading p:not(.eyebrow) { @apply text-sm text-[var(--muted)]; }
+  .connection-details { @apply rounded-xl border px-4 py-3 text-sm; border-color: var(--border); color: var(--muted); }
+  .connection-details summary { @apply cursor-pointer font-medium text-[var(--text)]; }
+  .user-bottom-nav { @apply fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t px-2 pt-1 md:hidden; padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); border-color: var(--border); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(18px); }
+  .user-bottom-nav a { @apply flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-xs text-[var(--muted)] no-underline; }
+  .user-bottom-nav a.active { @apply font-semibold text-[var(--primary)]; }
+  .user-bottom-nav a span:first-child { @apply text-lg leading-none; }
+  .search-chip { @apply min-h-10 rounded-full border px-3 text-sm; border-color: var(--border); background: var(--surface-muted); color: var(--text); }
+  .search-results-list { @apply divide-y; border-color: var(--border); }
+  .search-result-button { @apply flex min-h-16 w-full items-center justify-between gap-3 py-3 text-left; color: var(--text); }
+  .search-result-chevron { @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-2xl; background: var(--surface-muted); }
+  .song-facts { @apply flex flex-wrap gap-2 text-xs text-[var(--muted)]; }
+  .song-facts span { @apply max-w-full truncate rounded-full bg-[var(--surface-muted)] px-3 py-1.5; }
+  .back-link { @apply min-h-11 text-sm font-medium text-[var(--primary)]; }
   .panel { @apply min-w-0 rounded-3xl border p-5 sm:p-6; border-color: var(--border); background: var(--surface); }
-  .now-playing { @apply overflow-hidden rounded-3xl border border-white/10 p-5 text-white shadow-xl sm:p-7; background: linear-gradient(125deg, #12363a, #0d252c 68%, #173b3c); }
   .primary { @apply rounded-xl px-5 py-3 font-semibold text-white transition hover:-translate-y-px; background: var(--teal); }
   .secondary { @apply rounded-xl border px-4 py-2.5 text-sm font-medium transition; border-color: var(--border); color: var(--text); background: var(--surface-muted); }
   .nav-link { @apply rounded-full px-4 py-2.5 font-medium text-teal-900 transition hover:bg-white; }
@@ -31,4 +63,95 @@
   .status-live { @apply bg-emerald-400/15 text-emerald-200; }
   .status-idle { @apply bg-white/10 text-slate-300; }
   .status-dot { @apply h-2 w-2 rounded-full bg-current; }
+}
+
+/* iOS standalone windows can extend into the status-bar cutout with viewport-fit=cover set. */
+@supports (padding-top: env(safe-area-inset-top)) {
+  :root[data-standalone='true'] .user-topbar {
+    height: calc(4rem + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Phase 30: compact music-app presentation layered on the shared theme tokens. */
+@layer components {
+  .user-topbar { @apply h-14 px-4 sm:px-7; }
+  .user-brand { @apply gap-2; }
+  .user-brand .brand-orbit { @apply h-8 w-8 text-sm; }
+  .user-brand strong { @apply text-base tracking-tight; }
+  .user-topbar .room-chip { @apply ml-auto mr-1; }
+  .user-desktop-nav { @apply gap-1; }
+  .user-desktop-nav a { @apply px-3 py-2 text-sm; }
+  .user-main { @apply max-w-5xl px-4 pt-5 sm:px-7 sm:pt-7; padding-bottom: calc(5.25rem + env(safe-area-inset-bottom)); }
+  .user-home { @apply space-y-5; }
+  .home-heading { @apply flex items-center justify-between gap-3; }
+  .home-heading h1, .user-page-heading h1, .player-page-heading h1 { @apply text-xl font-bold tracking-tight sm:text-2xl; }
+  .user-page-stack { @apply gap-4; }
+  .user-page-heading p:not(.eyebrow) { @apply mt-1; }
+  .search-surface { @apply min-w-0; }
+  .search-form { @apply flex min-h-14 items-center gap-2 rounded-2xl border p-1.5 pl-4 shadow-sm; border-color: var(--border); background: var(--surface); }
+  .search-icon { @apply shrink-0 text-[var(--muted)]; }
+  .search-form input { @apply min-w-0 flex-1 border-0 bg-transparent px-1 py-2.5 shadow-none outline-none; }
+  .search-form input:focus { @apply outline-none ring-0; }
+  .search-submit { @apply min-h-11 shrink-0 rounded-xl px-4 py-2 text-sm; }
+  .search-clear { @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xl text-[var(--muted)]; background: var(--surface-muted); }
+  .search-options { @apply mt-2 text-xs text-[var(--muted)]; }
+  .search-options summary { @apply inline-flex min-h-8 cursor-pointer items-center; }
+  .search-options select { @apply mt-1 max-w-52 rounded-lg px-2 py-1.5 text-sm; }
+  .recent-searches { @apply mt-4; }
+  .recent-searches > p { @apply mb-2 text-xs text-[var(--muted)]; }
+  .recent-searches > div { @apply flex flex-wrap gap-2; }
+  .search-chip { @apply min-h-9 px-3; }
+  .search-panel-compact .search-form { @apply min-h-12; }
+  .results-surface { @apply min-w-0; }
+  .results-heading { @apply mb-2 flex items-baseline justify-between gap-3; }
+  .results-heading h1 { @apply text-lg font-bold; }
+  .results-heading p { @apply text-xs text-[var(--muted)]; }
+  .search-results-list { @apply divide-y; border-color: var(--border); }
+  .search-result-button { @apply min-h-[4.5rem] gap-3 py-2.5; }
+  .music-mark { @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl; background: var(--surface-muted); color: var(--primary); }
+  .search-music-mark { @apply h-10 w-10 rounded-xl text-lg; }
+  .result-meta { @apply hidden shrink-0 text-xs text-[var(--muted)] sm:block; }
+  .search-result-chevron { @apply h-8 w-8 text-xl; color: var(--muted); }
+  .user-page-heading { @apply space-y-0; }
+  .player-page-heading { @apply flex items-center justify-between gap-3; }
+  .player-queue-link { @apply rounded-full px-3 py-2 text-sm font-medium no-underline; background: var(--surface-muted); color: var(--primary); }
+  .song-detail-heading { @apply flex min-w-0 items-center gap-3; }
+  .song-detail-heading h1 { @apply break-words text-xl font-bold leading-snug tracking-tight sm:text-2xl; }
+  .song-detail-heading p { @apply mt-1 text-sm text-[var(--muted)]; }
+  .raw-media-name { @apply rounded-xl border px-3 py-2 text-sm text-[var(--muted)]; border-color: var(--border); }
+  .raw-media-name summary { @apply min-h-8 cursor-pointer font-medium text-[var(--text)]; }
+  .raw-media-name p { @apply mt-2 break-all text-xs; }
+  .now-playing { @apply rounded-3xl border p-5 shadow-none sm:p-6; border-color: var(--border); background: var(--surface); color: var(--text); }
+  .now-playing-top { @apply flex items-center justify-between; }
+  .now-playing-top .music-mark { @apply h-11 w-11; }
+  .now-playing .status-live { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); }
+  .now-playing p { color: var(--muted); }
+  .now-playing-title { @apply line-clamp-2 break-words text-xl font-bold leading-snug tracking-tight sm:text-2xl; }
+  .user-player-controls { @apply rounded-3xl; }
+  .user-settings { @apply rounded-2xl border p-4; border-color: var(--border); background: var(--surface); }
+  .user-settings h2 { @apply mb-3 text-sm font-semibold; }
+  .user-settings .preference-controls { @apply flex flex-wrap gap-2; }
+  .user-settings .preference-controls label { @apply w-auto; }
+  .user-settings .preference-controls select { @apply min-h-10 w-auto max-w-full rounded-xl px-3 py-2 text-sm; }
+  .user-page-stack > .panel, .user-page-stack > section.panel { @apply rounded-2xl p-4 sm:p-5; }
+  .my-reservation-row { @apply border-b py-3 last:border-0; border-color: var(--border); }
+  .user-bottom-nav { @apply px-3 pt-1.5; }
+  .user-bottom-nav a { @apply min-h-12 gap-1 text-[10px]; }
+  .user-bottom-nav a svg { @apply h-[21px] w-[21px]; }
+  .user-bottom-nav a.active { color: var(--primary); }
+}
+
+/* On-screen iOS/Android keyboards can shrink the visual viewport; keep the
+   focused search field unobstructed and let users dismiss the keyboard. */
+@media (pointer: coarse) and (max-height: 520px) {
+  .user-bottom-nav { @apply hidden; }
+  .user-main { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+}
+
+@media (min-width: 768px) {
+  .user-main { padding-bottom: 2rem; }
+  .user-home { @apply pt-8; }
+  .home-heading h1 { @apply text-3xl; }
+  .search-result-button { @apply min-h-[5rem]; }
 }

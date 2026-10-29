@@ -6,6 +6,8 @@ import { MpvJsonIpcAdapter, type MpvControl, type PlayerStatus } from './mpv.js'
 import { loadAgentConfig } from './config.js';
 import { acquireInstanceLock } from './instance-lock.js';
 import { searchEverything, type EverythingHealth } from '../../media-agent/src/everything.js';
+import { privateLanIpv4Addresses } from './lan-address.js';
+import { DanmakuController } from './danmaku/controller.js';
 
 const config = loadAgentConfig();
 const { apiUrl: api, token, id, executable, mediaRoot, testVideo, pathMappings, lockDir, everythingUrl, everythingUsername, everythingPassword } = config;
@@ -31,6 +33,12 @@ let searchBusy=false;
 let everythingHealth:EverythingHealth|'not_checked'='not_checked';
 let lastAgentError:string|undefined;
 let lastProbeAt=0;
+let lastAgentReportAt=0;
+let danmakuCursor=0, danmakuClearVersion=0, danmakuPollBusy=false, danmakuErrorLogged=false;
+let danmakuOverlayErrorLogged=false;
+let lastObservedPlayback:Report['playback']='idle';
+const danmaku=new DanmakuController(data=>adapter.setOverlayData(data),{onError:()=>{if(!danmakuOverlayErrorLogged){process.stderr.write('Live comment overlay update failed; it will retry on a later message.\n');danmakuOverlayErrorLogged=true;}}});
+const danmakuTimer=setInterval(()=>{void pollDanmaku();},500);
 const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
 async function call<T>(path: string, body: unknown): Promise<T> {
@@ -44,12 +52,41 @@ async function call<T>(path: string, body: unknown): Promise<T> {
   if (!response.ok || value.ok !== true) throw new Error(`API ${response.status} ${value.error?.code || ''}: ${value.error?.message || 'request failed'}`);
   return value.data as T;
 }
-type Assignment = { task: { id: string; kind: 'test'|'queue'; requestId?: number; mediaPath?: string; initialVolume?:number; initialKeySemitones?:number; state: 'claimed'|'playing' } | null; command: 'pause'|'resume'|'stop'|'skip'|null; commandTaskId?: string; mpvControl?:MpvControl|null; mediaCheck?: { id: string; requestId: number; path: string }; searchJob?:{id:string;keyword:string} };
-type Report = { taskId?: string; state?: 'claimed'|'playing'|'completed'|'failed'; playback: 'idle'|'starting'|'playing'|'paused'|'stopped'|'unavailable'; file?: string; error?: string; endReason?: 'eof'; outcome?: 'skipped'; mpv?:ReturnType<typeof publicStatus>; controlAck?:{id:string;ok:boolean;error?:'MPV_IPC_UNAVAILABLE'|'MPV_NOT_PLAYING'|'MPV_CONTROL_FAILED'|'MPV_TRACK_UNAVAILABLE'|'MPV_KEY_CHANGE_UNAVAILABLE'} };
+type Assignment = { task: { id: string; kind: 'test'|'queue'; requestId?: number; mediaPath?: string; initialVolume?:number; initialKeySemitones?:number; state: 'claimed'|'playing'|'uncertain' } | null; command: 'pause'|'resume'|'stop'|'skip'|null; commandTaskId?: string; mpvControl?:MpvControl|null; mediaCheck?: { id: string; requestId: number; path: string }; searchJob?:{id:string;keyword:string} };
+type Report = { taskId?: string; state?: 'claimed'|'playing'|'completed'|'failed'; recovery?:'verified_active'|'confirmed_inactive'; playback: 'idle'|'starting'|'playing'|'paused'|'stopped'|'unavailable'; file?: string; error?: string; endReason?: 'eof'; outcome?: 'skipped'; mpv?:ReturnType<typeof publicStatus>; controlAck?:{id:string;ok:boolean;error?:'MPV_IPC_UNAVAILABLE'|'MPV_NOT_PLAYING'|'MPV_CONTROL_FAILED'|'MPV_TRACK_UNAVAILABLE'|'MPV_KEY_CHANGE_UNAVAILABLE'} };
+type DanmakuPoll={enabled:boolean;clear:boolean;reset:boolean;clearVersion:number;cursor:number;messages:Array<{id:number;text:string;createdAt:number}>};
 const mapStatus = (value: PlayerStatus['state']): Report['playback'] => value;
 function publicStatus(status:PlayerStatus){const{path:_path,...safe}=status;return safe;}
 
-async function report(value: Report) { return call('report', { agentId: id, testReady: Boolean(testPath), everything:everythingHealth, mediaRootConfigured:Boolean(mediaRoot), agentError:lastAgentError??null, ...value }); }
+async function pollDanmaku(){
+  if(closing||danmakuPollBusy)return;
+  danmakuPollBusy=true;
+  try{
+    const batch=await call<DanmakuPoll>('danmaku/poll',{agentId:id,cursor:danmakuCursor,clearVersion:danmakuClearVersion});
+    if(batch.clear||batch.clearVersion!==danmakuClearVersion){await danmaku.clear();danmakuCursor=batch.reset?0:batch.messages.length?Math.max(0,batch.messages[0]!.id-1):batch.cursor;danmakuClearVersion=batch.clearVersion;}
+    if(!batch.enabled){await danmaku.setEnabled(false);danmakuCursor=batch.cursor;danmakuClearVersion=batch.clearVersion;return;}
+    await danmaku.setEnabled(true);
+    await danmaku.setPlaybackActive(lastObservedPlayback==='playing'||lastObservedPlayback==='paused');
+    if(lastObservedPlayback==='playing'||lastObservedPlayback==='paused'){
+      danmaku.addMany(batch.messages.map(message=>message.text));
+      if(batch.messages.length)danmakuCursor=batch.messages.at(-1)!.id;
+      if(!batch.messages.length)danmakuCursor=Math.max(danmakuCursor,batch.cursor);
+    }else{
+      // Do not replay comments sent while no media was active over a later song.
+      danmakuCursor=batch.cursor;
+    }
+    danmakuErrorLogged=false;
+  }catch(error){
+    if(!danmakuErrorLogged){process.stderr.write(`Live comments unavailable; retrying: ${error instanceof Error?error.message:'unknown error'}\n`);danmakuErrorLogged=true;}
+  }finally{danmakuPollBusy=false;}
+}
+
+async function report(value: Report) {
+  const result=await call('report', { agentId: id, testReady: Boolean(testPath), everything:everythingHealth, mediaRootConfigured:Boolean(mediaRoot), lanAddresses:privateLanIpv4Addresses(), agentError:lastAgentError??null, ...value });
+  if(value.playback)lastObservedPlayback=value.playback;
+  lastAgentReportAt=Date.now();
+  return result;
+}
 async function performSearch(job:{id:string;keyword:string}) {
   searchBusy=true;
   const outcome=await searchEverything(job.keyword,everythingUrl,paths,{username:everythingUsername,password:everythingPassword,timeoutMs:3500});
@@ -107,6 +144,34 @@ async function runTask(task: NonNullable<Assignment['task']>) {
   await report({ taskId: task.id, state: 'playing', playback: mapStatus(verified.state), file: verified.file, mpv:publicStatus(verified) });
 }
 
+async function reconcileUncertainTask(task:NonNullable<Assignment['task']>){
+  if(task.kind!=='queue'||!task.mediaPath)throw new Error('Uncertain queue task has no safe media reference');
+  const actual=await adapter.getStatus();
+  if(!actual.connected||actual.state==='unavailable'){
+    await report({playback:'unavailable',file:actual.file,mpv:publicStatus(actual)});
+    return;
+  }
+  // An idle/stopped mpv is sufficient to prove that the prior task is no
+  // longer playing. Do not let an obsolete/unmapped media path prevent safe
+  // recovery; path resolution is only needed when mpv still has active media.
+  if(actual.state==='idle'||actual.state==='stopped'){
+    currentTask='';activePlayback=false;
+    await report({taskId:task.id,state:'failed',recovery:'confirmed_inactive',playback:mapStatus(actual.state),file:actual.file,mpv:publicStatus(actual),error:'mpv confirmed that the previous reservation is no longer playing'});
+    return;
+  }
+  const target=paths.resolveQueueFile(task.mediaPath);
+  if(actual.path===target&&(actual.state==='playing'||actual.state==='paused')){
+    currentTask=task.id;activePlayback=true;
+    await report({taskId:task.id,state:'playing',recovery:'verified_active',playback:mapStatus(actual.state),file:actual.file,mpv:publicStatus(actual)});
+    return;
+  }
+  // Do not stop an unrelated file that the operator may have opened manually.
+  // A path mismatch or idle/stopped player proves this queue item is no longer
+  // active, but never proves natural EOF.
+  currentTask='';activePlayback=false;
+  await report({taskId:task.id,state:'failed',recovery:'confirmed_inactive',playback:mapStatus(actual.state),file:actual.file,mpv:publicStatus(actual),error:actual.path===target?'Previous media is no longer playing':'The previous reservation is not the media currently open in mpv'});
+}
+
 let lastControlResult:Report['controlAck']|undefined;
 async function executeMpvControl(control:MpvControl){
   if(control.taskId!==currentTask){lastControlResult={id:control.id,ok:false,error:'MPV_NOT_PLAYING'};}
@@ -135,6 +200,10 @@ async function loop() {
         if (currentTask === endedTask) currentTask = '';
         continue;
       }
+      if(assignment.task?.kind==='queue'&&assignment.task.state==='uncertain'){
+        await reconcileUncertainTask(assignment.task);
+        continue;
+      }
       if (assignment.command) {
         if(!currentTask&&assignment.command==='stop'&&assignment.commandTaskId)currentTask=assignment.commandTaskId;
         await executeCommand(assignment.command);
@@ -142,7 +211,6 @@ async function loop() {
         // makes the server task terminal, so do not act on that stale copy and
         // reopen the just-stopped file in this same poll cycle.
         if (assignment.command === 'stop' || assignment.command === 'skip') {
-          await new Promise(resolve => setTimeout(resolve, 1500));
           continue;
         }
       }
@@ -155,7 +223,9 @@ async function loop() {
         const actual = await adapter.getStatus();
         const expectedPath = task.kind === 'test' ? testPath : task.mediaPath ? paths.resolveQueueFile(task.mediaPath) : null;
         if (actual.path === expectedPath && (actual.state === 'playing' || actual.state === 'paused')) activePlayback = true;
-        await report({playback:mapStatus(actual.state),file:actual.file,mpv:publicStatus(actual)});
+        // Keep the Agent lease/command path responsive while limiting the
+        // full telemetry reports (and their durable state writes) to 1 Hz.
+        if(Date.now()-lastAgentReportAt>=1000)await report({playback:mapStatus(actual.state),file:actual.file,mpv:publicStatus(actual)});
       } else { const actual=await adapter.getStatus();await report({playback:mapStatus(actual.state),file:actual.file,mpv:publicStatus(actual)}); }
       if(assignment.mpvControl){await executeMpvControl(assignment.mpvControl);}else lastControlResult=undefined;
     } catch (error) {
@@ -168,12 +238,17 @@ async function loop() {
         try { await report({ taskId, state: 'failed', playback: 'unavailable', error: String(error).slice(0, 250) }); } catch { /* reconnect loop retries transport */ }
       } else process.stderr.write(`Player Agent API/IPC unavailable: ${String(error)}\n`);
     }
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Active controls are delivered through /agent/next. Poll faster only
+    // while a confirmed task is active; the API renews the MySQL lease only
+    // near expiry, and full telemetry above remains capped at 1 Hz.
+    await new Promise(resolve => setTimeout(resolve, currentTask ? 250 : 1500));
   }
 }
 
 async function shutdown() {
   if (closing) return; closing = true;
+  clearInterval(danmakuTimer);
+  try { await danmaku.dispose(); } catch { /* overlay cleanup is best effort if mpv is already gone */ }
   try { if (currentTask) { await adapter.stop(); await report({ taskId: currentTask, state: 'failed', playback: 'stopped', error: 'Agent shutting down' }); } } catch { /* shutdown cannot claim successful state */ }
   controlServer?.close();
   await adapter.close(); releaseLock();

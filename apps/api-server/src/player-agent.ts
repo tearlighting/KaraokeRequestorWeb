@@ -13,7 +13,7 @@ type LauncherState='starting'|'running'|'stopping'|'stopped'|'error';
 type LauncherError='AGENT_CONFIG_INVALID'|'AGENT_PROCESS_UNVERIFIED'|'AGENT_START_FAILED'|'AGENT_STOP_FAILED'|'LAUNCHER_RUNTIME_ERROR';
 export type MpvControlCommand = ({ id:string; taskId:string; createdAt:number } & MpvControlInput);
 export type MpvControlAck = { id:string; ok:boolean; error?:'MPV_IPC_UNAVAILABLE'|'MPV_NOT_PLAYING'|'MPV_CONTROL_FAILED'|'MPV_TRACK_UNAVAILABLE'|'MPV_KEY_CHANGE_UNAVAILABLE' };
-interface PersistedState { task: PlaybackTask | null; agent: { id: string; seenAt: number; playback: AgentPlayback; testReady: boolean; mediaRootConfigured?:boolean; everything?:EverythingState; agentError?:string; file?: string; mpv?:MpvLiveStatus; controlAck?:MpvControlAck } | null; command: 'pause' | 'resume' | 'stop' | 'skip' | null; mpvControl?:MpvControlCommand; autoplayEnabled: boolean; manualMode?: boolean; manualStartRequested?: boolean; blockedReason?: string; launcherCommand?:{id:string;action:LauncherAction;createdAt:number}; launcher?:{id:string;seenAt:number;state:LauncherState;error?:LauncherError} }
+interface PersistedState { task: PlaybackTask | null; agent: { id: string; seenAt: number; playback: AgentPlayback; testReady: boolean; mediaRootConfigured?:boolean; lanAddresses?:string[]; everything?:EverythingState; agentError?:string; file?: string; mpv?:MpvLiveStatus; mpvSeenAt?:number; controlAck?:MpvControlAck } | null; command: 'pause' | 'resume' | 'stop' | 'skip' | null; mpvControl?:MpvControlCommand; autoplayEnabled: boolean; manualMode?: boolean; manualStartRequested?: boolean; blockedReason?:string; launcherCommand?:{id:string;action:LauncherAction;createdAt:number}; launcher?:{id:string;seenAt:number;state:LauncherState;error?:LauncherError} }
 const blank = (): PersistedState => ({ task: null, agent: null, command: null, autoplayEnabled: false, manualMode: false, manualStartRequested: false, launcherCommand:undefined, launcher:undefined });
 
 /** Atomic JSON snapshot on a dedicated Docker volume; queue SQLite/schema is untouched. */
@@ -41,7 +41,7 @@ export class PlayerTaskStore {
   status() {
     const seen = this.state.agent?.seenAt || 0;
     const connected = seen > 0 && this.clock() - seen < 15000;
-    return { connected, testReady: connected && this.state.agent?.testReady === true, mediaRootConfigured:connected&&this.state.agent?.mediaRootConfigured===true,
+    return { connected, testReady: connected && this.state.agent?.testReady === true, mediaRootConfigured:connected&&this.state.agent?.mediaRootConfigured===true, lanAddresses:connected?(this.state.agent?.lanAddresses||[]):[],
       everything:connected?(this.state.agent?.everything||'not_checked'):'unavailable' as EverythingState, agentError:connected?this.state.agent?.agentError:undefined,
       playback: connected ? this.state.agent?.playback || 'unavailable' as AgentPlayback : 'unavailable' as AgentPlayback,
       launcher:{connected:(this.state.launcher?.seenAt||0)>0&&this.clock()-(this.state.launcher?.seenAt||0)<15000,state:this.state.launcher?.state||'stopped',...(this.state.launcher?.error?{error:this.state.launcher.error}:{})},
@@ -49,7 +49,7 @@ export class PlayerTaskStore {
       ...(this.state.blockedReason ? { blockedReason: this.state.blockedReason } : {}),
       ...(connected && this.state.agent?.file ? { file: this.state.agent.file } : {}), task: this.state.task?.kind==='test' ? { ...this.state.task } : null };
   }
-  mpvStatus() { const status=this.status(); return { connected:status.connected, agentId:status.connected?this.state.agent?.id:undefined, mpv:status.connected?this.state.agent?.mpv:undefined, playback:status.playback, task:status.task, controlAck:status.connected?this.state.agent?.controlAck:undefined }; }
+  mpvStatus() { const status=this.status(); return { connected:status.connected, agentId:status.connected?this.state.agent?.id:undefined, mpv:status.connected?this.state.agent?.mpv:undefined, observedAt:status.connected?this.state.agent?.mpvSeenAt:undefined, playback:status.playback, task:status.task, controlAck:status.connected?this.state.agent?.controlAck:undefined }; }
   pendingMpvControl(agentId:string) { return this.state.agent?.id===agentId ? this.state.mpvControl||null : null; }
   requestMpvControl(agentId:string,taskId:string,control:MpvControlInput) {
     const live=this.status();
@@ -132,7 +132,7 @@ export class PlayerTaskStore {
     const transitions: Record<TaskState, TaskState[]> = { pending: ['claimed'], claimed: ['claimed','playing','failed'], playing: ['playing','completed','failed'], completed: [], failed: [] };
     if (!transitions[task.state].includes(input.state)) throw new BoundaryError(409, 'INVALID_PLAYER_TRANSITION', `${task.state} -> ${input.state} is not allowed`);
   }
-  report(agentId: string, input: { taskId?: string; state?: 'claimed'|'playing'|'completed'|'failed'; playback: AgentPlayback; testReady?: boolean; file?: string; error?: string; outcome?:'skipped'; everything?:EverythingState; mediaRootConfigured?:boolean; agentError?:string|null; mpv?:MpvLiveStatus }) {
+  report(agentId: string, input: { taskId?: string; state?: 'claimed'|'playing'|'completed'|'failed'; playback: AgentPlayback; testReady?: boolean; file?: string; error?: string; outcome?:'skipped'; everything?:EverythingState; mediaRootConfigured?:boolean; lanAddresses?:string[]; agentError?:string|null; mpv?:MpvLiveStatus }) {
     this.validateReport(agentId, input);
     const task = this.state.task;
     if (input.taskId && (!task || task.id !== input.taskId || task.agentId !== agentId)) throw new BoundaryError(409, 'STALE_PLAYER_TASK', '播放任务已失效');
@@ -146,8 +146,8 @@ export class PlayerTaskStore {
     }
     if(input.taskId) this.state.command = null;
     this.state.agent = { ...this.state.agent, id: agentId, seenAt: this.clock(), playback: input.playback, testReady: input.testReady === true,
-      ...(input.everything?{everything:input.everything}:{}),...(input.mediaRootConfigured!==undefined?{mediaRootConfigured:input.mediaRootConfigured}:{}),
-      ...(input.agentError!==undefined?(input.agentError?{agentError:input.agentError.slice(0,64)}:{agentError:undefined}):{}),...(input.file ? { file: input.file.slice(0, 255) } : {}), ...(input.mpv?{mpv:input.mpv}:{}) };
+      ...(input.everything?{everything:input.everything}:{}),...(input.mediaRootConfigured!==undefined?{mediaRootConfigured:input.mediaRootConfigured}:{}),...(input.lanAddresses?{lanAddresses:[...new Set(input.lanAddresses)].slice(0,16)}:{}),
+      ...(input.agentError!==undefined?(input.agentError?{agentError:input.agentError.slice(0,64)}:{agentError:undefined}):{}),...(input.file ? { file: input.file.slice(0, 255) } : {}), ...(input.mpv?{mpv:input.mpv,mpvSeenAt:this.clock()}:{}) };
     this.save(); return this.status();
   }
 }

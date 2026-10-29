@@ -59,9 +59,18 @@ test('真实 UI 登录、队列管理、设置及播放器失败；无双写与�
     await expect(page.getByTestId('admin-page-title')).toHaveText('予約管理');
     const pending = (await admin.call('/admin/queue')).body.data;
     expect(pending.total).toBe(before.total + 2);
+    expect(pending.items.filter((item: {id:number})=>ids.includes(item.id)).map((item:{comment:string})=>item.comment)).toEqual(['Node admin E2E','Node admin E2E']);
     const positions = ids.map((id) => pending.items.findIndex((item: {id: number}) => item.id === id)).sort((a, b) => a - b);
     expect(positions[1] - positions[0]).toBe(1);
     const upper = pending.items[positions[0]].id, lower = pending.items[positions[1]].id;
+    const note=page.getByTestId(`reservation-note-${upper}`);
+    await expect(note).toContainText('Node admin E2E');
+    await note.getByTestId(`reservation-comment-edit-${upper}`).click();
+    await note.getByTestId(`reservation-comment-input-${upper}`).fill('Updated admin note');
+    const commentSaved=page.waitForResponse(response=>response.url().endsWith(`/api/v1/admin/requests/${upper}/comment`)&&response.request().method()==='PUT');
+    await note.getByTestId(`reservation-comment-save-${upper}`).click();
+    expect((await commentSaved).ok()).toBe(true);
+    await expect.poll(async()=> (await admin.call('/admin/queue')).body.data.items.find((item:{id:number})=>item.id===upper)?.comment).toBe('Updated admin note');
     const moved = page.waitForResponse((response) => response.url().endsWith(`/api/v1/admin/requests/${lower}/move`));
     await page.locator(`[data-request-id="${lower}"]`).getByRole('button', { name: '上へ', exact: true }).click();
     expect((await moved).ok()).toBe(true);

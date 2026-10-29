@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && esbuild src/main.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/main.js && esbuild src/migrate.ts --bundle --platform=node --format=esm --outfile=dist/migrate.js && esbuild src/mysql-bootstrap.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/mysql-bootstrap.js",
+    "build": "npm run typecheck && esbuild src/main.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/main.js && esbuild src/migrate.ts --bundle --platform=node --format=esm --outfile=dist/migrate.js && esbuild src/mysql-bootstrap.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/mysql-bootstrap.js && esbuild src/migrate-mysql.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/migrate-mysql.js",
     "start": "node dist/main.js",
     "test": "node --import ./tests/windows-preload.mjs --import tsx --test --test-concurrency=1 tests/*.test.ts"
   },

@@ -8,6 +8,8 @@ import type { QueueData, LegacyQueueData } from '../../../packages/contracts/src
 export const queueSchema = z.object({ items: z.array(z.object({ id: z.number().int(), position: z.number().int(), reqorder: z.number().int(),
   display_name: z.string(), songfile: z.string(), singer: z.string(), nowplaying: z.string(), kind: z.string(), keychange: z.number().int() })),
   total: z.number().int(), remaining_count: z.number().int(), has_more: z.boolean(), remaining_seconds: z.number().int() }) satisfies z.ZodType<QueueData>;
+/** Admin-only projection; public queue responses must not expose reservation notes. */
+export const adminQueueSchema = queueSchema.extend({ items: z.array(queueSchema.shape.items.element.extend({ comment: z.string() })) });
 export const queueContextSchema = z.object({ database: z.string().min(1), secret_text: z.string(), ip: z.string(), ua: z.string(), role: z.enum(['user', 'admin']) });
 export const legacyQueueSchema = queueSchema.extend({ items: z.array(queueSchema.shape.items.element.extend({
   song_name: z.string(), lister_artist: z.string(), lister_work: z.string(), lister_op_ed: z.string(), lister_comment: z.string(),
@@ -20,6 +22,15 @@ type Row = Record<string, unknown>;
 const columns = 'id,songfile,fullpath,singer,comment,kind,reqorder,nowplaying,secret,loop,pause,track,keychange,audiodelay,duration,volume,song_name,lister_artist,lister_work,lister_op_ed,lister_comment,clientip,clientua';
 const failure = () => new BoundaryError(503, 'QUEUE_UNAVAILABLE', '队列数据库不可读取、被锁定或结构不兼容；未返回空队列');
 export const phpEmpty = (v: unknown) => v === null || v === undefined || v === '' || v === '0' || v === 0 || v === false;
+const legacyUnplayed = '\u8b5b\uff6a\u8700\u54b2\u51fd';
+const legacyClaimed = '\u8700\u54b2\u51fd\u9ae2\u53e5\uff67\u53e5\uff7e\u30fb\u25a0';
+const legacyPlaying = '\u8700\u54b2\u51fd\u8373\uff6d';
+const activeQueueStatuses = new Set(['未再生', '1', '再生開始待ち', '再生中', legacyUnplayed, legacyClaimed, legacyPlaying]);
+const pendingQueueStatuses = new Set(['未再生', '1', legacyUnplayed]);
+export function isActiveQueueStatus(value: unknown): boolean {
+  const normalized = phpEmpty(value) ? '1' : String(value);
+  return activeQueueStatuses.has(normalized);
+}
 export function integer(v: unknown): number {
   if (v === null || v === undefined) return 0;
   if (typeof v !== 'string' && typeof v !== 'number') throw failure();
@@ -54,7 +65,7 @@ export class QueueRepository {
 
 export class QueueService {
   constructor(private repository: QueueRepository) {}
-  read(context: QueueContext, limit = 0, offset = 0) {
+  read(context: QueueContext, limit = 0, offset = 0, activeOnly = false) {
     const { rows, stats } = this.repository.read(context.database);
     if (rows.some((row) => Object.values(row).some((value) => value instanceof Uint8Array))) throw failure();
     // Original returnusername reverses the entire DESC result and takes the first IP+UA match.
@@ -62,8 +73,9 @@ export class QueueService {
     for (let i = rows.length - 1; i >= 0; i--) {
       if (rows[i].clientip === context.ip && rows[i].clientua === context.ua) { myname = rows[i].singer; break; }
     }
-    const selected = limit > 0 ? rows.slice(offset, offset + limit) : rows;
-    const total = integer(stats.total);
+    const viewRows = activeOnly ? rows.filter((row) => isActiveQueueStatus(row.nowplaying)) : rows;
+    const selected = limit > 0 ? viewRows.slice(offset, offset + limit) : viewRows;
+    const total = activeOnly ? viewRows.length : integer(stats.total);
     const items = selected.map((row: Row, index) => {
       const playing = phpEmpty(row.nowplaying) ? '1' : row.nowplaying;
       const secret = !phpEmpty(row.secret) && Number(row.secret) === 1 && (playing === '未再生' || playing === '1');
@@ -82,7 +94,8 @@ export class QueueService {
       for (const name of ['secret', 'loop', 'pause', 'track', 'keychange', 'audiodelay', 'duration']) item[name] = integer(row[name]);
       return item;
     });
-    const data = { items, total, remaining_count: integer(stats.remaining_count), remaining_seconds: integer(stats.remaining_seconds),
+    const pendingRows = viewRows.filter(row => pendingQueueStatuses.has(phpEmpty(row.nowplaying) ? '1' : String(row.nowplaying)));
+    const data = { items, total, remaining_count: activeOnly ? pendingRows.length : integer(stats.remaining_count), remaining_seconds: activeOnly ? pendingRows.reduce((sum, row) => sum + Math.max(0, integer(row.duration)), 0) : integer(stats.remaining_seconds),
       has_more: limit > 0 && offset + items.length < total };
     // Preserve the existing unified contract and reject malformed core fields.
     const parsed = legacyQueueSchema.safeParse(data);

@@ -7,14 +7,15 @@ import { MysqlPlaybackRepository, MysqlQueueMutationRepository, MysqlQueueReposi
 
 test('MySQL reservation, queue, idempotency, ordering and delete use one durable database', { skip: !(process.env.MYSQL_TEST_ISOLATED === '1' && process.env.MYSQL_TEST_PASSWORD_FILE && process.env.MYSQL_TEST_DATABASE?.endsWith('_test')) }, async () => {
   const store=new MysqlStore(mysqlConfigFromEnv({ ...process.env, MYSQL_HOST:process.env.MYSQL_TEST_HOST||'127.0.0.1', MYSQL_PORT:process.env.MYSQL_TEST_PORT||'3307', MYSQL_DATABASE:process.env.MYSQL_TEST_DATABASE!, MYSQL_USER:'yukari_app', MYSQL_PASSWORD_FILE:process.env.MYSQL_TEST_PASSWORD_FILE }));
-  const userId=randomUUID(), receipt=randomBytes(32).toString('hex'), key=receipt.padEnd(64,'0').slice(0,64);
+  const userId=randomUUID(),participantId=randomUUID(), receipt=randomBytes(32).toString('hex'), key=receipt.padEnd(64,'0').slice(0,64);
   const context={database:'unused',ip:'192.0.2.10',ua:'mysql-integration',userid:userId,automove:false,reset:false,midjoin:false,history:true,metadata:null,nonameusername:'Anonymous',displayname:'MySQL test'};
-  const input={filename:'Phase16_Test.mp4',singer:'MySQL Phase16 Test',comment:'integration marker',kind:'動画',fullpath:'X:/fixture/Phase16_Test.mp4',secret:0,loop:0,keychange:0,track:0,pause:0,audiodelay:0,volume:0,duration:15} as const;
-  let requestId=0,taskId='';
+  const input={filename:'Phase16_Test.mp4',singer:'MySQL Phase16 Test',participantId,comment:'integration marker',kind:'動画',fullpath:'X:/fixture/Phase16_Test.mp4',secret:0,loop:0,keychange:0,track:0,pause:0,audiodelay:0,volume:0,duration:15} as const;
+  let requestId=0,taskId='',retryRequestId=0,failedTaskId='',retriedTaskId='';const retryUserId=randomUUID(),retryReceipt=randomBytes(32).toString('hex'),retryKey=retryReceipt.padEnd(64,'1').slice(0,64);
   let scheduleSnapshot:Array<{setting_key:string;value_json:unknown;updated_at:number;revision:number}>=[];
   let scheduleSnapshotReady=false;
   try {
     await store.ping();
+    await store.execute('INSERT INTO app_user(userid,displayname,created_at) VALUES(?,?,?)',[participantId,'Selected participant',Math.floor(Date.now()/1000)]);
     scheduleSnapshot=await store.rows<RowDataPacket & {setting_key:string;value_json:unknown;updated_at:number;revision:number}>('SELECT setting_key,value_json,updated_at,revision FROM app_setting WHERE setting_key IN (?,?,?,?)',['playmode','scheduler_enabled','manual_start_requested','startvolume']);
     scheduleSnapshotReady=true;
     const settings=new MysqlSettingsRepository(store);const existing=await settings.read();const noChange=await settings.update({...existing});assert.equal(noChange.changed,false);
@@ -30,6 +31,7 @@ test('MySQL reservation, queue, idempotency, ordering and delete use one durable
     assert.equal(visible.total,1);
     await new MysqlQueueMutationRepository(store).mutate(requestId,'up');
     const row=await queue.row(requestId);assert.equal(Number(row?.reqorder),1);
+    const attributed=await store.rows<RowDataPacket & {participant_userid:string}>('SELECT participant_userid FROM reservation WHERE id=?',[requestId]);assert.equal(attributed[0]?.participant_userid,participantId);
     await store.transaction(async c=>{for(const[key,value]of [['playmode',1],['scheduler_enabled',true],['manual_start_requested',false],['startvolume',41]] as const)await c.execute('INSERT INTO app_setting(setting_key,value_json,updated_at,revision) VALUES(?,?,?,1) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json),updated_at=VALUES(updated_at),revision=revision+1',[key,JSON.stringify(value),Math.floor(Date.now()/1000)]);});
     const playback=new MysqlPlaybackRepository(store);const claim=await playback.claimNext('mysql-test-agent');assert.ok(claim.task);assert.equal(claim.task.initialVolume,41);taskId=claim.task.id;
     const started=await playback.report(taskId,'mysql-test-agent',{state:'playing',playback:'playing'});assert.equal(started.state?.state,'playing');
@@ -41,9 +43,29 @@ test('MySQL reservation, queue, idempotency, ordering and delete use one durable
     const history=await playback.history(20,0);assert.equal(history.tasks.length,1);assert.equal(history.events.filter(event=>(event as unknown as { type: string }).type==='eof').length,1);
     const deleted=await new MysqlQueueMutationRepository(store).mutate(requestId,'delete');assert.equal(deleted,'');
     const after=await queue.read({secret_text:'Private request',ip:context.ip,ua:context.ua,role:'user'});assert.equal(after.total,0);
+    const retryInput={...input,filename:'Phase16_Recovery.mp4',singer:'MySQL recovery test',comment:'isolated recovery marker'};
+    const retryContext={...context,userid:retryUserId,ip:'192.0.2.11',ua:'mysql-recovery-test'};
+    retryRequestId=(await requests.commit(retryContext,retryInput as never,retryKey)).result.id;
+    const retryPlayback=new MysqlPlaybackRepository(store),firstAttempt=await retryPlayback.claimNext('mysql-test-agent');assert.ok(firstAttempt.task);failedTaskId=firstAttempt.task.id;
+    await retryPlayback.report(failedTaskId,'mysql-test-agent',{state:'playing',playback:'playing'});
+    await retryPlayback.report(failedTaskId,'mysql-test-agent',{state:'failed',playback:'stopped'});
+    const failedProjection=await queue.row(retryRequestId);assert.equal(failedProjection?.nowplaying,'停止中');assert.equal(Number(failedProjection?.playtimes),1);
+    assert.ok((await retryPlayback.recoverable()).some(row=>row.id===failedTaskId));
+    const queued=await retryPlayback.retry(failedTaskId);assert.equal(queued.state,'queued');assert.equal((await queue.row(retryRequestId))?.nowplaying,'未再生');
+    await assert.rejects(retryPlayback.retry(failedTaskId),{code:'PLAYBACK_RECOVERY_ALREADY_APPLIED'});
+    const secondAttempt=await retryPlayback.claimNext('mysql-test-agent');assert.ok(secondAttempt.task);retriedTaskId=secondAttempt.task.id;assert.notEqual(retriedTaskId,failedTaskId);
+    await retryPlayback.report(retriedTaskId,'mysql-test-agent',{state:'playing',playback:'playing'});
+    await retryPlayback.report(retriedTaskId,'mysql-test-agent',{state:'completed',playback:'idle',endReason:'eof'});
+    const retriedProjection=await queue.row(retryRequestId);assert.equal(retriedProjection?.nowplaying,'再生済');assert.equal(Number(retriedProjection?.playtimes),2);
+    const retryHistory=await retryPlayback.history(20,0);assert.ok(retryHistory.tasks.some(row=>row.id===failedTaskId&&row.state==='failed'));assert.ok(retryHistory.tasks.some(row=>row.id===retriedTaskId&&row.state==='completed'));assert.ok(retryHistory.events.some(row=>(row as unknown as {details:{action?:string}}).details?.action==='retry_requested'));
+    await new MysqlQueueMutationRepository(store).mutate(retryRequestId,'delete');
   } finally {
+    if(retriedTaskId){await store.execute('DELETE FROM playback_event WHERE task_id=?',[retriedTaskId]);await store.execute('DELETE FROM playback_task WHERE task_id=?',[retriedTaskId]);}
+    if(failedTaskId){await store.execute('DELETE FROM playback_event WHERE task_id=?',[failedTaskId]);await store.execute('DELETE FROM playback_task WHERE task_id=?',[failedTaskId]);}
+    if(retryRequestId){await store.execute('DELETE FROM request_submission WHERE key_hash=?',[retryKey]);await store.execute('DELETE FROM request_history WHERE userid=?',[retryUserId]);await store.execute('DELETE FROM reservation WHERE id=?',[retryRequestId]);await store.execute('DELETE FROM app_user WHERE userid=?',[retryUserId]);}
     if(taskId){await store.execute('DELETE FROM playback_event WHERE task_id=?',[taskId]);await store.execute('DELETE FROM playback_task WHERE task_id=?',[taskId]);}
     if(requestId){await store.execute('DELETE FROM request_submission WHERE key_hash=?',[key]);await store.execute('DELETE FROM request_history WHERE userid=?',[userId]);await store.execute('DELETE FROM reservation WHERE id=?',[requestId]);await store.execute('DELETE FROM app_user WHERE userid=?',[userId]);}
+    await store.execute('DELETE FROM app_user WHERE userid=?',[participantId]);
     if(scheduleSnapshotReady)await store.transaction(async c=>{
       await c.execute('DELETE FROM app_setting WHERE setting_key IN (?,?,?,?)',['playmode','scheduler_enabled','manual_start_requested','startvolume']);
       for(const row of scheduleSnapshot)await c.execute('INSERT INTO app_setting(setting_key,value_json,updated_at,revision) VALUES(?,?,?,?)',[row.setting_key,typeof row.value_json==='string'?row.value_json:JSON.stringify(row.value_json),row.updated_at,row.revision]);

@@ -4,13 +4,13 @@ MySQL 主运行模式下，预约、队列、设置和正式播放任务由 Fast
 
 ## Phase 6 当前入口
 
-在项目根目录执行 `docker compose up -d --build`，同一 Compose 项目会启动 PHP/Apache、Fastify、user-web Vite 和 admin-web Vite。根目录 `compose.yaml` 引入 `docker/compose.yaml` 并固定既有项目名，避免新建第二套容器和数据卷。正式构建页面仍由 Apache 提供：`/user/`、`/admin/`；开发页面由 Vite 提供：5173（用户端）、5174（管理端），源码通过 bind mount 热更新。统一入口是 http://127.0.0.1:8180/app/，API health 是 http://127.0.0.1:3000/health。内部 Bridge 凭据由初始化容器创建；所有服务端口只绑定本机。
+在项目根目录执行 `docker compose up -d --build`，同一 Compose 项目会启动 PHP/Apache、Fastify、MySQL、user-web/admin-web Vite 和独立的 `user-lan` 静态入口。根目录 `compose.yaml` 引入 `docker/compose.yaml` 并固定既有项目名，避免新建第二套容器和数据卷。正式构建页面仍由 Apache 提供：`/user/`、`/admin/`；开发页面由 Vite 提供：5173（用户端）、5174（管理端），源码通过 bind mount 热更新。电脑本机入口是 http://127.0.0.1:8180/app/；手机入口是 http://<Windows-LAN-IP>:8181/user/，Admin System 会在 Media Agent 连接后显示 URL 和二维码。Fastify、Legacy PHP/Admin、Vite、MySQL 的主机端口仍绑定本机；8181 只提供 User Web 和白名单用户 API，不提供 PHP、Admin、Agent/Launcher 或数据库路由。内部 Bridge 凭据由初始化容器创建。
 
-`mysql-bootstrap` 是 Compose 管理的一次性初始化服务：普通启动会在 MySQL 健康后运行它，Fastify 等它成功后才启动。迁移和设置初始化是幂等的，不要求手动准备密码文件。MySQL root、应用和只读账号使用本机开发默认值；可在被 Git 忽略的项目根 `.env` 中覆盖。默认端口只绑定 `127.0.0.1`，这些默认值只适用于个人本机开发，不可用于公开部署。Windows 启动器不再读取 `.local` 下的 MySQL 凭证。
+Compose 有两个一次性数据库准备步骤。`mysql-init` 只在空数据库建立基础 Schema 和首次设置；已有库通过 migration marker 跳过初始化，不重置应用/只读账号密码，也不重新导入设置。`mysql-migrate` 使用专用 `yukari_migrator` 账号按文件名顺序执行未应用的 SQL migration；通过 `schema_migration` 校验 checksum，以 MySQL advisory lock 串行化，并在 API 启动前完成。迁移失败或发现活动播放任务时，API 更新会被阻止。MySQL root、应用、只读和 migration 账号使用本机开发默认值；可在被 Git 忽略的项目 `.env` 中覆盖。旧数据库的现有密码不会被启动流程修改；环境密码与已存账号不一致时启动会明确失败，不会自动重置。默认端口只绑定 `127.0.0.1`，这些默认值只适用于个人本机开发，不可用于公开部署。
 
-从仓库根目录只需运行 `docker compose up -d --build`。初始化服务负责应用表迁移、应用/只读账号授权及首次设置导入；不会清空或重建 MySQL volume。可复制 `.env.example` 为 `.env` 并按需设置覆盖值；不复制也能启动。环境变量可从 Docker inspect 查看，因此此配置仅用于受信任的本机开发环境。Bridge 初始化容器仍是普通启动依赖。
+从 `docker` 目录只需运行 `docker compose up -d --build`，也可从仓库根目录运行 `docker compose -f docker/compose.yaml up -d --build`。初始化和增量迁移由 Compose 自动排序；不会清空或重建 MySQL volume。迁移账号只用于 DDL，Fastify 仍使用 DML 应用账号。密码覆盖值可放在 Compose 读取的本地 `.env` 中；不设置也能使用本机开发默认值。环境变量可从 Docker inspect 查看，因此此配置仅用于受信任的本机开发环境。Bridge 初始化容器仍是普通启动依赖。
 
-Vite 已纳入 Compose，通常无需手动运行 `npm run dev`。直接访问 http://127.0.0.1:5173/（用户端）和 http://127.0.0.1:5174/（管理端）；两端代理 Node `/api/v1`，不再代理 PHP。新管理登录必须使用原配置的非空管理密码。详见 [API Server](../apps/api-server/README.md) 和 [重构进度](../docs/REFACTOR_PROGRESS.md)。
+Vite 已纳入 Compose，通常无需手动运行 `npm run dev`。直接访问 http://127.0.0.1:5173/（用户端）和 http://127.0.0.1:5174/（管理端）；两端代理 Node `/api/v1`，不再代理 PHP。局域网入口通过 Admin QR 或 `http://<Windows-LAN-IP>:8181/user/`；手机与 Windows 必须连到可互相访问的同一 Wi-Fi。若 Windows Defender Firewall 阻止连接，由操作者仅允许 Private 网络的 TCP 8181，RemoteAddress 限制为 LocalSubnet；不要关闭防火墙。新管理登录必须使用原配置的非空管理密码。详见 [手机扫码点歌指南](../docs/LAN_MOBILE_QUICKSTART.zh-CN.md)、[API Server](../apps/api-server/README.md) 和 [重构进度](../docs/REFACTOR_PROGRESS.md)。
 
 此配置用于在 Windows 11 和 Docker Desktop 上本地开发及验证ゆかり Web UI。PHP/Apache 在 Linux 容器中运行；此环境不包含 Windows 播放器，也不适用于生产部署。
 
@@ -67,3 +67,6 @@ docker compose -f docker/compose.yaml down
 ## MySQL 模式的 Legacy 边界
 
 PHP 镜像内含 Legacy 源码；运行时只读挂载认证所需 `config.ini`、专用 YukaLister 索引文件，以及与 Fastify 共用的独立 Owner fence Volume。未迁移的 Legacy MyPage、收藏、配对、评论、Bingo、旧队列/播放器/设置/更新等 PHP 入口返回 410。Everything 搜索与 Legacy 认证兼容仍由 PHP 提供，旧 `exec.php` 提交通过签名兼容层转到 Fastify/MySQL。当前本机 `List.sqlite3` 是空文件，YukaLister 会报告不可用；Everything 则仍需在 Windows 启用 HTTP Server 并确认本机端口 81 可达。详见[Legacy 兼容矩阵](../docs/LEGACY_COMPATIBILITY.md)。
+# 房间入口配置
+
+Admin System 可维护单实例房间名称、LAN/自定义公开入口偏好及自有 HTTPS `/user/` URL。二维码只在当前管理浏览器的实际探针成功后显示；没有配置/部署公网反向代理时继续使用 LAN 地址。公网基础设施与 TLS 需自行准备，不会由 Compose 自动建立。操作方式见 [房间入口与公网连接](../docs/ROOM_ENTRY.zh-CN.md)。

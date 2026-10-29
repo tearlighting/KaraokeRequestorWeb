@@ -25,6 +25,10 @@ const ja = {
   "reservation": "予約する",
   "singer": "歌う人のお名前",
   "comment": "コメント（任意）",
+  "reservationComment": "予約メモ",
+  "editReservationComment": "メモを編集",
+  "saveReservationComment": "メモを保存",
+  "cancelEdit": "キャンセル",
   "private": "予約を非公開にする",
   "submit": "予約を確定",
   "submitting": "送信中…",
@@ -146,7 +150,8 @@ const ja = {
   "requestAutomoveReset": "小休止の後で歌手順をリセット",
   "requestAutomoveMidjoin": "途中参加の歌手を現在の順番へ挿入",
   "requestOrderSettings": "予約順の調整",
-  "requestOrderSettingsDescription": "変更後の新しい予約から適用されます。既存の予約順は変更しません。"
+  "requestOrderSettingsDescription": "変更後の新しい予約から適用されます。既存の予約順は変更しません。",
+  "danmakuTitle": "コメント", "danmakuHint": "短いテキストが会場のプレーヤーに表示されます。", "danmakuPlaceholder": "画面にコメントを送る", "danmakuSend": "コメントを送信", "danmakuDisabled": "コメント機能は現在オフです。", "danmakuSent": "コメントを受け付けました。プレーヤーへの表示を待っています。", "danmakuRateLimited": "少し待ってから再送してください。", "danmakuEnabledSetting": "コメントを有効にする", "danmakuClear": "画面のコメントを消去", "danmakuSettingsHelp": "コメントは一時的で、データベースには保存されません。", "danmakuCleared": "表示中のコメントを消去しました。"
 } as const;
 const zh = {
   "mpvQueueTask":"预约任务", "mpvNoActiveTask":"没有活动的播放任务", "mpvLocalTest":"本地测试媒体", "mpvIpc":"mpv IPC", "mpvLiveControls":"mpv 实时控制", "mpvVolume":"音量", "mpvMute":"静音", "mpvDisconnected":"mpv 未连接", "mpvNoMedia":"没有加载媒体", "mpvSeek":"播放位置", "mpvAudioTrack":"音轨", "mpvNoAudioTrack":"无音轨", "mpvNoAlternateAudio":"此媒体没有可切换的音轨", "mpvSubtitle":"字幕轨", "mpvOff":"关闭", "mpvNoSubtitles":"无字幕轨", "mpvNoSubtitleTracks":"此媒体没有字幕轨", "mpvCurrent":"当前", "mpvPlaying":"播放中", "mpvPaused":"已暂停", "mpvIdle":"空闲", "mpvUnavailable":"不可用", "mpvControlApplied":"mpv 已确认执行操作", "mpvControlQueued":"mpv 控制已发送，等待 Agent 确认。", "mpvControlFailed":"mpv 控制失败：{error}", "mpvWaitingAck":"等待 mpv 确认…", "mpvStatusDescription":"mpv 状态来自 Windows Agent，与预约任务状态分开显示。", "mpvPitchUnsupported":"",
@@ -174,6 +179,10 @@ const zh = {
   "reservation": "预约歌曲",
   "singer": "演唱者姓名",
   "comment": "备注（选填）",
+  "reservationComment": "预约备注",
+  "editReservationComment": "编辑备注",
+  "saveReservationComment": "保存备注",
+  "cancelEdit": "取消",
   "private": "隐藏我的预约",
   "submit": "确认预约",
   "submitting": "提交中…",
@@ -295,7 +304,8 @@ const zh = {
   "requestAutomoveReset": "小休止后重置歌手顺序",
   "requestAutomoveMidjoin": "将中途加入的歌手插入当前轮次",
   "requestOrderSettings": "预约顺序设置",
-  "requestOrderSettingsDescription": "设置仅应用于之后提交的新预约，不会重排现有队列。"
+  "requestOrderSettingsDescription": "设置仅应用于之后提交的新预约，不会重排现有队列。",
+  "danmakuTitle": "现场弹幕", "danmakuHint": "纯文本会显示在现场播放器上，请发送简短、友善的内容。", "danmakuPlaceholder": "发送一条现场弹幕", "danmakuSend": "发送弹幕", "danmakuDisabled": "弹幕功能当前已关闭。", "danmakuSent": "弹幕已接收，等待播放器显示。", "danmakuRateLimited": "请稍等片刻再发送。", "danmakuEnabledSetting": "启用现场弹幕", "danmakuClear": "清除播放器上的弹幕", "danmakuSettingsHelp": "弹幕仅临时显示为文本，不会写入数据库。", "danmakuCleared": "当前弹幕已清除。"
 } as const;
 const en = {
   "mpvQueueTask":"Queue task", "mpvNoActiveTask":"No active task", "mpvLocalTest":"Local test media", "mpvIpc":"mpv IPC", "mpvLiveControls":"mpv live controls", "mpvVolume":"Volume", "mpvMute":"Mute", "mpvDisconnected":"mpv disconnected", "mpvNoMedia":"No media loaded", "mpvSeek":"Seek position", "mpvAudioTrack":"Audio track", "mpvNoAudioTrack":"No audio track", "mpvNoAlternateAudio":"This media has no alternate audio track.", "mpvSubtitle":"Subtitle track", "mpvOff":"Off", "mpvNoSubtitles":"No subtitles", "mpvNoSubtitleTracks":"This media has no subtitle tracks.", "mpvCurrent":"Current", "mpvPlaying":"Playing", "mpvPaused":"Paused", "mpvIdle":"Idle", "mpvUnavailable":"Unavailable", "mpvControlApplied":"mpv applied the control command.", "mpvControlQueued":"mpv command queued; waiting for the Agent acknowledgement.", "mpvControlFailed":"mpv control failed: {error}", "mpvWaitingAck":"Waiting for mpv acknowledgement…", "mpvStatusDescription":"mpv status comes from the Windows Agent and is separate from the queue task state.", "mpvPitchUnsupported":"",
@@ -323,6 +333,10 @@ const en = {
   "reservation": "Request a song",
   "singer": "Singer name",
   "comment": "Comment (optional)",
+  "reservationComment": "Reservation note",
+  "editReservationComment": "Edit note",
+  "saveReservationComment": "Save note",
+  "cancelEdit": "Cancel",
   "private": "Keep my request private",
   "submit": "Confirm request",
   "submitting": "Submitting…",
@@ -444,7 +458,18 @@ const en = {
   "requestAutomoveReset": "Reset singer order after a break",
   "requestAutomoveMidjoin": "Insert a joining singer into the current round",
   "requestOrderSettings": "Queue ordering",
-  "requestOrderSettingsDescription": "Changes apply to new reservations only and do not reorder the existing queue."
+  "requestOrderSettingsDescription": "Changes apply to new reservations only and do not reorder the existing queue.",
+  "danmakuTitle": "Live comments",
+  "danmakuHint": "Plain-text messages appear on the venue player. Please keep them short and friendly.",
+  "danmakuPlaceholder": "Send a message to the screen",
+  "danmakuSend": "Send comment",
+  "danmakuDisabled": "Live comments are currently disabled.",
+  "danmakuSent": "Comment accepted; waiting for the player to display it.",
+  "danmakuRateLimited": "Please wait before sending another comment.",
+  "danmakuEnabledSetting": "Enable live comments",
+  "danmakuClear": "Clear comments from player",
+  "danmakuSettingsHelp": "Comments are temporary, plain text, and are not saved in the database.",
+  "danmakuCleared": "Current comments were cleared."
 } as const;
 export type MessageKey = keyof typeof ja;
 export type Messages = Record<MessageKey, string>;

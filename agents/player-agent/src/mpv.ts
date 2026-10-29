@@ -24,6 +24,7 @@ export interface PlayerAdapter {
   getStatus(): Promise<PlayerStatus>;
   onEnded(listener: (result: { reason: 'eof'|'stop'|'error'; error?: string }) => void): void;
   close(): Promise<void>;
+  setOverlayData(data: string | null): Promise<void>;
 }
 
 type MpvMessage = { request_id?: number; error?: string; data?: unknown; event?: string; reason?: string; file_error?: string };
@@ -94,7 +95,7 @@ export class MpvJsonIpcAdapter implements PlayerAdapter {
     }
     throw last || new Error('mpv IPC did not become ready');
   }
-  private async send(command: unknown[], startIfMissing: boolean) {
+  private async send(command: unknown[] | Record<string, unknown>, startIfMissing: boolean) {
     if(startIfMissing)await this.ensure();
     else if(this.socket?.destroyed!==false){await this.connect(Math.min(this.timeoutMs,500));}
     const socket = this.socket; if (!socket||socket.destroyed) throw new Error('mpv IPC unavailable');
@@ -106,7 +107,7 @@ export class MpvJsonIpcAdapter implements PlayerAdapter {
     });
   }
   private command(command: unknown[]) { return this.send(command,true); }
-  private commandExisting(command: unknown[]) { return this.send(command,false); }
+  private commandExisting(command: unknown[] | Record<string, unknown>) { return this.send(command,false); }
   private async property(name: string) {
     try { return await this.commandExisting(['get_property', name]); }
     catch (error) {
@@ -232,6 +233,16 @@ export class MpvJsonIpcAdapter implements PlayerAdapter {
     try { if (this.socket) await this.commandExisting(['quit']); } catch { /* best effort shutdown */ }
     this.socket?.destroy(); this.socket = null;
     if (this.child && this.child.exitCode === null) this.child.kill();
+  }
+
+  async setOverlayData(data: string | null) {
+    if (!data) {
+      // `name` is the JSON-IPC compatibility spelling for the command name.
+      // The configured venue mpv build rejects `_name` as INVALID_PARAMETER.
+      await this.commandExisting({ name: 'osd-overlay', id: 48211, format: 'none', data: '' });
+      return;
+    }
+    await this.commandExisting({ name: 'osd-overlay', id: 48211, format: 'ass-events', data, res_x: 1280, res_y: 720, z: 20 });
   }
 }
 

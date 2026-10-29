@@ -7,7 +7,7 @@ export interface ApiSuccess<T> { ok: true; data: T }
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 export interface QueueItem {
   id: number; position: number; reqorder: number; display_name: string; songfile: string;
-  singer: string; kind: string; nowplaying: string; keychange: number;
+  singer: string; kind: string; nowplaying: string; keychange: number; comment?: string;
 }
 export interface QueueData { items: QueueItem[]; total: number; remaining_count: number; has_more: boolean; remaining_seconds: number }
 /** Scoped Legacy read response. Sensitive fields are masked by the server. */
@@ -32,6 +32,9 @@ export interface SystemStatus {
 }
 export interface PlayerAgentStatus {
   connected: boolean;
+  /** RFC1918 IPv4 candidates reported by the authenticated Windows Agent; Admin-only. */
+  lanAddresses?: string[];
+  userLanPort?: number;
   testReady: boolean;
   mediaRootConfigured: boolean;
   everything: 'not_checked'|'connected_no_media'|'connected_media_found'|'unavailable';
@@ -50,6 +53,7 @@ export interface PlayerAgentStatus {
   mpv?: MpvLiveStatus;
   task: { id: string; kind: 'test'|'queue'; requestId?: number; state: 'pending'|'claimed'|'playing'|'completed'|'failed'|'uncertain'; createdAt: number; error?: string } | null;
 }
+export interface ConnectionEntry { roomName:string; publicUrl:string; preferredMode:'lan'|'public'; revision?:number }
 export interface MpvTrack { id: number; title?: string; language?: string; codec?: string; selected: boolean }
 export interface MpvLiveStatus {
   connected: boolean;
@@ -87,12 +91,14 @@ export type MpvControlInput =
   | { action: 'fullscreen'; value: boolean };
 export type MediaAvailability = 'playable' | 'path_unmapped' | 'file_missing' | 'invalid_path' | 'agent_offline' | 'pending' | 'claimed';
 export interface ReservationInput {
+  participantId?: string;
   filename: string; fullpath: string; singer: string; comment: string; kind: '動画' | '小休止' | 'カラオケ配信' | 'URL指定' | '動画_別プ'; secret?: number | string;
   freesinger?: string; selectid?: number | string; loop?: number | string; otherplayer?: number | string; urlreq?: number | string;
   keychange?: number | string; track?: number | string; pause?: number | string; audiodelay?: number | string; volume?: number | string; duration?: number | string;
 }
 export class ApiError extends Error {
-  constructor(message: string, public status = 0, public code = 'NETWORK_ERROR', public legacyReason?: string) { super(message); }
+  constructor(message: string, public status = 0, public code = 'NETWORK_ERROR', public legacyReason?: string,
+    public requestId?: string, public stage?: string, public relatedRequestId?: string) { super(message); }
 }
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
@@ -106,7 +112,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   catch { throw new ApiError('API 返回非 JSON，未确认操作成功', response.status, 'INVALID_RESPONSE'); }
   if (!response.ok || result.ok !== true) {
     const error = result.ok === false ? result.error : null;
-    throw new ApiError(error?.message || `请求失败（HTTP ${response.status}）`, response.status, error?.code || 'API_ERROR', error?.legacyReason);
+    throw new ApiError(error?.message || `请求失败（HTTP ${response.status}）`, response.status, error?.code || 'API_ERROR', error?.legacyReason,
+      error?.requestId || response.headers.get('x-yukari-request-id') || undefined);
   }
   return result.data;
 }

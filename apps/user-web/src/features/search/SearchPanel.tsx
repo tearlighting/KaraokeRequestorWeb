@@ -1,26 +1,41 @@
-import type { FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useT } from '../../../../../packages/web-foundation/src/i18n';
 import { Button } from '../../../../../packages/web-foundation/src/primitives';
 import { errorMessage } from '../../lib/api';
-import { searchSongs, type Backend, type SearchResult, type Song } from './api';
+import { searchSongs, type Backend } from './api';
 import { useSearchPageStore } from '../../store/searchPageStore';
 
-export function SearchPanel({ onSelect }: { onSelect: (song: Song) => void }) {
+export function SearchPanel({ onSearched, compact = false }: { onSearched: () => void; compact?: boolean }) {
   const t = useT();
   const keyword = useSearchPageStore(state => state.keyword); const backend = useSearchPageStore(state => state.backend);
-  const result = useSearchPageStore(state => state.result); const error = useSearchPageStore(state => state.error); const busy = useSearchPageStore(state => state.busy);
-  async function search(event: FormEvent) { event.preventDefault(); const state = useSearchPageStore.getState(); if (!state.keyword.trim() || state.busy) return; useSearchPageStore.setState({ busy: true, error: '', result: null }); try { useSearchPageStore.setState({ result: await searchSongs(state.keyword.trim(), state.backend) }); } catch (cause) { useSearchPageStore.setState({ error: errorMessage(cause) }); } finally { useSearchPageStore.setState({ busy: false }); } }
-  return <section className="panel" aria-labelledby="search-title">
-    <p className="eyebrow">{t('home')}</p><h2 id="search-title" className="text-xl font-bold">{t('searchTitle')}</h2><p className="mt-2 text-sm text-slate-500">{t('searchIntro')}</p>
-    <form onSubmit={search} className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem_auto]">
-      <div className="min-w-0"><label htmlFor="keyword" className="field-label">{t('searchHint')}</label><input id="keyword" data-testid="search-keyword" value={keyword} onChange={e => useSearchPageStore.setState({ keyword: e.target.value })} maxLength={256} placeholder={t('searchHint')} required disabled={busy} /></div>
-      <div><label htmlFor="backend" className="field-label">{t('backend')}</label><select id="backend" value={backend} onChange={e => useSearchPageStore.setState({ backend: e.target.value as Backend, result: null, error: '' })} disabled={busy}><option value="everything">Everything</option><option value="lister">YukaLister</option></select></div>
-      <Button data-testid="search-submit" className="sm:self-end" disabled={busy}>{busy ? t('searching') : t('search')}</Button>
+  const error = useSearchPageStore(state => state.error); const busy = useSearchPageStore(state => state.busy);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [recent, setRecent] = useState<string[]>(() => { try { const value: unknown = JSON.parse(localStorage.getItem('yukari.recentSearches.v1') || '[]'); return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').slice(0, 5) : []; } catch { return []; } });
+
+  async function search(event: FormEvent) {
+    event.preventDefault(); const state = useSearchPageStore.getState();
+    if (!state.keyword.trim() || state.busy) return;
+    const term = state.keyword.trim(); useSearchPageStore.setState({ busy: true, error: '', result: null });
+    try {
+      const next = await searchSongs(term, state.backend); useSearchPageStore.setState({ result: next });
+      const history = [term, ...recent.filter(item => item !== term)].slice(0, 5); setRecent(history);
+      try { localStorage.setItem('yukari.recentSearches.v1', JSON.stringify(history)); } catch { /* optional preference */ }
+      onSearched();
+    } catch (cause) { useSearchPageStore.setState({ error: errorMessage(cause) }); }
+    finally { useSearchPageStore.setState({ busy: false }); }
+  }
+
+  function chooseRecent(term: string) { useSearchPageStore.setState({ keyword: term }); requestAnimationFrame(() => { const form = inputRef.current?.form; form?.requestSubmit(); }); }
+  return <section className={`search-surface ${compact ? 'search-panel-compact' : ''}`} aria-label={compact ? '検索条件' : t('searchTitle')}>
+    <form onSubmit={search} className="search-form">
+      <label className="sr-only" htmlFor={compact ? 'keyword-refine' : 'keyword'}>{t('searchHint')}</label>
+      <span className="search-icon" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></span>
+      <input ref={inputRef} id={compact ? 'keyword-refine' : 'keyword'} data-testid={compact ? 'search-keyword-refine' : 'search-keyword'} value={keyword} onChange={event => useSearchPageStore.setState({ keyword: event.target.value })} maxLength={256} placeholder={t('searchHint')} required disabled={busy} enterKeyHint="search" autoComplete="off" />
+      {keyword && <button type="button" className="search-clear" aria-label="検索語を消去" onClick={() => { useSearchPageStore.setState({ keyword: '', error: '' }); inputRef.current?.focus(); }}>×</button>}
+      <Button data-testid={compact ? 'search-submit-refine' : 'search-submit'} className="search-submit" disabled={busy}>{busy ? t('searching') : t('search')}</Button>
     </form>
-    {error && <p role="alert" className="error mt-4">{t('error')}: {error}</p>}
-    <div aria-live="polite" className="mt-5">{result && <p className="mb-3 text-sm text-slate-500">{t('resultCount', { total: result.total, shown: result.items.length })}</p>}
-      {result?.items.length === 0 && <p data-testid="search-empty" className="empty-state">{t('noResults')}</p>}
-      <ul className="divide-y divide-slate-100">{result?.items.map(song => <li key={song.fullpath} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="break-words font-semibold">{song.name}</p>{song.artist && <p className="mt-1 text-sm text-slate-500">{song.artist}</p>}</div><Button tone="secondary" className="shrink-0" onClick={() => onSelect(song)}>{t('choose')}</Button></li>)}</ul>
-    </div>
+    <details className="search-options"><summary>検索元: {backend === 'everything' ? 'Everything' : 'YukaLister'}</summary><label className="sr-only" htmlFor="backend">{t('backend')}</label><select id="backend" value={backend} onChange={event => useSearchPageStore.setState({ backend: event.target.value as Backend, result: null, error: '' })} disabled={busy}><option value="everything">Everything</option><option value="lister">YukaLister</option></select></details>
+    {error && <p role="alert" className="error mt-3">{t('error')}: {error}</p>}
+    {!compact && recent.length > 0 && <div className="recent-searches"><p>最近の検索</p><div>{recent.map(term => <button key={term} type="button" className="search-chip" onClick={() => chooseRecent(term)}>{term}</button>)}</div></div>}
   </section>;
 }

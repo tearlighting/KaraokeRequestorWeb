@@ -22,19 +22,21 @@ export class SessionStore {
     if (!value || value.role !== role || value.expires < Date.now()) throw new BoundaryError(401, 'UNAUTHENTICATED', '需要有效的' + (role === 'admin' ? '管理' : '用户') + '会话');
     return value;
   }
-  create(reply: FastifyReply, identity: LegacyIdentity) {
+  create(reply: FastifyReply, identity: LegacyIdentity, secureOverride = false) {
     for (const [key, session] of this.sessions) if (session.expires < Date.now()) this.sessions.delete(key);
     if (this.sessions.size >= 10000) throw new BoundaryError(503, 'SESSION_CAPACITY', '会话数量已达上限');
     const token = randomBytes(32).toString('base64url');
     const seconds = identity.role === 'admin' ? 3600 : 43200;
     this.sessions.set(this.key(token), { ...identity, expires: Date.now() + seconds * 1000 });
-    const cookies=[`${this.cookieName(identity.role)}=${token}; Path=/api/v1; HttpOnly; SameSite=Strict; Max-Age=${seconds}${this.secure ? '; Secure' : ''}`];
-    if(identity.role==='user') cookies.push(`YkariUserID=${identity.userid}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${this.secure ? '; Secure' : ''}`);
+    const secure=this.secure||secureOverride;
+    const cookies=[`${this.cookieName(identity.role)}=${token}; Path=/api/v1; HttpOnly; SameSite=Strict; Max-Age=${seconds}${secure ? '; Secure' : ''}`];
+    if(identity.role==='user') cookies.push(`YkariUserID=${identity.userid}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${secure ? '; Secure' : ''}`);
     reply.header('Set-Cookie',cookies);
   }
   remove(request: FastifyRequest, reply: FastifyReply, role: 'user' | 'admin') {
     this.sessions.delete(this.key(this.cookie(request, role)));
-    reply.header('Set-Cookie', `${this.cookieName(role)}=; Path=/api/v1; HttpOnly; SameSite=Strict; Max-Age=0${this.secure ? '; Secure' : ''}`);
+    const secure=this.secure||request.headers.origin?.startsWith('https://')===true;
+    reply.header('Set-Cookie', `${this.cookieName(role)}=; Path=/api/v1; HttpOnly; SameSite=Strict; Max-Age=0${secure ? '; Secure' : ''}`);
   }
   loginAttempt(ip: string) {
     const now = Date.now();

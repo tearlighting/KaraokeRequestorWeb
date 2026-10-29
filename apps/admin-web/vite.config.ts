@@ -14,10 +14,14 @@ const boundary: Plugin = { name: 'admin-api-boundary', configureServer(server) {
       (path === '/api/v1/admin/player-agent/mpv-control' && req.method === 'POST') ||
       (path === '/api/v1/admin/player-agent/launcher' && req.method === 'POST') ||
       (path === '/api/v1/admin/session' && req.method === 'GET') ||
+      (path === '/api/v1/admin/participants' && req.method === 'GET') ||
+      (/^\/api\/v1\/admin\/participants\/[0-9a-f-]{36}$/i.test(path) && req.method === 'PUT') ||
       (path === '/api/v1/admin/player-agent/test' && req.method === 'POST') ||
       (path === '/api/v1/admin/player-agent/control' && req.method === 'POST') ||
       (path === '/api/v1/admin/player-agent/autoplay' && req.method === 'POST') ||
       (/^\/api\/v1\/admin\/queue\/\d+\/media-check(?:\/[0-9a-f-]+)?$/i.test(path) && ['GET','POST'].includes(req.method || '')) ||
+      (path === '/api/v1/admin/connection-entry' && ['GET', 'PUT'].includes(req.method || '')) ||
+      (path === '/api/v1/admin/gateway/status' && req.method === 'GET') ||
       (path === '/api/v1/settings' && ['GET', 'PUT'].includes(req.method || '')) ||
       (path === '/api/v1/playback/control' && req.method === 'POST') ||
       (/^\/api\/v1\/admin\/requests\/\d+$/.test(path) && req.method === 'DELETE') ||
