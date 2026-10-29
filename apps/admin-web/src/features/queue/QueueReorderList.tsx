@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import type { QueueItem } from '../../lib/admin';
+import { useT } from '../../../../../packages/web-foundation/src/i18n';
+import { StatusTag } from '../../../../../packages/web-foundation/src/StatusTag';
+import { Icon } from '../../../../../packages/web-foundation/src/Icon';
 
 /** One visible queue list: local preview, one server commit after drop. */
 export function QueueReorderList({
@@ -12,6 +15,7 @@ export function QueueReorderList({
   onToggleSelected?: (id: number, selected: boolean) => void;
   renderDetails?: (item: QueueItem) => ReactNode;
 }) {
+  const t = useT();
   const initial = items.map(item => item.id);
   const [order, setOrder] = useState(initial);
   const orderRef = useRef(initial);
@@ -129,36 +133,36 @@ export function QueueReorderList({
   }
 
   if (!items.length) return null;
-  return <section className="queue-reorder" aria-label="予約キュー">
+  return <section className="queue-reorder" aria-label={t('dragQueueLabel')}>
     <div className="queue-reorder-heading">
-      <div><h3 className="font-semibold">予約キュー</h3><p className="text-xs text-[var(--muted)]">右端の ⋮⋮ をドラッグ。スマホは長押しして移動できます。</p></div>
-      <span className="status-chip">{items.length} 曲</span>
+      <div><h3 className="font-semibold">{t('dragQueueLabel')}</h3><p className="text-xs text-[var(--muted)]">{t('queueDragInstruction')}</p></div>
+      <span className="status-chip">{t('queueItemsCount', { count: items.length })}</span>
     </div>
-    <ol className="queue-reorder-list" data-testid="queue-reorder-list" aria-label="予約順">
+    <ol className="queue-reorder-list" data-testid="queue-reorder-list" aria-label={t('queueOrderLabel')}>
       {order.map((id, index) => {
         const item = rows.get(id);
         if (!item) return null;
         return <li key={id} data-sort-id={id} data-testid={`sortable-${id}`} className={`queue-reorder-row ${dragging === id ? 'is-dragging' : ''} ${target === id ? `is-drop-target ${targetAfter ? 'drop-after' : 'drop-before'}` : ''}`}>
-          {onToggleSelected && <input className="queue-row-select" aria-label={`予約 ${id} を選択`} type="checkbox" checked={selectedIds.includes(id)} disabled={disabled || saving} onChange={event => onToggleSelected(id, event.currentTarget.checked)} />}
-          <span className="queue-reorder-position" aria-label={`${index + 1} 番目`}>{String(index + 1).padStart(2, '0')}</span>
+          {onToggleSelected && <input className="queue-row-select" aria-label={t('selectedQueueItem', { id })} type="checkbox" checked={selectedIds.includes(id)} disabled={disabled || saving} onChange={event => onToggleSelected(id, event.currentTarget.checked)} />}
+          <span className="queue-reorder-position" aria-label={t('itemPosition', { position: index + 1 })}>{String(index + 1).padStart(2, '0')}</span>
           <div className="queue-reorder-song"><p className="truncate font-semibold" title={item.display_name}>{item.display_name}</p><p className="truncate text-xs text-[var(--muted)]">{item.singer} · {item.kind}{item.keychange !== 0 ? ` · Key ${item.keychange > 0 ? '+' : ''}${item.keychange}` : ''}</p></div>
-          <span className="queue-sortable-label">未再生 · 並べ替え可</span>
-          <label className="queue-position-control"><span className="sr-only">{item.display_name} の移動先</span><select data-testid={`queue-position-${id}`} aria-label={`${item.display_name} の移動先`} value={index + 1} disabled={disabled || saving} onChange={event => {
+          <StatusTag className="queue-sortable-label" status="queued">{t('queueSortable')}</StatusTag>
+          <label className="queue-position-control"><span className="sr-only">{t('selectDestinationFor', { title: item.display_name })}</span><select data-testid={`queue-position-${id}`} aria-label={t('selectDestinationFor', { title: item.display_name })} value={index + 1} disabled={disabled || saving} onChange={event => {
             const destination = Number(event.currentTarget.value) - 1;
             const next = [...orderRef.current];
             next.splice(index, 1);
             next.splice(destination, 0, id);
             orderRef.current = next;
             setOrder(next);
-          }}><option value={index + 1}>{index + 1} 位</option>{items.map((_, at) => at !== index && <option key={at} value={at + 1}>{at + 1} 位へ</option>)}</select></label>
-          <button type="button" className="queue-drag-handle" aria-label={`${item.display_name} をドラッグして順番を変更`} title="ドラッグして並べ替え（スマホは長押し）" disabled={disabled || saving} onPointerDown={event => startPointer(event, id)} onClick={event => event.preventDefault()}>
+          }}><option value={index + 1}>{t('itemPosition', { position: index + 1 })}</option>{items.map((_, at) => at !== index && <option key={at} value={at + 1}>{t('itemPosition', { position: at + 1 })}</option>)}</select></label>
+          <button type="button" className="queue-drag-handle" aria-label={t('dragToReorderItem', { title: item.display_name })} title={t('dragToReorder')} disabled={disabled || saving} onPointerDown={event => startPointer(event, id)} onClick={event => event.preventDefault()}>
             <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="8" cy="5" r="1.7"/><circle cx="16" cy="5" r="1.7"/><circle cx="8" cy="12" r="1.7"/><circle cx="16" cy="12" r="1.7"/><circle cx="8" cy="19" r="1.7"/><circle cx="16" cy="19" r="1.7"/></svg>
           </button>
-          {renderDetails && <details className="queue-row-details"><summary>操作・詳細</summary><div className="queue-row-details-content">{renderDetails(item)}</div></details>}
+          {renderDetails && <details className="queue-row-details"><summary>{t('queueActionsDetails')}</summary><div className="queue-row-details-content">{renderDetails(item)}</div></details>}
         </li>;
       })}
     </ol>
-    <div className="queue-save-order"><span className="text-xs text-[var(--muted)]">ドラッグは離した時に保存されます。</span><button type="button" data-testid="admin-save-queue-order" className="secondary min-h-10" disabled={disabled || saving || order.every((id, index) => id === items[index]?.id)} onClick={() => void commit()}>{saving ? '保存中…' : '順序を保存'}</button></div>
-    {dragging !== null && <p role="status" className="sr-only">移動先を選択中</p>}
+    <div className="queue-save-order"><span className="text-xs text-[var(--muted)]">{t('saveOnDrop')}</span><button type="button" data-testid="admin-save-queue-order" className="secondary inline-flex min-h-10 items-center gap-2" disabled={disabled || saving || order.every((id, index) => id === items[index]?.id)} onClick={() => void commit()}><Icon name="check" size={17}/>{saving ? t('savingOrder') : t('saveOrder')}</button></div>
+    {dragging !== null && <p role="status" className="sr-only">{t('dropTargetSelecting')}</p>}
   </section>;
 }

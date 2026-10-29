@@ -1,6 +1,6 @@
 # Cloudflare Tunnel（可选）
 
-Tunnel 默认关闭。普通 `docker compose up -d --build` 不会启动 `cloudflared`，也不会公开任何入口。Tunnel 使用官方 `cloudflare/cloudflared` 镜像，连接到 Compose 内部的 `gateway-tunnel:8080`；它不在 Windows 宿主机安装客户端，也不发布宿主机端口。
+公网 Tunnel 默认关闭。普通 `docker compose up -d --build` 会构建并更新内部 `gateway-tunnel` User-only origin，但不会启动 `cloudflared`，所以不会公开任何入口。只有运行中的 `cloudflared` 能连到该 origin 并提供公网访问。它使用官方 `cloudflare/cloudflared` 镜像；Windows 宿主机不安装客户端，也不发布 Gateway 或 Connector 端口。
 
 ## 首次配置
 
@@ -17,7 +17,7 @@ Tunnel 默认关闭。普通 `docker compose up -d --build` 不会启动 `cloudf
 5. 从仓库根目录显式启动 Tunnel Profile：
 
    ```powershell
-   docker compose -f docker/compose.yaml --profile tunnel up -d --build gateway-tunnel cloudflared
+   docker compose --env-file .env --profile tunnel up -d cloudflared
    ```
 
 ## 停止与验证
@@ -25,7 +25,7 @@ Tunnel 默认关闭。普通 `docker compose up -d --build` 不会启动 `cloudf
 停止公网连接并关闭专用 Gateway（不会停止 LAN Gateway、API 或 MySQL）：
 
 ```powershell
-docker compose -f docker/compose.yaml --profile tunnel stop cloudflared gateway-tunnel
+docker compose --env-file .env --profile tunnel stop cloudflared
 ```
 
 通过浏览器或 `curl.exe -i` 验证 Cloudflare hostname：
@@ -35,7 +35,7 @@ docker compose -f docker/compose.yaml --profile tunnel stop cloudflared gateway-
 - `/api/v1/admin/session`、`/api/v1/admin/queue`、`/api/v1/settings`、`/api/v1/playback/control` 以及未列入白名单的 `/api/v1/agent/...` 应由 Gateway 返回 404。
 - User 所需 API（例如 `/api/v1/capabilities`、`/api/v1/search`、`/api/v1/queue`、`/api/v1/requests`）继续经过 Fastify 的会话、Origin 和 CSRF 校验。不能用 HTTP 200 代替搜索或预约业务结果验证。
 
-Tunnel Nginx 镜像只包含 React User 静态文件；`/api/v1/` 只允许 `gateway/nginx/tunnel-user.conf` 中按方法和精确路径列出的 User API，其余路径默认拒绝。Admin 静态文件不会进入该镜像。LAN 入口仍使用原来的 Gateway 配置和端口，不受 Tunnel Profile 影响。cloudflared 的 metrics 端口只在 Compose 网络内部 `expose`，没有宿主机端口映射。
+Tunnel Nginx 镜像只包含 React User 静态文件；`/api/v1/` 只允许 `gateway/nginx/tunnel-user.conf` 中按方法和精确路径列出的 User API，其余路径默认拒绝。Admin 静态文件不会进入该镜像。LAN 入口仍使用原来的 Gateway 配置和端口，不受 Tunnel Profile 影响。`gateway-tunnel` 的 HTTP 端口与 cloudflared metrics 端口都只在 Compose 网络内部可见，没有宿主机端口映射。
 
 ## HTTPS 与连接限制
 

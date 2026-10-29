@@ -1,0 +1,717 @@
+{
+  "source": "isolated-mock API; no production reservations or playback controls were used",
+  "generatedAt": "2026-10-29T16:51:16.006Z",
+  "measurements": [
+    {
+      "screenshot": "iphone-home-sakura.png",
+      "viewport": {
+        "width": 440,
+        "height": 956
+      },
+      "document": {
+        "width": 440,
+        "height": 956
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 440,
+        "height": 539,
+        "bottom": 595
+      },
+      "search": {
+        "x": 16,
+        "y": 148,
+        "width": 408,
+        "height": 68,
+        "bottom": 216
+      },
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": null,
+      "volume": null,
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 893,
+        "width": 440,
+        "height": 63,
+        "bottom": 956
+      },
+      "mainScrollHeight": 539
+    },
+    {
+      "screenshot": "iphone-search-sakura.png",
+      "viewport": {
+        "width": 440,
+        "height": 956
+      },
+      "document": {
+        "width": 440,
+        "height": 956
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 440,
+        "height": 469,
+        "bottom": 525
+      },
+      "search": {
+        "x": 16,
+        "y": 76,
+        "width": 408,
+        "height": 58,
+        "bottom": 134
+      },
+      "results": {
+        "x": 16,
+        "y": 211,
+        "width": 408,
+        "height": 230,
+        "bottom": 441
+      },
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": null,
+      "volume": null,
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 893,
+        "width": 440,
+        "height": 63,
+        "bottom": 956
+      },
+      "mainScrollHeight": 469
+    },
+    {
+      "screenshot": "iphone-detail-sakura.png",
+      "viewport": {
+        "width": 440,
+        "height": 956
+      },
+      "document": {
+        "width": 440,
+        "height": 1207
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 440,
+        "height": 1151.28125,
+        "bottom": 1207.28125
+      },
+      "search": null,
+      "results": null,
+      "detail": {
+        "x": 16,
+        "y": 76,
+        "width": 408,
+        "height": 1047.28125,
+        "bottom": 1123.28125
+      },
+      "reservationCta": {
+        "x": 32,
+        "y": 815.21875,
+        "width": 376,
+        "height": 64.78125,
+        "bottom": 880
+      },
+      "participantHint": {
+        "x": 32,
+        "y": 568,
+        "width": 376,
+        "height": 16,
+        "bottom": 584
+      },
+      "player": null,
+      "volume": null,
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 893,
+        "width": 440,
+        "height": 63,
+        "bottom": 956
+      },
+      "mainScrollHeight": 1151
+    },
+    {
+      "screenshot": "iphone-player-sakura.png",
+      "viewport": {
+        "width": 440,
+        "height": 956
+      },
+      "document": {
+        "width": 440,
+        "height": 1400
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 440,
+        "height": 1344.1875,
+        "bottom": 1400.1875
+      },
+      "search": null,
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": {
+        "x": 16,
+        "y": 307.5,
+        "width": 408,
+        "height": 807.90625,
+        "bottom": 1115.40625
+      },
+      "volume": {
+        "x": 36,
+        "y": 613.0625,
+        "width": 368,
+        "height": 32,
+        "bottom": 645.0625
+      },
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 893,
+        "width": 440,
+        "height": 63,
+        "bottom": 956
+      },
+      "mainScrollHeight": 1344
+    },
+    {
+      "screenshot": "iphone-player-controls-sakura.png",
+      "viewport": {
+        "width": 440,
+        "height": 956
+      },
+      "document": {
+        "width": 440,
+        "height": 1400
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 440,
+        "height": 1344.1875,
+        "bottom": 1400.1875
+      },
+      "search": null,
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": {
+        "x": 16,
+        "y": 307.5,
+        "width": 408,
+        "height": 807.90625,
+        "bottom": 1115.40625
+      },
+      "volume": {
+        "x": 36,
+        "y": 613.0625,
+        "width": 368,
+        "height": 32,
+        "bottom": 645.0625
+      },
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 893,
+        "width": 440,
+        "height": 63,
+        "bottom": 956
+      },
+      "mainScrollHeight": 1344
+    },
+    {
+      "screenshot": "iphone-player-danmaku-sakura.png",
+      "viewport": {
+        "width": 440,
+        "height": 956
+      },
+      "document": {
+        "width": 440,
+        "height": 1400
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": -388,
+        "width": 440,
+        "height": 1344.1875,
+        "bottom": 956.1875
+      },
+      "search": null,
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": {
+        "x": 16,
+        "y": -136.5,
+        "width": 408,
+        "height": 807.90625,
+        "bottom": 671.40625
+      },
+      "volume": {
+        "x": 36,
+        "y": 169.0625,
+        "width": 368,
+        "height": 32,
+        "bottom": 201.0625
+      },
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 893,
+        "width": 440,
+        "height": 63,
+        "bottom": 956
+      },
+      "mainScrollHeight": 1344
+    },
+    {
+      "screenshot": "iphone-queue-sakura.png",
+      "viewport": {
+        "width": 440,
+        "height": 956
+      },
+      "document": {
+        "width": 440,
+        "height": 956
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 440,
+        "height": 417,
+        "bottom": 473
+      },
+      "search": null,
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": null,
+      "volume": null,
+      "queue": {
+        "x": 16,
+        "y": 152,
+        "width": 408,
+        "height": 237,
+        "bottom": 389
+      },
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 893,
+        "width": 440,
+        "height": 63,
+        "bottom": 956
+      },
+      "mainScrollHeight": 417
+    },
+    {
+      "screenshot": "iphone-my-sakura.png",
+      "viewport": {
+        "width": 440,
+        "height": 956
+      },
+      "document": {
+        "width": 440,
+        "height": 956
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 440,
+        "height": 822.5,
+        "bottom": 878.5
+      },
+      "search": null,
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": null,
+      "volume": null,
+      "queue": null,
+      "myPage": {
+        "x": 16,
+        "y": 76,
+        "width": 408,
+        "height": 718.5,
+        "bottom": 794.5
+      },
+      "tabs": {
+        "x": 0,
+        "y": 893,
+        "width": 440,
+        "height": 63,
+        "bottom": 956
+      },
+      "mainScrollHeight": 823
+    },
+    {
+      "screenshot": "iphone-search-390-sakura.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "document": {
+        "width": 390,
+        "height": 844
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 390,
+        "height": 469,
+        "bottom": 525
+      },
+      "search": {
+        "x": 16,
+        "y": 76,
+        "width": 358,
+        "height": 58,
+        "bottom": 134
+      },
+      "results": {
+        "x": 16,
+        "y": 211,
+        "width": 358,
+        "height": 230,
+        "bottom": 441
+      },
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": null,
+      "volume": null,
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 781,
+        "width": 390,
+        "height": 63,
+        "bottom": 844
+      },
+      "mainScrollHeight": 469
+    },
+    {
+      "screenshot": "iphone-search-empty-sakura.png",
+      "viewport": {
+        "width": 440,
+        "height": 956
+      },
+      "document": {
+        "width": 440,
+        "height": 956
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 440,
+        "height": 321,
+        "bottom": 377
+      },
+      "search": {
+        "x": 16,
+        "y": 76,
+        "width": 408,
+        "height": 58,
+        "bottom": 134
+      },
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": null,
+      "volume": null,
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 893,
+        "width": 440,
+        "height": 63,
+        "bottom": 956
+      },
+      "mainScrollHeight": 321
+    },
+    {
+      "screenshot": "iphone-detail-360-sakura.png",
+      "viewport": {
+        "width": 360,
+        "height": 780
+      },
+      "document": {
+        "width": 360,
+        "height": 1207
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 360,
+        "height": 1151.28125,
+        "bottom": 1207.28125
+      },
+      "search": null,
+      "results": null,
+      "detail": {
+        "x": 16,
+        "y": 76,
+        "width": 328,
+        "height": 1047.28125,
+        "bottom": 1123.28125
+      },
+      "reservationCta": {
+        "x": 32,
+        "y": 639.21875,
+        "width": 296,
+        "height": 64.78125,
+        "bottom": 704
+      },
+      "participantHint": {
+        "x": 32,
+        "y": 568,
+        "width": 296,
+        "height": 16,
+        "bottom": 584
+      },
+      "player": null,
+      "volume": null,
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 717,
+        "width": 360,
+        "height": 63,
+        "bottom": 780
+      },
+      "mainScrollHeight": 1151
+    },
+    {
+      "screenshot": "desktop-home-sakura.png",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "document": {
+        "width": 1440,
+        "height": 900
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 144,
+        "y": 56,
+        "width": 1152,
+        "height": 392,
+        "bottom": 448
+      },
+      "search": {
+        "x": 172,
+        "y": 208,
+        "width": 686.390625,
+        "height": 76,
+        "bottom": 284
+      },
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": null,
+      "volume": null,
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "mainScrollHeight": 392
+    },
+    {
+      "screenshot": "desktop-player-sakura.png",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "document": {
+        "width": 1440,
+        "height": 945
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 144,
+        "y": 56,
+        "width": 1152,
+        "height": 889.125,
+        "bottom": 945.125
+      },
+      "search": null,
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": {
+        "x": 555.59375,
+        "y": 160,
+        "width": 712.40625,
+        "height": 597.125,
+        "bottom": 757.125
+      },
+      "volume": {
+        "x": 575.59375,
+        "y": 465.5625,
+        "width": 328.203125,
+        "height": 32,
+        "bottom": 497.5625
+      },
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "mainScrollHeight": 889
+    },
+    {
+      "screenshot": "desktop-player-aurora.png",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "document": {
+        "width": 1440,
+        "height": 945
+      },
+      "horizontalOverflow": false,
+      "theme": "anisong-dark",
+      "main": {
+        "x": 144,
+        "y": 56,
+        "width": 1152,
+        "height": 889.125,
+        "bottom": 945.125
+      },
+      "search": null,
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": {
+        "x": 555.59375,
+        "y": 160,
+        "width": 712.40625,
+        "height": 597.125,
+        "bottom": 757.125
+      },
+      "volume": {
+        "x": 575.59375,
+        "y": 465.5625,
+        "width": 328.203125,
+        "height": 32,
+        "bottom": 497.5625
+      },
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "bottom": 0
+      },
+      "mainScrollHeight": 889
+    },
+    {
+      "screenshot": "iphone-player-agent-offline-mock-sakura.png",
+      "viewport": {
+        "width": 440,
+        "height": 956
+      },
+      "document": {
+        "width": 440,
+        "height": 956
+      },
+      "horizontalOverflow": false,
+      "theme": "default",
+      "main": {
+        "x": 0,
+        "y": 56,
+        "width": 440,
+        "height": 770.28125,
+        "bottom": 826.28125
+      },
+      "search": null,
+      "results": null,
+      "detail": null,
+      "reservationCta": null,
+      "participantHint": null,
+      "player": {
+        "x": 16,
+        "y": 307.5,
+        "width": 408,
+        "height": 234,
+        "bottom": 541.5
+      },
+      "volume": null,
+      "queue": null,
+      "myPage": null,
+      "tabs": {
+        "x": 0,
+        "y": 893,
+        "width": 440,
+        "height": 63,
+        "bottom": 956
+      },
+      "mainScrollHeight": 770
+    }
+  ]
+}

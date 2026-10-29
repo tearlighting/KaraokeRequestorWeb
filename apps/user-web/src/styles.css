@@ -59,6 +59,14 @@
   .queue-row-current { @apply rounded-2xl bg-teal-50 px-4; }
   .queue-position { @apply text-xs font-semibold tracking-wide text-slate-500; }
   .status-chip { @apply max-w-[55%] rounded-full bg-slate-100 px-3 py-1.5 text-right text-xs text-slate-600; }
+  .status-tag { @apply inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-tight; }
+  .status-tag-queued { @apply bg-sky-100 text-sky-800; }
+  .status-tag-playing { @apply bg-emerald-100 text-emerald-800; }
+  .status-tag-completed { @apply bg-teal-100 text-teal-800; }
+  .status-tag-failed { @apply bg-rose-100 text-rose-800; }
+  .status-tag-uncertain { @apply bg-amber-100 text-amber-900; }
+  .status-tag-stopped, .status-tag-unknown { @apply bg-slate-100 text-slate-700; }
+  .status-tag-paused { @apply bg-orange-100 text-orange-800; }
   .status-pill { @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold; }
   .status-live { @apply bg-emerald-400/15 text-emerald-200; }
   .status-idle { @apply bg-white/10 text-slate-300; }
@@ -93,7 +101,8 @@
   .search-icon { @apply shrink-0 text-[var(--muted)]; }
   .search-form input { @apply min-w-0 flex-1 border-0 bg-transparent px-1 py-2.5 shadow-none outline-none; }
   .search-form input:focus { @apply outline-none ring-0; }
-  .search-submit { @apply min-h-11 shrink-0 rounded-xl px-4 py-2 text-sm; }
+  .search-submit { @apply inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm; }
+  .search-submit-label { @apply hidden sm:inline; }
   .search-clear { @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xl text-[var(--muted)]; background: var(--surface-muted); }
   .search-options { @apply mt-2 text-xs text-[var(--muted)]; }
   .search-options summary { @apply inline-flex min-h-8 cursor-pointer items-center; }
@@ -154,4 +163,186 @@
   .user-home { @apply pt-8; }
   .home-heading h1 { @apply text-3xl; }
   .search-result-button { @apply min-h-[5rem]; }
+}
+
+/* Phase 31 visual system: use broad surfaces for page groups and reserve
+   borders for controls, instead of nesting equally weighted cards. */
+@layer components {
+  .user-main { @apply max-w-6xl; }
+  .user-page-stack { @apply space-y-6; }
+  .eyebrow { color: var(--primary); }
+  .user-home { @apply relative grid gap-5; }
+  .home-heading { @apply items-end; }
+  .home-heading h1 { @apply max-w-xl text-2xl sm:text-4xl; }
+  .participant-setup-callout { @apply min-h-10 border-0 px-3 py-2 text-xs; background: var(--surface-muted); }
+  .home-search-column { @apply min-w-0; }
+  .home-search-column .search-form { @apply min-h-[4.25rem] rounded-2xl p-2 pl-5; box-shadow: 0 12px 36px color-mix(in srgb, var(--primary) 10%, transparent); }
+  .home-search-column .search-form input { @apply text-lg; }
+  .home-now-playing { @apply min-w-0; }
+  .now-playing-compact { @apply rounded-2xl p-4; background: var(--surface-muted); }
+  .now-playing-compact .music-mark { @apply hidden; }
+  .now-playing-compact .now-playing-top { @apply justify-end; }
+  .now-playing-compact .now-playing-title { @apply mt-0 text-base; }
+  .connection-details { @apply mt-5 border-0 px-1 py-2; }
+  .connection-details summary { @apply inline-flex min-h-9 items-center text-xs; }
+  .connection-details p { @apply mt-2 text-xs; }
+
+  .results-page { @apply gap-4; }
+  .results-page .search-options { @apply hidden; }
+  .results-surface { @apply overflow-hidden rounded-2xl; background: var(--surface); }
+  .results-heading { @apply mb-0 items-center border-b px-4 py-3 sm:px-5; border-color: var(--border); }
+  .results-heading h1 { @apply shrink-0 text-xl; }
+  .results-summary { @apply min-w-0 max-w-[70%] truncate rounded-full px-3 py-1.5 text-right; background: var(--surface-muted); }
+  .results-summary strong { @apply font-semibold; color: var(--text); }
+  .search-results-list { @apply px-4 sm:px-5; }
+  .search-result-button { @apply min-h-[4.75rem]; }
+  .search-result-button:active { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+  .search-result-button strong { color: var(--text); }
+  .results-error, .results-empty { @apply rounded-2xl p-4; background: var(--surface); }
+
+  .song-detail-page { @apply gap-5; padding-bottom: 2rem; }
+  .song-detail-page .back-link { @apply inline-flex items-center gap-2; }
+  .song-detail-heading { @apply items-start gap-4 px-1 py-2; }
+  .song-detail-heading .music-mark { @apply h-14 w-14 rounded-2xl text-2xl; }
+  .song-detail-heading .eyebrow { @apply mb-1; }
+  .song-detail-heading h1 { @apply text-2xl sm:text-3xl; }
+  .raw-media-name { @apply border-0 px-1 py-2; }
+  .reservation-panel { @apply min-w-0 rounded-3xl p-4 sm:p-6; background: var(--surface); box-shadow: 0 16px 45px color-mix(in srgb, var(--text) 5%, transparent); }
+  .reservation-panel-heading { @apply mb-4; }
+  .reservation-panel-heading h2 { @apply text-xl font-bold; }
+  .reservation-panel-heading .eyebrow { @apply mb-1; }
+  .reservation-song { @apply mb-5 flex items-center gap-3 rounded-2xl px-3 py-3; background: var(--surface-muted); }
+  .reservation-song .music-mark { @apply h-10 w-10 rounded-xl text-lg; }
+  .reservation-song > span:nth-child(2) { @apply flex flex-1 flex-col gap-0.5; }
+  .reservation-song > span:nth-child(2) strong { @apply text-xs; color: var(--muted); }
+  .reservation-song-title { @apply line-clamp-2 break-words text-sm font-semibold; color: var(--text); }
+  .reservation-flow { @apply grid gap-x-4 gap-y-4; padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+  .reservation-flow .field-label { @apply mb-1.5 text-sm; }
+  .reservation-flow input:not([type="checkbox"]), .reservation-flow select, .reservation-flow textarea { @apply rounded-xl border-0; background: var(--surface-muted); }
+  .reservation-flow textarea { @apply min-h-20 resize-y; }
+  .reservation-key { @apply grid grid-cols-[1fr_auto] items-center gap-x-3; }
+  .reservation-key .field-label { @apply col-span-full; }
+  .reservation-key select { @apply min-h-11; }
+  .reservation-help { @apply text-xs leading-relaxed; color: var(--muted); }
+  .privacy-option { @apply items-center rounded-xl border-0 px-3 py-2; background: var(--surface-muted); }
+  .privacy-option > span { @apply flex flex-wrap items-baseline gap-x-2; }
+  .privacy-option .reservation-help { @apply mt-0; }
+  .reservation-current-singer { @apply text-xs; color: var(--muted); }
+  .reservation-current-singer strong { color: var(--text); }
+  .reservation-submit-wrap { @apply sticky z-20 -mx-4 px-4 pb-1 pt-2; bottom: calc(4.5rem + env(safe-area-inset-bottom)); background: linear-gradient(to bottom, transparent, var(--surface) 22%); }
+  .reservation-submit { @apply min-h-14 w-full rounded-2xl text-base font-bold; background: var(--primary); color: var(--background); }
+  .reservation-submit:active { transform: scale(.99); }
+
+  .player-page { @apply gap-4; }
+  .player-page-heading { @apply items-center; }
+  .player-page-heading .eyebrow { @apply mb-1; }
+  .player-page-heading h1 { @apply text-2xl; }
+  .player-queue-link { @apply inline-flex min-h-10 items-center gap-1; }
+  .player-stage { @apply overflow-hidden rounded-3xl; background: var(--surface); box-shadow: 0 16px 40px color-mix(in srgb, var(--text) 5%, transparent); }
+  .player-stage .now-playing { @apply rounded-none border-0 border-b px-5 py-5 shadow-none; border-color: var(--border); background: transparent; }
+  .player-stage .now-playing-top { @apply flex-row-reverse; }
+  .player-stage .now-playing-top .music-mark { @apply hidden; }
+  .player-stage .now-playing-title { @apply mt-0 text-xl sm:text-2xl; }
+  .player-stage .user-player-controls { @apply rounded-none border-0 p-5 shadow-none; background: transparent; }
+  .player-stage .user-player-controls > div:first-child { @apply items-center; }
+  .player-stage .user-player-controls > div:first-child .eyebrow { @apply hidden; }
+  .player-stage .user-player-controls > div:first-child h2 { @apply text-sm font-medium; color: var(--muted); }
+  .player-primary-actions { @apply mt-4 grid grid-cols-2 gap-3; }
+  .player-primary-actions button { @apply min-h-14 justify-center rounded-2xl text-base font-semibold; }
+  .player-primary-actions button:first-child:not(:disabled) { background: var(--primary); color: var(--background); }
+  .player-primary-actions .player-fullscreen-action { @apply col-span-2 min-h-10 text-sm; }
+  .player-stage .user-player-controls input[type="range"] { @apply h-8; accent-color: var(--primary); }
+  .player-range { accent-color: var(--primary); }
+  .player-stage .user-player-controls select { @apply min-h-12 border-0; background: var(--surface-muted); }
+  .player-page [data-testid="danmaku-panel"] { @apply mt-0 rounded-2xl border-0 p-4; background: var(--surface-muted); }
+  .player-page [data-testid="danmaku-panel"] > p { @apply hidden; }
+  .player-page [data-testid="danmaku-panel"] form { @apply mt-3; }
+  .player-page [data-testid="danmaku-panel"] input { @apply min-h-11 border-0; background: var(--surface); }
+  .player-page [data-testid="danmaku-panel"] button { @apply min-h-11 shrink-0; }
+
+  .queue-board { @apply min-w-0; }
+  .queue-board-heading { @apply flex items-center justify-between border-b pb-4; border-color: var(--border); }
+  .queue-board-heading > div { @apply flex min-w-0 items-center gap-3; }
+  .queue-board-heading h2 { @apply text-lg font-bold; }
+  .queue-board-heading p { @apply mt-0.5 text-xs; color: var(--muted); }
+  .queue-count { @apply grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-lg font-bold; background: var(--surface-muted); color: var(--primary); }
+  .icon-action { @apply grid h-11 w-11 place-items-center rounded-full text-2xl; background: var(--surface-muted); color: var(--text); }
+  .queue-feedback { @apply mt-4; }
+  .queue-updated { @apply mt-2 min-h-4 text-right text-[10px]; color: var(--muted); }
+  .queue-list { @apply divide-y; border-color: var(--border); }
+  .queue-item { @apply grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-4; }
+  .queue-item-position { @apply text-sm font-bold tabular-nums; color: var(--muted); }
+  .queue-item-titleline { @apply flex min-w-0 items-center gap-2; }
+  .queue-item-title { @apply min-w-0 flex-1 break-words text-sm font-semibold leading-snug; color: var(--text); }
+  .queue-item-person { @apply mt-1 truncate text-xs; color: var(--muted); }
+  .queue-key-badge { @apply ml-2 rounded-full px-2 py-0.5 text-[10px]; background: var(--surface-muted); }
+  .queue-mine-badge { @apply shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold; background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary); }
+  .queue-item-playing { @apply -mx-2 rounded-xl px-2; background: color-mix(in srgb, var(--success) 8%, transparent); }
+  .queue-item-mine { border-inline-start: 2px solid var(--primary); padding-inline-start: .5rem; }
+  .queue-empty { @apply mt-4 border-0 text-center; background: var(--surface-muted); }
+
+  .my-page { @apply gap-4; }
+  .my-page > .user-page-heading { @apply px-1; }
+  .participant-panel { @apply grid gap-3 rounded-2xl p-4; background: var(--surface); }
+  .participant-profile-heading { @apply flex min-w-0 items-center gap-3; }
+  .participant-avatar { @apply grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-lg font-bold; background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary); }
+  .participant-profile-copy { @apply flex min-w-0 flex-col; }
+  .participant-profile-copy > span { @apply text-xs; color: var(--muted); }
+  .participant-profile-copy strong { @apply truncate text-base; color: var(--text); }
+  .participant-edit-row { @apply grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2; }
+  .participant-panel input { @apply min-h-11 border-0; background: var(--surface-muted); }
+  .participant-panel button { @apply min-h-11 px-3 text-xs; }
+  .participant-note { @apply mt-0 text-[10px] leading-snug; color: var(--muted); }
+  .my-preferences { @apply rounded-2xl; background: var(--surface); }
+  .my-preferences summary { @apply flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 text-sm font-semibold; }
+  .my-preferences summary::-webkit-details-marker { display: none; }
+  .my-preferences-icon { @apply grid h-8 w-8 place-items-center rounded-xl; background: var(--surface-muted); color: var(--primary); }
+  .my-preferences-current { @apply ml-auto text-xs font-normal; color: var(--muted); }
+  .my-preferences .preference-controls { @apply flex flex-wrap gap-2 border-t px-4 py-3; border-color: var(--border); }
+  .my-preferences .preference-controls select { @apply min-h-10 rounded-xl border-0 px-3 text-sm; background: var(--surface-muted); }
+  .my-reservations { @apply rounded-2xl px-4 py-4; background: var(--surface); }
+  .my-reservations > header { @apply flex items-center justify-between; }
+  .my-reservations h2 { @apply text-lg font-bold; }
+  .my-reservation-count { @apply rounded-full px-3 py-1 text-xs font-semibold; background: var(--surface-muted); }
+  .my-reservation-group { @apply mt-5; }
+  .my-reservation-group h3 { @apply mb-2 text-xs font-semibold; color: var(--muted); }
+  .my-reservation-row { @apply border-b py-3 last:border-0; border-color: var(--border); }
+  .my-reservation-top { @apply flex items-start justify-between gap-3; }
+  .my-reservation-title { @apply break-words text-sm font-semibold; color: var(--text); }
+  .my-reservation-singer, .my-reservation-position, .my-reservation-dates, .my-reservation-details, .my-history-note { @apply mt-1 text-[10px] leading-relaxed; color: var(--muted); }
+  .my-empty-state { @apply grid justify-items-center gap-3 rounded-2xl py-8 text-sm; background: var(--surface-muted); color: var(--muted); }
+}
+
+@media (min-width: 768px) {
+  .user-home { @apply grid-cols-[minmax(0,1.3fr)_minmax(18rem,.7fr)] items-start gap-x-10 gap-y-5 pt-12; }
+  .home-heading { @apply col-span-full; }
+  .home-search-column { @apply col-start-1 row-start-2; }
+  .home-now-playing:empty { display: none; }
+  .home-now-playing { @apply col-start-2 row-start-2 self-start; }
+  .home-search-column .search-form { @apply min-h-[4.75rem]; }
+  .results-heading { @apply px-6 py-4; }
+  .search-results-list { @apply px-6; }
+  .player-stage { @apply grid grid-cols-[minmax(16rem,.7fr)_minmax(0,1.3fr)]; }
+  .player-stage .now-playing { @apply self-stretch border-b-0 border-r; border-color: var(--border); }
+  .queue-item { @apply py-5; }
+  .queue-item-title { @apply text-base; }
+  .my-page { @apply grid grid-cols-2 items-start; }
+  .my-page > .user-page-heading, .my-page > .my-reservations, .my-page > .error { @apply col-span-2; }
+  .my-preferences { @apply self-start; }
+  .participant-panel { @apply self-start; }
+  .reservation-flow { padding-bottom: 0; }
+}
+
+@media (max-width: 420px) {
+  .results-heading { @apply items-start; }
+  .results-heading h1 { @apply text-lg; }
+  .results-summary { @apply max-w-[64%] text-[10px]; }
+  .queue-item { @apply grid-cols-[1.75rem_minmax(0,1fr)_auto] gap-2; }
+  .queue-item .status-tag { @apply max-w-24 px-2 text-[10px]; }
+  .queue-item-titleline { @apply flex-wrap; }
+  .queue-mine-badge { @apply text-[8px]; }
+}
+
+@media (pointer: coarse) and (max-height: 520px) {
+  .reservation-submit-wrap { bottom: .5rem; }
 }

@@ -6,6 +6,16 @@ import { PlaybackConsole } from './PlaybackConsole';
 import { QueueReorderList } from './QueueReorderList';
 import type { QueueItem } from '../../lib/admin';
 import { useQueuePageStore } from '../../store/queuePageStore';
+import { StatusTag, type StatusKind } from '../../../../../packages/web-foundation/src/StatusTag';
+
+function queueStatusKind(value: string): StatusKind {
+  if (value === '\u518d\u751f\u4e2d') return 'playing';
+  if (value.includes('\u5931\u6557') || value === 'failed') return 'failed';
+  if (value.includes('\u4e0d\u660e') || value.includes('\u78ba\u8a8d') || value === 'uncertain') return 'uncertain';
+  if (value.includes('\u6e08') || value.includes('\u5b8c\u4e86') || value === 'completed') return 'completed';
+  if (value.includes('\u51e6\u7406') || value.includes('\u30b9\u30ad\u30c3\u30d7') || value === 'handled') return 'stopped';
+  return 'queued';
+}
 
 export function QueuePage({ client }: { client: AdminClient }) {
   const t = useT(); const [data, setData] = useState<QueueData | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState('');
@@ -15,17 +25,88 @@ export function QueuePage({ client }: { client: AdminClient }) {
   const setSelected = (next: number[] | ((previous: number[]) => number[])) => { const previous = useQueuePageStore.getState().selected; useQueuePageStore.setState({ selected: typeof next === 'function' ? next(previous) : next }); };
   const reload = useCallback(async (clearError = true) => { try { const [queue,recovery]=await Promise.all([client<QueueData>('queue'),client<PlaybackRecoveryTask[]>('playback-recoverable')]);setData(queue);setRecoveries(recovery);setRecoveryChecks(current=>Object.fromEntries(Object.entries(current).filter(([id])=>recovery.some(item=>item.id===id)))); if (clearError) setError(''); } catch (cause) { setError(message(cause)); } }, [client]);
   useEffect(() => { void reload();const timer=window.setInterval(()=>{if(!document.hidden&&!busy)void reload(false);},3000);return()=>window.clearInterval(timer); }, [reload,busy]);
-  async function mutate(operation: string, id: number, action?: string) { if (busy) return; setBusy(true); setError(''); setNotice(''); try { const result = await client<{message?:string}>(operation,{id:String(id),...(action?{action}:{})}); setNotice(result.message || '操作を受け付けました。最新状態を読み込みました。'); setDeleting(null); setSelected(value=>value.filter(item=>item!==id)); } catch(cause) { setError(message(cause)); } finally { await reload(false); setBusy(false); } }
-  async function reorderSelected() { if (!data || busy || !selected.length) return; setBusy(true); setError(''); setNotice(''); const unplayed=data.items.filter(item=>item.nowplaying==='未再生').map(item=>item.id);const order=[...selected,...unplayed.filter(id=>!selected.includes(id))]; try { const result=await client<{reordered:boolean;count:number}>('reorder',{ids:order,expectedIds:unplayed}); setNotice(`${result.count} 件を選択順に並べ替えました。`); setSelected([]); } catch(cause) { setError(message(cause)); } finally { await reload(false); setBusy(false); } }
-  async function commitQueueOrder(ids:number[],expectedIds:number[]) { if (!data || busy) return false; setBusy(true); setError(''); setNotice(''); let saved=false;try { const result=await client<{reordered:boolean;count:number}>('reorder',{ids,expectedIds}); setNotice(`${result.count} 件の予約順を保存しました。`);saved=true; } catch(cause) { setError(message(cause)); } finally { await reload(false); setBusy(false); } return saved; }
+  async function mutate(operation: string, id: number, action?: string) {
+    if (busy) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const result = await client<{ message?: string }>(operation, { id: String(id), ...(action ? { action } : {}) });
+      setNotice(result.message || t('operationAccepted'));
+      setDeleting(null); setSelected(value => value.filter(item => item !== id));
+    } catch (cause) { setError(message(cause)); }
+    finally { await reload(false); setBusy(false); }
+  }
+  async function reorderSelected() {
+    if (!data || busy || !selected.length) return;
+    setBusy(true); setError(''); setNotice('');
+    const unplayed = data.items.filter(item => item.nowplaying === '\u672a\u518d\u751f').map(item => item.id);
+    const order = [...selected, ...unplayed.filter(id => !selected.includes(id))];
+    try {
+      const result = await client<{ reordered: boolean; count: number }>('reorder', { ids: order, expectedIds: unplayed });
+      setNotice(t('selectedMovedCount', { count: result.count })); setSelected([]);
+    } catch (cause) { setError(message(cause)); }
+    finally { await reload(false); setBusy(false); }
+  }
+  async function commitQueueOrder(ids: number[], expectedIds: number[]) {
+    if (!data || busy) return false;
+    setBusy(true); setError(''); setNotice(''); let saved = false;
+    try {
+      const result = await client<{ reordered: boolean; count: number }>('reorder', { ids, expectedIds });
+      setNotice(t('queueOrderSavedCount', { count: result.count })); saved = true;
+    } catch (cause) { setError(message(cause)); }
+    finally { await reload(false); setBusy(false); }
+    return saved;
+  }
   async function checkMedia(id: number) { setChecks(value=>({...value,[id]:'pending'})); try { let result=await client<MediaCheck>('media-check',{id:String(id)}); if(result.state==='pending'&&result.id){const checkId=result.id;for(let attempt=0;attempt<20&&result.state==='pending';attempt++){await new Promise(resolve=>window.setTimeout(resolve,500));result=await client<MediaCheck>('media-check-result',{id:String(id),checkId});}} setChecks(value=>({...value,[id]:result.state==='pending'?'timeout':result.state}));} catch(cause){setChecks(value=>({...value,[id]:message(cause)}));} }
-  async function recheck(taskId:string){if(busy)return;setBusy(true);setError('');setNotice('');try{const result=await client<PlaybackRecoveryCheck>('playback-recheck',{taskId});setRecoveryChecks(value=>({...value,[taskId]:result}));setNotice(`再確認: ${result.recommendation}`);}catch(cause){setError(message(cause));}finally{await reload(false);setBusy(false);}}
-  async function confirmInactive(taskId:string,requestId:number){if(busy||!window.confirm('mpvがすでに停止している場合だけ実行してください。Fastify/MySQLに管理者の確認記録を追加します。mpvへの停止命令は送りません。自然終了や再生回数には反映しません。'))return;const reason=window.prompt('停止済みと判断した理由を入力してください','mpv is no longer playing');if(!reason?.trim())return;setBusy(true);setError('');setNotice('');try{await client<{state:string}>('playback-confirm-inactive',{taskId,confirmed:true,reason});const check=await client<PlaybackRecoveryCheck>('playback-recheck',{taskId});setRecoveryChecks(value=>({...value,[taskId]:check}));setNotice('管理者の停止確認を記録しました。これはmpv操作ではなく、EOF・再生回数にも影響しません。');}catch(cause){setError(message(cause));}finally{await reload(false);setBusy(false);}}
-  async function retry(taskId:string,requestId:number){if(busy)return;setBusy(true);setError('');setNotice('');try{const result=await client<{requestId:number;state:string;schedulerResumed?:boolean}>('playback-retry',{taskId});setNotice(result.schedulerResumed?'予約 #'+result.requestId+' を新しい試行として再キューし、自動再生を再開しました。Agentがmpvを起動します。':'予約 #'+result.requestId+' を新しい試行としてキューに戻しました。手動モードでは「次を再生」を押してください。');setRecoveryChecks(value=>{const next={...value};delete next[taskId];return next;});}catch(cause){setError(message(cause));}finally{await reload(false);setBusy(false);}}
-  async function markHandled(taskId:string,requestId:number){if(busy)return;setBusy(true);setError('');setNotice('');try{const result=await client<{state:string;schedulerResumed?:boolean}>('playback-handled',{taskId});setNotice(result.schedulerResumed?'この曲をスキップし、自動再生を再開しました。':'この曲をスキップしました。手動モードでは管理者が次曲を開始してください。');setRecoveryChecks(value=>{const next={...value};delete next[taskId];return next;});}catch(cause){setError(message(cause));}finally{await reload(false);setBusy(false);}}
+  async function recheck(taskId: string) {
+    if (busy) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const result = await client<PlaybackRecoveryCheck>('playback-recheck', { taskId });
+      setRecoveryChecks(value => ({ ...value, [taskId]: result }));
+      setNotice(result.recommendation);
+    } catch (cause) { setError(message(cause)); }
+    finally { await reload(false); setBusy(false); }
+  }
+  async function confirmInactive(taskId: string, _requestId: number) {
+    if (busy || !window.confirm(t('confirmMpvStoppedPrompt'))) return;
+    const reason = window.prompt(t('manualReasonPrompt'));
+    if (!reason?.trim()) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      await client<{ state: string }>('playback-confirm-inactive', { taskId, confirmed: true, reason });
+      const check = await client<PlaybackRecoveryCheck>('playback-recheck', { taskId });
+      setRecoveryChecks(value => ({ ...value, [taskId]: check }));
+      setNotice(t('manualStoppedRecorded'));
+    } catch (cause) { setError(message(cause)); }
+    finally { await reload(false); setBusy(false); }
+  }
+  async function retry(taskId: string, _requestId: number) {
+    if (busy) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const result = await client<{ requestId: number; state: string; schedulerResumed?: boolean }>('playback-retry', { taskId });
+      setNotice(t(result.schedulerResumed ? 'retryQueuedAuto' : 'retryQueuedManual', { id: result.requestId }));
+      setRecoveryChecks(value => { const next = { ...value }; delete next[taskId]; return next; });
+    } catch (cause) { setError(message(cause)); }
+    finally { await reload(false); setBusy(false); }
+  }
+  async function markHandled(taskId: string, _requestId: number) {
+    if (busy) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const result = await client<{ state: string; schedulerResumed?: boolean }>('playback-handled', { taskId });
+      setNotice(t(result.schedulerResumed ? 'skippedAuto' : 'skippedManual'));
+      setRecoveryChecks(value => { const next = { ...value }; delete next[taskId]; return next; });
+    } catch (cause) { setError(message(cause)); }
+    finally { await reload(false); setBusy(false); }
+  }
   async function saveComment(id:number){if(busy)return;setBusy(true);setError('');setNotice('');try{await client('reservation-comment',{id:String(id),comment:commentDraft});setNotice(t('settingsSaved'));setCommentEditId(null);await reload(false);}catch(cause){setError(message(cause));}finally{setBusy(false);}}
   const unplayed=data?.items.filter(item=>item.nowplaying==='未再生')??[]; const allSelected=unplayed.length>0&&unplayed.every(item=>selected.includes(item.id)); const orphanRecoveries=recoveries.filter(task=>!data?.items.some(item=>item.id===task.requestId));
-  const mediaLabels: Record<string,string>={playable:'再生可能',path_unmapped:'パス未設定',file_missing:'ファイルなし',invalid_path:'無効なパス',agent_offline:'Agent オフライン',pending:'確認中',timeout:'タイムアウト'};
+  const statusLabel = (value: string) => {
+    const kind = queueStatusKind(value);
+    return t(kind === 'playing' ? 'statusPlaying' : kind === 'failed' ? 'statusFailed' : kind === 'uncertain' ? 'statusUncertain' : kind === 'completed' ? 'statusCompleted' : kind === 'stopped' ? 'statusStopped' : 'statusQueued');
+  };
+  const mediaLabels: Record<string,string>={playable:t('mediaPlayable'),path_unmapped:t('mediaPathUnmapped'),file_missing:t('mediaFileMissing'),invalid_path:t('mediaPathInvalid'),agent_offline:t('agentOffline'),pending:t('checkingStatus'),timeout:t('mediaTimedOut')};
   function itemDetails(item: QueueItem) {
     const recovery = recoveries.find(task => task.requestId === item.id);
     const check = recovery ? recoveryChecks[recovery.id] : undefined;
@@ -36,8 +117,8 @@ export function QueuePage({ client }: { client: AdminClient }) {
         {item.nowplaying === '\u672a\u518d\u751f' && <><Button tone="secondary" disabled={busy} onClick={() => void mutate('move', item.id, 'up')}>{t('reorderUp')}</Button><Button tone="secondary" disabled={busy} onClick={() => void mutate('move', item.id, 'down')}>{t('reorderDown')}</Button><Button tone="secondary" disabled={busy} onClick={() => void mutate('move', item.id, 'warikomi')}>{t('playNext')}</Button></>}
         <Button tone="secondary" disabled={busy || item.kind !== '\u52d5\u753b' || checks[item.id] === 'pending'} onClick={() => void checkMedia(item.id)}>{t('checkMedia')}</Button><span className="text-xs font-medium text-[var(--muted)]">{mediaLabels[checks[item.id]] || (checks[item.id] && checks[item.id] !== 'pending' ? checks[item.id] : '')}</span><Button tone="danger" disabled={busy} onClick={() => setDeleting(item.id)}>{t('delete')}</Button>
       </div>
-      {recovery && <div role="alert" data-testid={`playback-recovery-${recovery.requestId}`} className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>Playback {recovery.state}</strong><p className="mt-1">{recovery.errorCode || 'Status unknown'}{recovery.error ? ` · ${recovery.error}` : ''}</p><p className="mt-1">Agent: {check ? `${check.agentConnected ? 'connected' : 'not connected'} / mpv ${check.mpvState}` : 'not checked'} · play count: {recovery.playtimes}</p><p className="mt-1">{recovery.state === 'failed' ? 'Failed attempts remain in history. Retry as a new attempt or skip this reservation.' : 'Outcome is uncertain. Check Agent/mpv state before retrying or skipping.'}</p><div className="mt-3 flex flex-wrap gap-2"><Button tone="secondary" disabled={busy} onClick={() => void recheck(recovery.id)}>Check status</Button>{recovery.state === 'uncertain' && !check?.adminConfirmedInactive && <Button tone="danger" disabled={busy} onClick={() => void confirmInactive(recovery.id, recovery.requestId)}>Confirm mpv stopped</Button>}<Button disabled={busy || (recovery.state === 'uncertain' && !check?.safeToRetry)} onClick={() => void retry(recovery.id, recovery.requestId)}>Replay</Button><Button tone="danger" disabled={busy || (recovery.state === 'uncertain' && !check?.safeToHandle)} onClick={() => void markHandled(recovery.id, recovery.requestId)}>Skip</Button></div></div>}
-      {deleting === item.id && <div role="group" aria-label="Confirm deletion" className="rounded-xl bg-red-50 p-4 text-sm"><p>Delete reservation #{item.id}: {item.display_name}? This cannot be undone.</p><div className="mt-3 flex gap-2"><Button data-testid="admin-delete-confirm" tone="danger" disabled={busy} onClick={() => void mutate('delete', item.id)}>{t('confirm')}</Button><Button tone="secondary" disabled={busy} onClick={() => setDeleting(null)}>{t('cancel')}</Button></div></div>}
+      {recovery && <div role="alert" data-testid={`playback-recovery-${recovery.requestId}`} className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><StatusTag status={recovery.state === 'failed' ? 'failed' : 'uncertain'}>{t(recovery.state === 'failed' ? 'statusFailed' : 'statusUncertain')}</StatusTag><p className="mt-2">{recovery.errorCode || t('statusUnknown')}{recovery.error ? ` · ${recovery.error}` : ''}</p><p className="mt-1">Agent: {check ? `${check.agentConnected ? t('agentConnected') : t('agentNotConnected')} / ${t('mpvLabel')} ${check.mpvState}` : t('agentNotChecked')} · {t('playCount')}: {recovery.playtimes}</p><p className="mt-1">{t(recovery.state === 'failed' ? 'failedRetryHelp' : 'uncertainRetryHelp')}</p><div className="mt-3 flex flex-wrap gap-2"><Button tone="secondary" disabled={busy} onClick={() => void recheck(recovery.id)}>{t('checkStatus')}</Button>{recovery.state === 'uncertain' && !check?.adminConfirmedInactive && <Button tone="danger" disabled={busy} onClick={() => void confirmInactive(recovery.id, recovery.requestId)}>{t('confirmMpvStopped')}</Button>}<Button disabled={busy || (recovery.state === 'uncertain' && !check?.safeToRetry)} onClick={() => void retry(recovery.id, recovery.requestId)}>{t('replay')}</Button><Button tone="danger" disabled={busy || (recovery.state === 'uncertain' && !check?.safeToHandle)} onClick={() => void markHandled(recovery.id, recovery.requestId)}>{t('skipReservation')}</Button></div></div>}
+      {deleting === item.id && <div role="group" aria-label={t('confirmDeleteGroup')} className="rounded-xl bg-red-50 p-4 text-sm"><p>{t('deleteReservationPrompt', { id: item.id, title: item.display_name })}</p><div className="mt-3 flex gap-2"><Button data-testid="admin-delete-confirm" tone="danger" disabled={busy} onClick={() => void mutate('delete', item.id)}>{t('confirm')}</Button><Button tone="secondary" disabled={busy} onClick={() => setDeleting(null)}>{t('cancel')}</Button></div></div>}
     </div>;
   }
 
@@ -46,14 +127,14 @@ export function QueuePage({ client }: { client: AdminClient }) {
     <div className="queue-inline-playback"><PlaybackConsole client={client} queue={data}/></div>
     <section className="panel" aria-labelledby="queue-title">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="eyebrow">QUEUE</p><h2 id="queue-title" className="text-2xl font-bold">{t('queueManage')}</h2><p className="mt-2 text-sm text-slate-500">{data ? t('queueCount', { total: data.total, remaining: data.remaining_count }) : t('queueLoading')}</p></div><Button tone="secondary" data-testid="admin-refresh-queue" disabled={busy} onClick={() => void reload()}>{t('refresh')}</Button></div>
-      <p className="mt-3 text-xs text-slate-500">Drag a waiting row by its visible grip. On phones, press and hold the grip. Active and completed entries stay fixed.</p>
+      <p className="mt-3 text-xs text-slate-500">{t('queueDragInstruction')}</p>
       {error && <p role="alert" className="error mt-4">{error}</p>}{notice && <p role="status" className="success-banner mt-4">{notice}</p>}
-      {orphanRecoveries.length > 0 && <section aria-label="Orphaned playback tasks" className="mt-6 space-y-3"><h3 className="text-lg font-bold">Orphaned playback tasks</h3>{orphanRecoveries.map(recovery => { const check = recoveryChecks[recovery.id]; return <div key={recovery.id} role="alert" data-testid={`playback-recovery-orphan-${recovery.requestId}`} className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>Request #{recovery.requestId} removed · task {recovery.state}</strong><p className="mt-1">{recovery.errorCode || 'Status unknown'}{recovery.error ? ` · ${recovery.error}` : ''} · mpv: {check?.mpvState || 'not checked'}</p><p className="mt-1">{check?.recommendation || 'Check Agent/mpv status.'}</p><Button className="mt-3" tone="secondary" disabled={busy} onClick={() => void recheck(recovery.id)}>Check status</Button></div>; })}</section>}
+      {orphanRecoveries.length > 0 && <section aria-label={t('orphanedTasks')} className="mt-6 space-y-3"><h3 className="text-lg font-bold">{t('orphanedTasks')}</h3>{orphanRecoveries.map(recovery => { const check = recoveryChecks[recovery.id]; return <div key={recovery.id} role="alert" data-testid={`playback-recovery-orphan-${recovery.requestId}`} className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>{t('taskRemoved', { requestId: recovery.requestId, state: statusLabel(recovery.state) })}</strong><p className="mt-1">{recovery.errorCode || t('statusUnknown')}{recovery.error ? ` · ${recovery.error}` : ''} · {t('mpvLabel')}: {check?.mpvState || t('statusNotChecked')}</p><p className="mt-1">{check?.recommendation || t('uncertainRetryHelp')}</p><Button className="mt-3" tone="secondary" disabled={busy} onClick={() => void recheck(recovery.id)}>{t('checkStatus')}</Button></div>; })}</section>}
       {unplayed.length > 0 && <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-[var(--surface-muted)] p-3"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={allSelected} onChange={event => setSelected(event.target.checked ? unplayed.map(item => item.id) : [])}/><span>{t('selectAll')}</span></label><Button tone="secondary" data-testid="admin-reorder-selected" disabled={busy || !selected.length} onClick={() => void reorderSelected()}>{t('reorderSelected')} · {selected.length}</Button></div>}
       {!data && !error && <p role="status" className="mt-4 text-sm text-slate-500">{t('queueLoading')}</p>}
       <QueueReorderList items={unplayed} disabled={busy} onCommit={commitQueueOrder} selectedIds={selected} onToggleSelected={(id, checked) => setSelected(value => checked ? [...value, id] : value.filter(selectedId => selectedId !== id))} renderDetails={itemDetails}/>
-      {activeItems.length > 0 && <section className="queue-active-items mt-4" aria-label="Currently playing, fixed in place"><h3 className="mb-2 text-sm font-semibold">Currently playing · not sortable</h3><ol>{activeItems.map(item => <li key={item.id} data-request-id={item.id} className="queue-fixed-row"><div className="queue-reorder-position">#{String(item.position).padStart(2, '0')}</div><div className="queue-reorder-song"><p className="truncate font-semibold">{item.display_name}</p><p className="truncate text-xs text-[var(--muted)]">{item.singer} · {item.kind}</p></div><span className="status-chip">{item.nowplaying} · fixed</span><details className="queue-row-details"><summary>Actions and details</summary><div className="queue-row-details-content">{itemDetails(item)}</div></details></li>)}</ol></section>}
-      {historyItems.length > 0 && <details className="queue-fixed-items mt-4"><summary>Completed and fixed entries ({historyItems.length})</summary><ol className="mt-2 divide-y divide-[var(--border)]">{historyItems.map(item => <li key={item.id} data-request-id={item.id} className="queue-fixed-row"><div className="queue-reorder-position">#{String(item.position).padStart(2, '0')}</div><div className="queue-reorder-song"><p className="truncate font-semibold">{item.display_name}</p><p className="truncate text-xs text-[var(--muted)]">{item.singer} · {item.kind}</p></div><span className="status-chip">{item.nowplaying} · fixed</span><details className="queue-row-details"><summary>Actions and details</summary><div className="queue-row-details-content">{itemDetails(item)}</div></details></li>)}</ol></details>}
+      {activeItems.length > 0 && <section className="queue-active-items mt-4" aria-label={t('currentlyPlayingSection')}><h3 className="mb-2 text-sm font-semibold">{t('currentlyPlayingSection')}</h3><ol>{activeItems.map(item => <li key={item.id} data-request-id={item.id} className="queue-fixed-row"><div className="queue-reorder-position">#{String(item.position).padStart(2, '0')}</div><div className="queue-reorder-song"><p className="truncate font-semibold">{item.display_name}</p><p className="truncate text-xs text-[var(--muted)]">{item.singer} · {item.kind}</p></div><StatusTag status="playing">{t('currentlyPlayingFixed')}</StatusTag><details className="queue-row-details"><summary>{t('queueActionsDetails')}</summary><div className="queue-row-details-content">{itemDetails(item)}</div></details></li>)}</ol></section>}
+      {historyItems.length > 0 && <details className="queue-fixed-items mt-4"><summary>{t('fixedEntries', { count: historyItems.length })}</summary><ol className="mt-2 divide-y divide-[var(--border)]">{historyItems.map(item => <li key={item.id} data-request-id={item.id} className="queue-fixed-row"><div className="queue-reorder-position">#{String(item.position).padStart(2, '0')}</div><div className="queue-reorder-song"><p className="truncate font-semibold">{item.display_name}</p><p className="truncate text-xs text-[var(--muted)]">{item.singer} · {item.kind}</p></div><StatusTag status={queueStatusKind(item.nowplaying)}>{statusLabel(item.nowplaying)}</StatusTag><details className="queue-row-details"><summary>{t('queueActionsDetails')}</summary><div className="queue-row-details-content">{itemDetails(item)}</div></details></li>)}</ol></details>}
       {data?.items.length === 0 && <EmptyState className="mt-4">{t('noAdminQueue')}</EmptyState>}
     </section>
   </div>;

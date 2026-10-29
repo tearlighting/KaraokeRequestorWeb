@@ -7,6 +7,7 @@ type HomePageState = {
   createdFor: string;
   revision: number;
   connection: string;
+  searchCapabilities: { everything: boolean; lister: boolean } | null;
   roomName: string;
 };
 
@@ -16,5 +17,6 @@ export const useHomePageStore = createUseReactiveStore<HomePageState>(() => ({
   createdFor: '',
   revision: 0,
   connection: '曲庫への接続を確認しています…',
+  searchCapabilities: null,
   roomName: '',
 }));

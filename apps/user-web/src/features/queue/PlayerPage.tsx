@@ -4,8 +4,12 @@ import { DanmakuPanel } from './DanmakuPanel';
 import { NowPlayingCard } from './NowPlayingCard';
 import { UserPlayerControls } from './UserPlayerControls';
 
-/** User player view. Fastify limits controls to the currently active queue task. */
-export function PlayerPage(){
-  const t=useT();
-  return <div className="user-page-stack" data-testid="user-player-page"><header className="player-page-heading"><h1>{t('userPlayerRoute')}</h1><Link to="/queue" className="player-queue-link">次の曲・キューを見る <span aria-hidden="true">›</span></Link></header><NowPlayingCard/><UserPlayerControls/><DanmakuPanel/></div>;
+/** User controls remain scoped by Fastify to the currently active playback task. */
+export function PlayerPage() {
+  const t = useT();
+  return <div className="user-page-stack player-page" data-testid="user-player-page">
+    <header className="player-page-heading"><div><p className="eyebrow">YUKARI · PLAYER</p><h1>{t('userPlayerRoute')}</h1></div><Link to="/queue" className="player-queue-link">{t('nextRequest')} · {t('queueView')} <span aria-hidden="true">›</span></Link></header>
+    <div className="player-stage"><NowPlayingCard /><UserPlayerControls /></div>
+    <DanmakuPanel />
+  </div>;
 }

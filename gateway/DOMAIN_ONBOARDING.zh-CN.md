@@ -61,13 +61,13 @@ CLOUDFLARE_TUNNEL_TOKEN=<从 Cloudflare Tunnel 控制台复制的 Token>
 从仓库根目录运行。普通 `docker compose up -d --build` 不会启动 Tunnel：
 
 ```powershell
-docker compose --profile tunnel up -d --build gateway-tunnel cloudflared
+docker compose --env-file .env --profile tunnel up -d cloudflared
 ```
 
-这会启动官方 `cloudflare/cloudflared` 容器和独立 User-only Nginx origin；两者使用 Compose 内部网络，Windows 主机不安装 cloudflared，也不开放入站端口。关闭公网连接：
+内部 User-only Nginx origin 由普通 Compose 默认更新维护；上面的命令只显式启动官方 `cloudflare/cloudflared` connector。两者使用 Compose 内部网络，Windows 主机不安装 cloudflared，也不开放入站端口。关闭公网连接：
 
 ```powershell
-docker compose --profile tunnel stop cloudflared gateway-tunnel
+docker compose --env-file .env --profile tunnel stop cloudflared
 ```
 
 停止这两个服务不会停止 LAN Gateway、Fastify、MySQL 或 Windows Agent。不要为 Tunnel 配置路由器端口转发，也不要修改 Sunshine/Moonlight 的端口或连接配置。

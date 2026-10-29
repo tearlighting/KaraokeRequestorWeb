@@ -27,6 +27,7 @@ test('mobile navigation is four-tab, preferences live in My Page, and the User q
   await expect(page.getByRole('heading', { name: '歌いたい曲を探す' })).toBeVisible();
   await expect(page.locator('.user-topbar [data-testid="locale-switch"]')).toHaveCount(0);
   await nav.getByRole('link', { name: 'マイページ' }).click();
+  await page.locator('.my-preferences summary').click();
   await expect(page.getByTestId('locale-switch')).toBeVisible();
   await nav.getByRole('link', { name: 'キュー' }).click();
   await expect(page.getByTestId('queue')).toContainText('DanMachi - ED ep06');

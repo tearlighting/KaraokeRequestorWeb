@@ -59,6 +59,14 @@
   .queue-fixed-items { @apply rounded-xl border border-[var(--border)] px-3; background: var(--surface-muted); }
   .queue-fixed-row { @apply grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[var(--border)] py-2 last:border-0; }
   .status-chip { @apply rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-600; }
+  .status-tag { @apply inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-tight; }
+  .status-tag-queued { @apply bg-sky-100 text-sky-800; }
+  .status-tag-playing { @apply bg-emerald-100 text-emerald-800; }
+  .status-tag-completed { @apply bg-teal-100 text-teal-800; }
+  .status-tag-failed { @apply bg-rose-100 text-rose-800; }
+  .status-tag-uncertain { @apply bg-amber-100 text-amber-900; }
+  .status-tag-stopped, .status-tag-unknown { @apply bg-slate-100 text-slate-700; }
+  .status-tag-paused { @apply bg-orange-100 text-orange-800; }
   .empty-state { @apply rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500; }
 }
 
@@ -74,7 +82,7 @@
   .queue-fixed-row { @apply grid-cols-[minmax(0,1fr)_auto]; }
   .queue-fixed-row > .queue-reorder-position { @apply hidden; }
   .queue-fixed-row > .queue-reorder-song { @apply col-start-1 row-start-1; }
-  .queue-fixed-row > .status-chip { @apply col-start-2 row-start-1; }
+  .queue-fixed-row > .status-chip, .queue-fixed-row > .status-tag { @apply col-start-2 row-start-1; }
   .queue-fixed-row > .queue-row-details { @apply col-span-full row-start-2; }
 }
 

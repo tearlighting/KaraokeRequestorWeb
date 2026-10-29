@@ -60,9 +60,9 @@ export function SettingsPage({ client, onLogout }: { client: AdminClient; onLogo
   const modeLabels:Record<number,string>={1:t('mode1'),2:t('mode2'),3:t('mode3'),4:t('modeRandom'),5:t('modeRandom')};
   const modeStatus=settings?.playmode!==1&&settings?.playmode!==2
     ? t('modeRuntimeUnavailable',{mode:settings?.playmode??'—'})
-    : !agent ? runtimeError || t('modeRuntimeBlocked',{reason:'Live Agent status is unavailable'})
-    : !agent.nodeAutoplayAvailable ? t('modeRuntimeBlocked',{mode:settings?.playmode??'—',reason:agent.autoplayUnavailableReason||'Node scheduler is unavailable'})
-    : !agent.connected ? t('modeRuntimeBlocked',{mode:settings?.playmode??'—',reason:'Windows Media Agent is offline'})
+    : !agent ? runtimeError || t('modeRuntimeBlocked',{reason:t('liveAgentStatusUnavailable')})
+    : !agent.nodeAutoplayAvailable ? t('modeRuntimeBlocked',{mode:settings?.playmode??'—',reason:agent.autoplayUnavailableReason||t('nodeSchedulerUnavailable')})
+    : !agent.connected ? t('modeRuntimeBlocked',{mode:settings?.playmode??'—',reason:t('agentOffline')})
     : agent.autoplayEnabled ? settings?.playmode===2?t('manualRuntimeActive'):t('modeRuntimeActive')
     : settings?.playmode===2 ? t('manualRuntimeReady') : t('modeRuntimeReady');
 
@@ -70,10 +70,10 @@ export function SettingsPage({ client, onLogout }: { client: AdminClient; onLogo
     <p className="eyebrow">SETTINGS</p>
     <h2 className="text-2xl font-bold">{t('settingsTitle')}</h2>
     <p className="mt-2 text-sm text-slate-500">{t('settingsOwner')}</p>
-    <section className="mt-4 rounded-2xl border border-[var(--border)] p-4" aria-label="表示設定とセッション">
-      <h3 className="font-semibold">表示と言語</h3><div className="mt-3 flex flex-wrap items-center gap-3"><Preferences/><Button tone="secondary" onClick={onLogout}>ログアウト</Button></div>
+    <section className="mt-4 rounded-2xl border border-[var(--border)] p-4" aria-label={t('appearanceLanguage')}>
+      <h3 className="font-semibold">{t('appearanceLanguage')}</h3><div className="mt-3 flex flex-wrap items-center gap-3"><Preferences/><Button tone="secondary" onClick={onLogout}>{t('logoutAction')}</Button></div>
     </section>
-    <Link to="/system" className="secondary mt-3 inline-flex min-h-11 items-center">{"\u30b7\u30b9\u30c6\u30e0\u8a3a\u65ad"}</Link>
+    <Link to="/system" className="secondary mt-3 inline-flex min-h-11 items-center">{t('systemDiagnosticsLink')}</Link>
     {!settings&&!error&&<p role="status" className="mt-4 text-sm text-slate-500">{t('loading')}</p>}
     {error&&<p role="alert" className="error mt-4">{error}</p>}
     {settings&&<form onSubmit={save} className="mt-5 max-w-lg space-y-5">

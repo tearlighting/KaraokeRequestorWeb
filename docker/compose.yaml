@@ -188,7 +188,9 @@
       retries: 3
   gateway-tunnel:
     container_name: yukari-gateway-tunnel
-    profiles: ["tunnel"]
+    # Always build/update the User-only origin with ordinary Compose runs.
+    # It is internal-only: without the optional cloudflared connector there is
+    # no public path to this service.
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -207,8 +209,11 @@
     container_name: yukari-cloudflared
     image: cloudflare/cloudflared:latest
     profiles: ["tunnel"]
+    # Only this profile-controlled connector can make the internal origin
+    # reachable from the Internet. Ordinary `docker compose up` excludes it;
+    # Compose leaves an existing profiled container's running/stopped state
+    # untouched when that profile is not selected.
     # The official client reads TUNNEL_TOKEN directly from its environment.
-    # It is intentionally empty by default; this service is opt-in via profile.
     command: ["tunnel", "--metrics", "0.0.0.0:2000", "--no-autoupdate", "run"]
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
